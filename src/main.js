@@ -2303,105 +2303,15 @@ function animate() {
       console.log("Intro transition complete. Cursive plane preserved for post-sequence.");
     }
     controls.enabled = false;
-  } else if (cameraFollowEnabled) {
-    if (isTransitioning) {
-      // Smooth transition between vehicles
-      transitionProgress += deltaTime / transitionDuration;
-      const t = smoothstep(Math.min(transitionProgress, 1.0));
-
-      // Get the destination vehicle's current camera transform
-      const nextSeq = orbitSequence[currentSeqIndex];
-      const nextTransform = nextSeq ? getVehicleCameraTransform(nextSeq) : null;
-
-      if (nextTransform) {
-        transitionEndPos.copy(nextTransform.position);
-        transitionEndTarget.copy(nextTransform.target);
-      }
-
-      // Interpolate position and target
-      currentCamPos.lerpVectors(transitionStartPos, transitionEndPos, t);
-      currentCamTarget.lerpVectors(transitionStartTarget, transitionEndTarget, t);
-
-      // Smoothly interpolate camera up vector to prevent sudden roll jump
-      if (nextTransform) {
-        const transitionEndUp = nextTransform.up;
-        camera.up.lerpVectors(transitionStartUp, transitionEndUp, t).normalize();
-      }
-      camera.position.copy(currentCamPos);
-      camera.lookAt(currentCamTarget);
-
-      // Fade out the previous vehicle, fade in the next vehicle
-      const prevIndex = (currentSeqIndex - 1 + orbitSequence.length) % orbitSequence.length;
-      const prevSeq = orbitSequence[prevIndex];
-
-      const prevObj = prevSeq ? prevSeq.getObject() : null;
-      const nextObj = nextSeq ? nextSeq.getObject() : null;
-
-      setOpacity(prevObj, 1.0 - t);
-      setOpacity(nextObj, t);
-
-      if (transitionProgress >= 1.0) {
-        isTransitioning = false;
-        // Ensure perfect cleanup values at completion
-        setOpacity(prevObj, 0.0);
-        setOpacity(nextObj, 1.0);
-      }
-    } else if (isOrbitAnimating) {
-      // Directly follow the current vehicle
-      const currentSeq = orbitSequence[currentSeqIndex];
-      const transform = currentSeq ? getVehicleCameraTransform(currentSeq) : null;
-
-      // When not transitioning, ensure the active vehicle is visible and has original opacity restored
-      orbitSequence.forEach((seq, idx) => {
-        const obj = seq.getObject();
-        if (obj) {
-          const shouldBeVisible = (idx === currentSeqIndex);
-          if (obj.visible !== shouldBeVisible) {
-            obj.visible = shouldBeVisible;
-            if (shouldBeVisible) {
-              obj.traverse((child) => {
-                if (child.isMesh && child.material) {
-                  const materials = Array.isArray(child.material) ? child.material : [child.material];
-                  materials.forEach((mat) => {
-                    // Restore original opacity, leaving transparent=true for vehicle materials
-                    const origOpacity = mat.userData.originalOpacity !== undefined ? mat.userData.originalOpacity : 1.0;
-                    mat.opacity = origOpacity;
-                  });
-                }
-              });
-            }
-          }
-        }
-      });
-
-      if (transform) {
-        // Smooth follow with lerp for buttery movement
-        const followSmoothing = 1.0 - Math.pow(0.001, deltaTime);
-        currentCamPos.lerp(transform.position, followSmoothing);
-        currentCamTarget.lerp(transform.target, followSmoothing);
-
-        camera.up.copy(transform.up);
-        camera.position.copy(currentCamPos);
-        camera.lookAt(currentCamTarget);
-      }
-    }
-
-    // Disable orbit controls during camera follow so they don't fight, but allow them when paused
-    if (isOrbitAnimating || isTransitioning) {
-      controls.enabled = false;
-    } else {
-      controls.enabled = true;
-      controls.update();
-    }
   } else if (isPostSequence) {
-    // Post-sequence: smoothly lerp camera to (0, 0, 25) looking at (0, 0, 0)
+    // Post-sequence: smoothly lerp camera to (0, 0, 30) looking at (0, 0, 0)
     if (!isPaused) {
       postSeqTimer += realDeltaTime;
     }
     const postSeqDuration = 3.0; // 3 seconds for the final camera sweep
     const t = smoothstep(Math.min(postSeqTimer / postSeqDuration, 1.0));
     
-    const finalCamPos = new THREE.Vector3(0, 0, 25);
+    const finalCamPos = new THREE.Vector3(0, 0, 30);
     const finalCamTarget = new THREE.Vector3(0, 0, 0);
     const finalUp = new THREE.Vector3(0, 1, 0);
     
@@ -2437,15 +2347,18 @@ function animate() {
       if (model) model.visible = true;
     });
     
-    // Enable orbit controls once camera reaches final position
+    // Enable orbit controls with auto-rotate once camera reaches final position
     if (t >= 0.95) {
       controls.enabled = true;
       controls.target.copy(finalCamTarget);
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 0.4;
       controls.update();
     } else {
       controls.enabled = false;
+      controls.autoRotate = false;
     }
-  } else {
+  } else if (cameraFollowEnabled) {
     controls.enabled = true;
     controls.update();
   }
@@ -2485,6 +2398,7 @@ navTabs.forEach(tab => {
     if (isPostSequence) {
       isPostSequence = false;
       isOrbitAnimating = true;
+      controls.autoRotate = false;
     }
     
     // Update active tab styling
