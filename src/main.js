@@ -111,7 +111,24 @@ let allAssetsLoaded = false;
 let fullyOptimized = false;
 let isPostSequence = false;
 let postSeqTimer = 0;
+let postSeqAngle = 0;
 let sequenceEverCompleted = false;
+let loaderFinishedTime = 0;
+let loaderOverlayHidden = false;
+
+let writePauseTimer = 0;
+let unwritePauseTimer = 0;
+let introFinaleActive = false;
+let introFinaleTimer = 0;
+let isVehicleHeld = false;
+let activeWheelSpeedFactor = 1.0;
+let transitionStartGlobeOpacity = 1.0;
+let transitionStartOrbitOpacity = 0.45;
+let transitionStartCursiveOpacity = 0.0;
+
+function getCylinderMiddleZ() {
+  return 4 - cylinderParams.height / 2;
+}
 
 let cursivePlane = null;
 let cursiveCanvas = null;
@@ -134,8 +151,8 @@ const introTransitionStartUp = new THREE.Vector3();
 
 function initCursivePlane() {
   cursiveCanvas = document.createElement('canvas');
-  cursiveCanvas.width = 1024;
-  cursiveCanvas.height = 512;
+  cursiveCanvas.width = 4096;
+  cursiveCanvas.height = 2048;
   
   cursiveTexture = new THREE.CanvasTexture(cursiveCanvas);
   cursiveTexture.minFilter = THREE.LinearFilter;
@@ -147,9 +164,9 @@ function initCursivePlane() {
     depthTest: false
   });
   
-  const geometry = new THREE.PlaneGeometry(1.2, 0.6);
+  const geometry = new THREE.PlaneGeometry(3.6, 1.8);
   cursivePlane = new THREE.Mesh(geometry, material);
-  cursivePlane.position.set(0, 0, 2.275);
+  cursivePlane.position.set(0, 0, getCylinderMiddleZ());
   // Face Y = -1.8 direction
   cursivePlane.rotation.x = Math.PI / 2;
   cursivePlane.renderOrder = 999;
@@ -164,8 +181,8 @@ function drawCursiveName(writeProgress, unwriteProgress) {
   const name1 = "advitiya";
   const name2 = "jadhav";
 
-  // Use the Serif 420 font
-  ctx.font = '55px "Instrument Serif", Georgia, serif';
+  // Use the Serif 420 font (Instrument Serif)
+  ctx.font = '420px "Instrument Serif", Georgia, serif';
   ctx.textBaseline = 'top';
   ctx.fillStyle = '#000000'; // Make writing black
 
@@ -173,13 +190,13 @@ function drawCursiveName(writeProgress, unwriteProgress) {
   const w1 = ctx.measureText(name1).width;
   const w2 = ctx.measureText(name2).width;
 
-  const startX1 = (1024 - w1) / 2;
-  const startX2 = (1024 - w2) / 2;
+  const startX1 = (4096 - w1) / 2;
+  const startX2 = (4096 - w2) / 2;
 
-  // Vertical placement — closer together
-  const y1 = 185;
-  const y2 = 270;
-  const rowHeight = 85;
+  // Vertical placement — centered and larger
+  const y1 = 480;
+  const y2 = 1000;
+  const rowHeight = 560;
 
   // --- Draw First Name ("advitiya") ---
   ctx.save();
@@ -214,14 +231,19 @@ function drawCursiveName(writeProgress, unwriteProgress) {
 }
 
 function checkAllAssetsLoaded() {
-  if (loadedCount === 12) {
-    allAssetsLoaded = true;
-    console.log("All 12 assets loaded, starting incremental caching in background...");
-  }
-  // Update loading percentage
   const pctEl = document.getElementById('loader-percent');
-  if (pctEl) {
-    pctEl.innerText = Math.round((loadedCount / 12) * 100) + '%';
+  if (loadedCount < 12) {
+    if (pctEl) {
+      const pct = Math.min(99, Math.round((loadedCount / 12) * 100));
+      pctEl.innerText = pct + '%';
+    }
+  } else if (loadedCount === 12 && !allAssetsLoaded) {
+    allAssetsLoaded = true;
+    loaderFinishedTime = performance.now();
+    if (pctEl) {
+      pctEl.innerText = '100%';
+    }
+    console.log("All 12 assets loaded, starting incremental caching in background...");
   }
 }
 
@@ -448,8 +470,8 @@ function createTextBox(text) {
   ctx.lineWidth = 4;
   ctx.stroke();
 
-  ctx.fillStyle = '#1e293b'; // Slate 800
-  ctx.font = 'bold 44px "Outfit", "Inter", "Helvetica Neue", Arial, sans-serif';
+  ctx.fillStyle = '#000000'; // Make text black
+  ctx.font = '44px "Instrument Serif", Georgia, serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, canvas.width / 2, canvas.height / 2);
@@ -512,10 +534,10 @@ const boatParams = {
   speed: 7,             // orbit speed
   textboxScale: 0.5,
   textboxOffsetX: 0.0,
-  textboxOffsetY: 2.0,
+  textboxOffsetY: 0.333,
   textboxOffsetZ: 0.0,
-  textboxRotX: 0.0,
-  textboxRotY: 0.0,
+  textboxRotX: 1.57,
+  textboxRotY: -1.57,
   textboxRotZ: 0.0
 };
 
@@ -760,8 +782,8 @@ const motorcycleParams = {
   textboxOffsetX: 0.0,
   textboxOffsetY: 2.2,
   textboxOffsetZ: 0.0,
-  textboxRotX: 0.0,
-  textboxRotY: 0.0,
+  textboxRotX: 1.57,
+  textboxRotY: -1.57,
   textboxRotZ: 0.0
 };
 
@@ -899,8 +921,8 @@ function updateMotorcycle() {
   motorcycleGroup.scale.setScalar(motorcycleParams.scale);
 
   // Spin wheels
-  if (motorcycleWheelBL) motorcycleWheelBL.rotation.x += motorcycleParams.wheelSpeed;
-  if (motorcycleWheelFL) motorcycleWheelFL.rotation.x += motorcycleParams.wheelSpeed;
+  if (motorcycleWheelBL) motorcycleWheelBL.rotation.x += motorcycleParams.wheelSpeed * activeWheelSpeedFactor;
+  if (motorcycleWheelFL) motorcycleWheelFL.rotation.x += motorcycleParams.wheelSpeed * activeWheelSpeedFactor;
 
   updateVehicleTextbox(motorcycleGroup, motorcycleParams);
 }
@@ -1080,7 +1102,7 @@ const broncoParams = {
   textboxOffsetY: 2.5,
   textboxOffsetZ: 0.0,
   textboxRotX: 0.0,
-  textboxRotY: 0.0,
+  textboxRotY: Math.PI,
   textboxRotZ: 0.0
 };
 
@@ -1197,10 +1219,10 @@ function updateBronco() {
   broncoGroup.scale.setScalar(broncoParams.scale);
 
   // Spin wheels
-  if (broncoWheelFL) broncoWheelFL.rotation.x += broncoParams.wheelSpeed;
-  if (broncoWheelFR) broncoWheelFR.rotation.x += broncoParams.wheelSpeed;
-  if (broncoWheelsFront) broncoWheelsFront.rotation.x += broncoParams.wheelSpeed;
-  if (broncoWheelsRear) broncoWheelsRear.rotation.x += broncoParams.wheelSpeed;
+  if (broncoWheelFL) broncoWheelFL.rotation.x += broncoParams.wheelSpeed * activeWheelSpeedFactor;
+  if (broncoWheelFR) broncoWheelFR.rotation.x += broncoParams.wheelSpeed * activeWheelSpeedFactor;
+  if (broncoWheelsFront) broncoWheelsFront.rotation.x += broncoParams.wheelSpeed * activeWheelSpeedFactor;
+  if (broncoWheelsRear) broncoWheelsRear.rotation.x += broncoParams.wheelSpeed * activeWheelSpeedFactor;
 
   updateVehicleTextbox(broncoGroup, broncoParams);
 }
@@ -1420,10 +1442,10 @@ function updateCar2() {
   car2Object.scale.setScalar(car2Params.scale);
 
   // Spin wheels
-  if (car2WheelFL) car2WheelFL.rotation.x += car2Params.wheelSpeed;
-  if (car2WheelFR) car2WheelFR.rotation.x += car2Params.wheelSpeed;
-  if (car2WheelBL) car2WheelBL.rotation.x += car2Params.wheelSpeed;
-  if (car2WheelBR) car2WheelBR.rotation.x += car2Params.wheelSpeed;
+  if (car2WheelFL) car2WheelFL.rotation.x += car2Params.wheelSpeed * activeWheelSpeedFactor;
+  if (car2WheelFR) car2WheelFR.rotation.x += car2Params.wheelSpeed * activeWheelSpeedFactor;
+  if (car2WheelBL) car2WheelBL.rotation.x += car2Params.wheelSpeed * activeWheelSpeedFactor;
+  if (car2WheelBR) car2WheelBR.rotation.x += car2Params.wheelSpeed * activeWheelSpeedFactor;
 
   updateVehicleTextbox(car2Object, car2Params);
 }
@@ -1448,7 +1470,7 @@ const racecarParams = {
   speed: 7,             // orbit speed
   textboxScale: 0.5,
   textboxOffsetX: 0.0,
-  textboxOffsetY: 2.5,
+  textboxOffsetY: 0.03,
   textboxOffsetZ: 0.0,
   textboxRotX: 0.0,
   textboxRotY: 0.0,
@@ -1542,10 +1564,10 @@ function updateRacecar() {
   racecarObject.scale.setScalar(racecarParams.scale);
 
   // Spin wheels (Mercedes wheels rotate on the X-axis)
-  if (racecarWheelFL) racecarWheelFL.rotation.x += racecarParams.wheelSpeed;
-  if (racecarWheelFR) racecarWheelFR.rotation.x += racecarParams.wheelSpeed;
-  if (racecarWheelBL) racecarWheelBL.rotation.x += racecarParams.wheelSpeed;
-  if (racecarWheelBR) racecarWheelBR.rotation.x += racecarParams.wheelSpeed;
+  if (racecarWheelFL) racecarWheelFL.rotation.x += racecarParams.wheelSpeed * activeWheelSpeedFactor;
+  if (racecarWheelFR) racecarWheelFR.rotation.x += racecarParams.wheelSpeed * activeWheelSpeedFactor;
+  if (racecarWheelBL) racecarWheelBL.rotation.x += racecarParams.wheelSpeed * activeWheelSpeedFactor;
+  if (racecarWheelBR) racecarWheelBR.rotation.x += racecarParams.wheelSpeed * activeWheelSpeedFactor;
 
   updateVehicleTextbox(racecarObject, racecarParams);
 }
@@ -1919,6 +1941,12 @@ function animate() {
   const isPaused = camGuiState && camGuiState.paused;
   const isIntroState = introActive || isIntroTransitioning;
 
+  if (isVehicleHeld) {
+    activeWheelSpeedFactor = Math.max(0.0, activeWheelSpeedFactor - realDeltaTime * 4.0);
+  } else {
+    activeWheelSpeedFactor = Math.min(1.0, activeWheelSpeedFactor + realDeltaTime * 3.0);
+  }
+
   // --- Incremental Pre-Caching ---
   if (allAssetsLoaded && !fullyOptimized) {
     try {
@@ -2002,13 +2030,6 @@ function animate() {
 
       if (cacheVehicleIdx >= 5) {
         fullyOptimized = true;
-        
-        // Hide loading overlay now that everything is loaded and cached
-        const loaderOverlay = document.getElementById('loading-overlay');
-        if (loaderOverlay) {
-          loaderOverlay.classList.add('fade-out');
-        }
-        
         console.log("All 12 assets loaded and fully optimized/cached!");
         // Temporarily show all backgrounds to pre-compile their shaders
         if (city) city.visible = true;
@@ -2037,37 +2058,78 @@ function animate() {
   }
 
   // --- Cursive Intro Animation ---
+  const now = performance.now();
+  const showWriting = allAssetsLoaded && (now - loaderFinishedTime >= 1000);
+
+  if (showWriting && !loaderOverlayHidden) {
+    loaderOverlayHidden = true;
+    const loaderOverlay = document.getElementById('loading-overlay');
+    if (loaderOverlay) {
+      loaderOverlay.classList.add('fade-out');
+    }
+  }
+
   if (introActive) {
-    // Only start writing once all assets are fully cached — no lag during animation
-    if (!isPaused && fullyOptimized) {
-      introTimer += realDeltaTime;
+    if (!isPaused && fullyOptimized && showWriting) {
+      const targetWriteTime = Math.max(introParams.writeDuration, 0.1);
+      if (introTimer < targetWriteTime) {
+        introTimer += realDeltaTime;
+      } else {
+        introTimer = targetWriteTime;
+        if (writePauseTimer < 1.0) {
+          writePauseTimer += realDeltaTime;
+        } else {
+          const targetUnwriteTime = Math.max(introParams.unwriteDuration, 0.1);
+          if (unwriteTimer < targetUnwriteTime) {
+            unwriteTimer += realDeltaTime;
+          } else {
+            unwriteTimer = targetUnwriteTime;
+            if (unwritePauseTimer < 1.0) {
+              unwritePauseTimer += realDeltaTime;
+            } else {
+              // Trigger first finale (10s sequence complete transition)
+              introActive = false;
+              isPostSequence = true;
+              introFinaleActive = true;
+              introFinaleTimer = 0.0;
+              postSeqTimer = 0.0;
+              isOrbitAnimating = false;
+
+              // Capture current camera state for smooth transition start (from intro cam position)
+              transitionStartPos.copy(camera.position);
+              transitionStartTarget.set(0, 0, getCylinderMiddleZ());
+              transitionStartUp.copy(camera.up);
+
+              // Restore cylinder/background visibilities
+              globe.visible = true;
+              orbitRing.visible = true;
+
+              // Make sure all vehicles are visible (but with 0 opacity so they fade out/remain invisible)
+              orbitSequence.forEach(seq => {
+                const obj = seq.getObject();
+                if (obj) {
+                  obj.visible = true;
+                  setOpacity(obj, 0.0);
+                }
+              });
+
+              // Prepare cursive plane for post-sequence finale
+              if (cursivePlane) {
+                cursivePlane.visible = true;
+                cursivePlane.rotation.set(0, 0, 0);
+                cursivePlane.position.set(0, 0, getCylinderMiddleZ());
+                cursivePlane.material.opacity = 0.0;
+                drawCursiveName(1.0, 0.0);
+              }
+            }
+          }
+        }
+      }
     }
     
-    const writeProgress = fullyOptimized ? Math.min(introTimer / Math.max(introParams.writeDuration, 0.1), 1.0) : 0.0;
-    let unwriteProgress = 0.0;
-    
-    if (writeProgress >= 1.0 && fullyOptimized) {
-      if (!isPaused) {
-        unwriteTimer += realDeltaTime;
-      }
-      unwriteProgress = Math.min(unwriteTimer / Math.max(introParams.unwriteDuration, 0.1), 1.0);
-      
-      if (unwriteProgress >= 1.0) {
-        // Trigger camera transition
-        isIntroTransitioning = true;
-        introActive = false;
-        introTransitionProgress = 0;
-        introTransitionStartPos.set(0, -1.8, 2.275);
-        introTransitionStartTarget.set(0, 0, 2.275);
-        introTransitionStartUp.set(0, 0, 1);
-        
-        // Restore cylinder/background visibilities
-        globe.visible = true;
-        orbitRing.visible = true;
-        updateBackgroundVisibility();
-      }
-    }
-    
+    const writeProgress = (fullyOptimized && showWriting) ? Math.min(introTimer / Math.max(introParams.writeDuration, 0.1), 1.0) : 0.0;
+    const unwriteProgress = (fullyOptimized && showWriting) ? Math.min(unwriteTimer / Math.max(introParams.unwriteDuration, 0.1), 1.0) : 0.0;
+
     // Only redraw the cursive canvas when progress actually changes (avoids GPU texture upload every frame)
     if (writeProgress !== lastWriteProgress || unwriteProgress !== lastUnwriteProgress) {
       drawCursiveName(writeProgress, unwriteProgress);
@@ -2085,7 +2147,7 @@ function animate() {
       const direction = currentSeq.end > currentSeq.start ? 1 : -1;
       
       // Update current vehicle position (only when not transitioning to prevent double-speed updates)
-      if (!isTransitioning) {
+      if (!isTransitioning && !isVehicleHeld) {
         currentSeq.params.orbitDegrees += direction * currentSeq.params.speed * deltaTime;
       }
 
@@ -2130,7 +2192,7 @@ function animate() {
           if (cursivePlane) {
             cursivePlane.visible = true;
             cursivePlane.rotation.set(0, 0, 0);
-            cursivePlane.position.set(0, 0, 0);
+            cursivePlane.position.set(0, 0, getCylinderMiddleZ());
             cursivePlane.material.opacity = 0.0;
           }
           
@@ -2161,7 +2223,7 @@ function animate() {
     if (isTransitioning) {
       const prevIndex = (currentSeqIndex - 1 + orbitSequence.length) % orbitSequence.length;
       const prevSeq = orbitSequence[prevIndex];
-      if (prevSeq && prevSeq.params) {
+      if (prevSeq && prevSeq.params && !isVehicleHeld) {
         const prevDirection = prevSeq.end > prevSeq.start ? 1 : -1;
         // Smoothly decelerate it to a crawl speed (20% of top speed) as it transitions out
         const easeOut = 0.2 + 0.8 * ((1.0 - transitionProgress) * (1.0 - transitionProgress));
@@ -2178,7 +2240,7 @@ function animate() {
     // We smoothly accelerate it from a small crawl speed (20% of top speed) to its full speed (quadratic ease-in).
     if (isTransitioning) {
       const activeSeq = orbitSequence[currentSeqIndex];
-      if (activeSeq && activeSeq.params) {
+      if (activeSeq && activeSeq.params && !isVehicleHeld) {
         const activeDirection = activeSeq.end > activeSeq.start ? 1 : -1;
         const easeIn = 0.2 + 0.8 * (transitionProgress * transitionProgress);
         activeSeq.params.orbitDegrees += activeDirection * (activeSeq.params.speed * easeIn) * deltaTime;
@@ -2216,7 +2278,7 @@ function animate() {
     });
   }
 
-  // --- Manual background visibility culling ---
+  // --- Manual background visibility culling & Cursive Text Visibility ---
   if (!isIntroState) {
     updateBackgroundVisibility();
   } else {
@@ -2226,6 +2288,13 @@ function animate() {
       const model = scene.getObjectByName(name);
       if (model) model.visible = false;
     });
+  }
+
+  if (cursivePlane) {
+    const shouldShowCursive = introActive || isIntroTransitioning || isPostSequence;
+    if (cursivePlane.visible !== shouldShowCursive) {
+      cursivePlane.visible = shouldShowCursive;
+    }
   }
 
   // --- Camera Follow Logic ---
@@ -2258,13 +2327,13 @@ function animate() {
     }
 
     // Fade cylinder, ring, and motorcycle in
-    globeMaterial.opacity = t;
-    orbitMaterial.opacity = 0.45 * t;
+    globeMaterial.opacity = THREE.MathUtils.lerp(transitionStartGlobeOpacity, 1.0, t);
+    orbitMaterial.opacity = THREE.MathUtils.lerp(transitionStartOrbitOpacity, 0.45, t);
     setOpacity(motorcycleGroup, t);
 
     // Fade cursive text out
     if (cursivePlane) {
-      cursivePlane.material.opacity = 0.85 * (1.0 - t);
+      cursivePlane.material.opacity = THREE.MathUtils.lerp(transitionStartCursiveOpacity, 0.0, t);
     }
 
     // Update motorcycle position so it is positioned correctly during the camera pan
@@ -2292,13 +2361,17 @@ function animate() {
     // Post-sequence: smoothly lerp camera to (0, 0, 30) looking at (0, 0, 0)
     if (!isPaused) {
       postSeqTimer += realDeltaTime;
+      const accelTime = 3.0; // 3 seconds acceleration
+      const omegaMax = 0.4;  // max angular velocity (in rad/s)
+      const currentOmega = omegaMax * Math.min(postSeqTimer / accelTime, 1.0);
+      postSeqAngle += currentOmega * realDeltaTime;
     }
     const postSeqDuration = 3.0; // 3 seconds for the final camera sweep
     const t = smoothstep(Math.min(postSeqTimer / postSeqDuration, 1.0));
     
-    const finalCamPos = new THREE.Vector3(0, 0, 30);
+    const finalCamPos = new THREE.Vector3(0, 0, 15);
     const finalCamTarget = new THREE.Vector3(0, 0, 0);
-    const finalUp = new THREE.Vector3(0, 1, 0);
+    const finalUp = new THREE.Vector3(-Math.sin(postSeqAngle), Math.cos(postSeqAngle), 0).normalize();
     
     // Lerp camera position and target
     currentCamPos.lerpVectors(transitionStartPos, finalCamPos, t);
@@ -2311,9 +2384,10 @@ function animate() {
     globeMaterial.opacity = THREE.MathUtils.lerp(globeMaterial.opacity, 0.35, 0.02);
     orbitMaterial.opacity = THREE.MathUtils.lerp(orbitMaterial.opacity, 0.45, 0.02);
     
-    // Fade in the cursive name
+    // Fade in the cursive name and apply counter-rotation to keep it static/horizontal
     if (cursivePlane) {
       cursivePlane.material.opacity = THREE.MathUtils.lerp(cursivePlane.material.opacity, 0.9, 0.03);
+      cursivePlane.rotation.z = postSeqAngle;
     }
     
     // Fade out all vehicles
@@ -2332,16 +2406,50 @@ function animate() {
       if (model) model.visible = true;
     });
     
-    // Enable orbit controls with auto-rotate once camera reaches final position
-    if (t >= 0.95) {
-      controls.enabled = true;
-      controls.target.copy(finalCamTarget);
-      controls.autoRotate = true;
-      controls.autoRotateSpeed = 0.4;
-      controls.update();
-    } else {
-      controls.enabled = false;
-      controls.autoRotate = false;
+    // Disable orbit controls to prevent overriding camera.up rotation
+    controls.enabled = false;
+    controls.autoRotate = false;
+
+    if (introFinaleActive && !isPaused) {
+      introFinaleTimer += realDeltaTime;
+      if (introFinaleTimer >= 10.0) {
+        isPostSequence = false;
+        introFinaleActive = false;
+        isIntroTransitioning = true;
+        introTransitionProgress = 0;
+        currentSeqIndex = 0;
+        isOrbitAnimating = true;
+        isTransitioning = false;
+        transitionProgress = 0;
+
+        // Reset the first vehicle to its start position
+        const targetSeq = orbitSequence[0];
+        if (targetSeq && targetSeq.params) {
+          targetSeq.params.orbitDegrees = targetSeq.start;
+        }
+        syncCamGuiFromSequence();
+
+        // Capture camera state for transition out of the first finale
+        introTransitionStartPos.copy(camera.position);
+        introTransitionStartTarget.copy(currentCamTarget);
+        introTransitionStartUp.copy(camera.up);
+
+        // Capture starting opacities to prevent any visual pops/flashes during the fade-in of the road/motorcycle
+        transitionStartGlobeOpacity = globeMaterial.opacity;
+        transitionStartOrbitOpacity = orbitMaterial.opacity;
+        transitionStartCursiveOpacity = cursivePlane ? cursivePlane.material.opacity : 0.0;
+
+        // Set the active tab styling to "home" for the motorcycle
+        const navTabs = document.querySelectorAll('.nav-tab');
+        navTabs.forEach(t => {
+          t.classList.remove('active');
+          if (t.classList.contains('home')) {
+            t.classList.add('active');
+          }
+        });
+
+        console.log("10s first finale complete — transitioning to Motorcycle.");
+      }
     }
   } else if (cameraFollowEnabled) {
     if (isTransitioning) {
@@ -2465,12 +2573,24 @@ navTabs.forEach(tab => {
     const targetIndex = tabToVehicleIndex[tabClass];
     if (targetIndex === undefined || targetIndex >= orbitSequence.length) return;
     
+    // Cancel intro animations and first finale if any are active
+    introActive = false;
+    isIntroTransitioning = false;
+    introFinaleActive = false;
+
+    const wasPostSequence = isPostSequence;
     // Exit post-sequence state if active
     if (isPostSequence) {
       isPostSequence = false;
       isOrbitAnimating = true;
       controls.autoRotate = false;
+      globeMaterial.opacity = 1.0;
+      orbitMaterial.opacity = 0.45;
+      if (cursivePlane) {
+        cursivePlane.visible = false;
+      }
     }
+    sequenceEverCompleted = false;
     
     // Update active tab styling
     navTabs.forEach(t => t.classList.remove('active'));
@@ -2480,13 +2600,13 @@ navTabs.forEach(tab => {
     const targetSeq = orbitSequence[targetIndex];
     if (targetSeq && targetSeq.params) {
       // Skip if already on this vehicle and not in post-sequence
-      if (currentSeqIndex === targetIndex && !isPostSequence) return;
+      if (currentSeqIndex === targetIndex && !wasPostSequence) return;
       
       // Reset the target vehicle to its start position
       targetSeq.params.orbitDegrees = targetSeq.start;
       
       // If we're already following a vehicle, trigger a smooth camera transition
-      if (currentSeqIndex !== targetIndex) {
+      if (currentSeqIndex !== targetIndex || wasPostSequence) {
         const prevSeq = orbitSequence[currentSeqIndex];
         
         // Capture current camera state for transition
@@ -2524,4 +2644,131 @@ navTabs.forEach(tab => {
 // Set initial active tab
 const homeTab = document.querySelector('.nav-tab.home');
 if (homeTab) homeTab.classList.add('active');
+
+// --- Audio Toggle Handling ---
+const audio = document.getElementById('bg-audio');
+const audioToggle = document.getElementById('audio-toggle');
+if (audio && audioToggle) {
+  audioToggle.addEventListener('click', () => {
+    if (audio.paused) {
+      audio.play().then(() => {
+        audioToggle.querySelector('.icon').textContent = '🔊';
+      }).catch(err => {
+        console.error("Audio playback failed:", err);
+      });
+    } else {
+      audio.pause();
+      audioToggle.querySelector('.icon').textContent = '🔇';
+    }
+  });
+}
+
+// --- Raycast Click on Cylinder (Globe) ---
+const _globeRaycaster = new THREE.Raycaster();
+const _mouse = new THREE.Vector2();
+
+window.addEventListener('click', (event) => {
+  // Ignore clicks on HTML UI elements (tabs, buttons, text, dat.GUI etc.)
+  if (event.target.tagName === 'BUTTON' || 
+      event.target.closest('.nav-bar') || 
+      event.target.closest('.dg') || 
+      event.target.closest('.hero') || 
+      event.target.id === 'audio-toggle' ||
+      event.target.closest('#audio-toggle')) {
+    return;
+  }
+
+  // Calculate mouse position in normalized device coordinates (-1 to +1)
+  _mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  _mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  // Set the raycaster from the camera
+  _globeRaycaster.setFromCamera(_mouse, camera);
+
+  // Raycast against the globe cylinder
+  if (globe) {
+    const intersects = _globeRaycaster.intersectObject(globe);
+    if (intersects.length > 0) {
+      // User clicked the empty beige background of the cylinder!
+      // Immediately transition to the final camera view (isPostSequence)
+      if (!isPostSequence) {
+        introActive = false;
+        isIntroTransitioning = false;
+        introFinaleActive = false;
+        isPostSequence = true;
+        isOrbitAnimating = false;
+        isTransitioning = false;
+        sequenceEverCompleted = true;
+        postSeqTimer = 0;
+
+        // Capture current camera state for smooth transition start
+        transitionStartPos.copy(camera.position);
+        transitionStartTarget.copy(currentCamTarget);
+        transitionStartUp.copy(camera.up);
+
+        // Prepare cursive plane
+        if (cursivePlane) {
+          cursivePlane.visible = true;
+          cursivePlane.rotation.set(0, 0, 0);
+          cursivePlane.position.set(0, 0, getCylinderMiddleZ());
+          cursivePlane.material.opacity = 0.0;
+        }
+
+        // Reset active nav tab styling since we are no longer focusing on a vehicle
+        const navTabs = document.querySelectorAll('.nav-tab');
+        navTabs.forEach(t => t.classList.remove('active'));
+
+        console.log("Cylinder background clicked — transitioning to post-sequence final view.");
+      }
+    }
+  }
+});
+
+// --- Raycast Click-and-Hold on Active Vehicle ---
+window.addEventListener('pointerdown', (event) => {
+  // Ignore pointerdown on HTML UI elements (tabs, buttons, text, dat.GUI etc.)
+  if (event.target.tagName === 'BUTTON' || 
+      event.target.closest('.nav-bar') || 
+      event.target.closest('.dg') || 
+      event.target.closest('.hero') || 
+      event.target.id === 'audio-toggle' ||
+      event.target.closest('#audio-toggle')) {
+    return;
+  }
+
+  // Only run hold logic if orbit animation is active
+  if (!isOrbitAnimating || introActive || isIntroTransitioning || isPostSequence) {
+    return;
+  }
+
+  // Calculate mouse position in normalized device coordinates (-1 to +1)
+  _mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  _mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  _globeRaycaster.setFromCamera(_mouse, camera);
+
+  const currentSeq = orbitSequence[currentSeqIndex];
+  if (currentSeq) {
+    const activeObj = currentSeq.getObject();
+    if (activeObj) {
+      // Raycast recursively against the active vehicle group
+      const intersects = _globeRaycaster.intersectObject(activeObj, true);
+      if (intersects.length > 0) {
+        isVehicleHeld = true;
+        console.log(`Vehicle ${currentSeq.name} is now held down.`);
+      }
+    }
+  }
+});
+
+const releaseVehicleHold = () => {
+  if (isVehicleHeld) {
+    isVehicleHeld = false;
+    console.log("Vehicle hold released.");
+  }
+};
+
+window.addEventListener('pointerup', releaseVehicleHold);
+window.addEventListener('pointercancel', releaseVehicleHold);
+window.addEventListener('mouseleave', releaseVehicleHold);
 
