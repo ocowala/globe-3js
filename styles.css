@@ -125,7 +125,6 @@ canvas {
   justify-content: center;
 }
 
-/* Prince icon orbits around the percentage number */
 .loader-icon {
   position: absolute;
   top: -22px;
@@ -136,13 +135,6 @@ canvas {
   object-fit: contain;
   border-radius: 50%;
   box-shadow: 0 4px 18px rgba(32, 48, 63, 0.2);
-  /* Rotate WITH the orbit direction for a loop-de-loop plane feel */
-  animation: icon-loopspin 1.5s linear infinite;
-}
-
-@keyframes icon-loopspin {
-  from { transform: translateX(-50%) rotate(0deg); }
-  to { transform: translateX(-50%) rotate(720deg); }
 }
 
 .loader-orbit-ring {
@@ -153,7 +145,7 @@ canvas {
 
 @keyframes orbit-spin {
   from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  to { transform: rotate(-360deg); }
 }
 
 #loader-percent {
