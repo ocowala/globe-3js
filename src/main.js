@@ -298,6 +298,10 @@ dracoLoader.setDecoderConfig({ type: 'js' });
 loader.setDRACOLoader(dracoLoader);
 loader.setMeshoptDecoder(MeshoptDecoder);
 
+// Separate raw loader for vehicle assets — no DRACO or Meshopt decoders
+const rawLoader = new GLTFLoader();
+rawLoader.setKTX2Loader(ktx2Loader);
+
 const ktx2Loader = new KTX2Loader();
 ktx2Loader.setTranscoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/basis/');
 ktx2Loader.detectSupport(renderer);
@@ -901,7 +905,7 @@ function updateMotorcycle() {
 }
 
 // --- Load Standalone Motorcycle ---
-loader.load(new URL('../assets/models/motorcycle.glb', import.meta.url).href, (gltf) => {
+rawLoader.load(new URL('../assets/models/motorcycle.glb', import.meta.url).href, (gltf) => {
   const model = gltf.scene;
   
   model.traverse((child) => {
@@ -1015,7 +1019,7 @@ function updateAirplane() {
 }
 
 // --- Load Standalone Airplane ---
-loader.load(new URL('../assets/models/airplane.glb', import.meta.url).href, (gltf) => {
+rawLoader.load(new URL('../assets/models/airplane.glb', import.meta.url).href, (gltf) => {
   const model = gltf.scene;
 
   model.traverse((child) => {
@@ -1201,7 +1205,7 @@ function updateBronco() {
 }
 
 // --- Load Standalone Bronco ---
-loader.load(new URL('../assets/models/bronco.glb', import.meta.url).href, (gltf) => {
+rawLoader.load(new URL('../assets/models/bronco.glb', import.meta.url).href, (gltf) => {
   const model = gltf.scene;
 
   model.traverse((child) => {
@@ -1241,7 +1245,7 @@ loader.load(new URL('../assets/models/bronco.glb', import.meta.url).href, (gltf)
 });
 
 // --- Load Standalone Boat ---
-loader.load(new URL('../assets/models/boat.glb', import.meta.url).href, (gltf) => {
+rawLoader.load(new URL('../assets/models/boat.glb', import.meta.url).href, (gltf) => {
   const model = gltf.scene;
 
   // Compute bounding box of the whole model to find the center offset
@@ -1546,7 +1550,7 @@ function updateRacecar() {
 }
 
 // --- Load Standalone Racecar ---
-loader.load(new URL('../assets/models/sls_amg_63_black_series.glb', import.meta.url).href, (gltf) => {
+rawLoader.load(new URL('../assets/models/sls_amg_63_black_series.glb', import.meta.url).href, (gltf) => {
   const model = gltf.scene;
 
   // Center model pivot
@@ -1623,7 +1627,7 @@ loader.load(new URL('../assets/models/sls_amg_63_black_series.glb', import.meta.
 });
 
 // --- Load Standalone Car V2 ---
-loader.load(new URL('../assets/models/car_v2.glb', import.meta.url).href, (gltf) => {
+rawLoader.load(new URL('../assets/models/car_v2.glb', import.meta.url).href, (gltf) => {
   const model = gltf.scene;
 
   model.traverse((child) => {
@@ -2283,6 +2287,13 @@ function animate() {
 
     if (introTransitionProgress >= 1.0) {
       isIntroTransitioning = false;
+      
+      // Sync camera follow system to prevent duplicate camera lerp
+      currentCamPos.copy(camera.position);
+      const finalTransform = getVehicleCameraTransform(orbitSequence[0]);
+      if (finalTransform) {
+        currentCamTarget.copy(finalTransform.target);
+      }
       
       // Keep cursive plane alive, just hide it and restore full text for post-sequence view
       if (cursivePlane) {
