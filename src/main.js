@@ -298,13 +298,14 @@ dracoLoader.setDecoderConfig({ type: 'js' });
 loader.setDRACOLoader(dracoLoader);
 loader.setMeshoptDecoder(MeshoptDecoder);
 
+const ktx2Loader = new KTX2Loader();
+ktx2Loader.setTranscoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/basis/');
+ktx2Loader.detectSupport(renderer);
+
 // Separate raw loader for vehicle assets — no DRACO or Meshopt decoders
 const rawLoader = new GLTFLoader();
 rawLoader.setKTX2Loader(ktx2Loader);
 
-const ktx2Loader = new KTX2Loader();
-ktx2Loader.setTranscoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/basis/');
-ktx2Loader.detectSupport(renderer);
 loader.setKTX2Loader(ktx2Loader);
 
 // propellerObject is now set when the standalone airplane.glb is loaded (see below)
@@ -1700,12 +1701,12 @@ rawLoader.load(new URL('../assets/models/car_v2.glb', import.meta.url).href, (gl
 // camOffset: X = radial outward from cylinder, Y = up along Z axis, Z = ahead of vehicle (along its facing direction)
 // lookOffset: same coordinate frame, relative to vehicle position
 const orbitSequence = [
-  { name: 'Motorcycle', update: updateMotorcycle, params: motorcycleParams, start: 20, end: -30, getObject: () => motorcycleGroup, camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0) },
-  { name: 'Airplane',  update: updateAirplane,   params: airplaneParams, start: 20, end: -15, getObject: () => airplaneGroup,  camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0) },
-  { name: 'Car V2',    update: updateCar2,       params: car2Params,     start: 22, end: -12, getObject: () => car2Object,     camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0) },
-  { name: 'Boat',      update: updateBoat,       params: boatParams,     start: 20, end: -23, getObject: () => boatObject,     camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0) },
-  { name: 'Bronco',    update: updateBronco,     params: broncoParams,   start: 15, end: -40, getObject: () => broncoGroup,    camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0) },
-  { name: 'Racecar',   update: updateRacecar,    params: racecarParams,  start: 8,  end: -40, getObject: () => racecarObject,  camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0) }
+  { name: 'Motorcycle', update: updateMotorcycle, params: motorcycleParams, start: 20, end: -30, getObject: () => motorcycleGroup, camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: 1.74 },
+  { name: 'Airplane',  update: updateAirplane,   params: airplaneParams, start: 20, end: -15, getObject: () => airplaneGroup,  camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: 0.74 },
+  { name: 'Car V2',    update: updateCar2,       params: car2Params,     start: 22, end: -12, getObject: () => car2Object,     camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: -0.12 },
+  { name: 'Boat',      update: updateBoat,       params: boatParams,     start: 20, end: -23, getObject: () => boatObject,     camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: -0.94 },
+  { name: 'Bronco',    update: updateBronco,     params: broncoParams,   start: 15, end: -40, getObject: () => broncoGroup,    camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: -1.86 },
+  { name: 'Racecar',   update: updateRacecar,    params: racecarParams,  start: 8,  end: -40, getObject: () => racecarObject,  camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: -3.05 }
 ];
 
 let currentSeqIndex = 0;
@@ -1833,28 +1834,12 @@ function getVehicleCameraTransform(seq) {
   const orbitRad = THREE.MathUtils.degToRad(seq.params.orbitDegrees);
   const currentAngle = seq.params.angle + orbitRad;
 
-  // Radial outward from cylinder axis
+  // Radial outward from cylinder axis (pure cylinder frame)
   const radialDir = new THREE.Vector3(Math.cos(currentAngle), Math.sin(currentAngle), 0).normalize();
   // Height direction: along the cylinder Z axis
   const heightDir = new THREE.Vector3(0, 0, 1);
-
-  // Road rear vector: points towards the BACK of the vehicle along the road direction
-  // Since all vehicles travel towards decreasing angle, the rear is in the direction of increasing angle.
+  // Tangent direction along the road (forward direction)
   const vehicleForward = new THREE.Vector3(-Math.sin(currentAngle), Math.cos(currentAngle), 0).normalize();
-
-  // Side direction (perpendicular to both radial direction and vehicle forward direction, i.e., along the cylinder axis)
-  // Wait, let's use the cylinder Z axis (heightDir) as the lateral axis of the cylinder, or rather:
-  // For a vehicle moving along the cylinder circumference, the local frame coordinates are:
-  // - Radial (outward): radialDir
-  // - Lateral/Left-Right (along cylinder height Z): heightDir
-  // - Forward (along circumference): vehicleForward
-  // Therefore, camOffset.y is heightDir, which is already the left/right offset relative to the vehicle direction!
-  // If a vehicle is traveling along the road, 'left' means moving along the cylinder axis (Z-axis / heightDir).
-  // Let's check: vehicle position is on a cylinder. Circumferential tangent is vehicleForward. Radial is radialDir.
-  // The cross product is heightDir. So shift left/right corresponds to shifting along heightDir.
-  // In the sequence offsets: camOffset.x = radial, camOffset.y = heightDir (which is lateral/side), camOffset.z = forward.
-  // If we want to move the camera to the left, we can adjust the camOffset.y (height/side offset) in the sequence.
-
 
   // Camera position = vehicle position + offsets
   const worldCamPos = vehiclePos.clone()
@@ -2359,8 +2344,94 @@ function animate() {
       controls.autoRotate = false;
     }
   } else if (cameraFollowEnabled) {
-    controls.enabled = true;
-    controls.update();
+    if (isTransitioning) {
+      // Smooth transition between vehicles
+      transitionProgress += deltaTime / transitionDuration;
+      const t = smoothstep(Math.min(transitionProgress, 1.0));
+
+      // Get the destination vehicle's current camera transform
+      const nextSeq = orbitSequence[currentSeqIndex];
+      const nextTransform = nextSeq ? getVehicleCameraTransform(nextSeq) : null;
+
+      if (nextTransform) {
+        transitionEndPos.copy(nextTransform.position);
+        transitionEndTarget.copy(nextTransform.target);
+      }
+
+      // Interpolate position and target
+      currentCamPos.lerpVectors(transitionStartPos, transitionEndPos, t);
+      currentCamTarget.lerpVectors(transitionStartTarget, transitionEndTarget, t);
+
+      // Smoothly interpolate camera up vector to prevent sudden roll jump
+      if (nextTransform) {
+        const transitionEndUp = nextTransform.up;
+        camera.up.lerpVectors(transitionStartUp, transitionEndUp, t).normalize();
+      }
+      camera.position.copy(currentCamPos);
+      camera.lookAt(currentCamTarget);
+
+      // Fade out the previous vehicle, fade in the next vehicle
+      const prevIndex = (currentSeqIndex - 1 + orbitSequence.length) % orbitSequence.length;
+      const prevSeq = orbitSequence[prevIndex];
+
+      const prevObj = prevSeq ? prevSeq.getObject() : null;
+      const nextObj = nextSeq ? nextSeq.getObject() : null;
+
+      setOpacity(prevObj, 1.0 - t);
+      setOpacity(nextObj, t);
+
+      if (transitionProgress >= 1.0) {
+        isTransitioning = false;
+        // Ensure perfect cleanup values at completion
+        setOpacity(prevObj, 0.0);
+        setOpacity(nextObj, 1.0);
+      }
+    } else if (isOrbitAnimating) {
+      // Directly follow the current vehicle
+      const currentSeq = orbitSequence[currentSeqIndex];
+      const transform = currentSeq ? getVehicleCameraTransform(currentSeq) : null;
+
+      // When not transitioning, ensure the active vehicle is visible and has original opacity restored
+      orbitSequence.forEach((seq, idx) => {
+        const obj = seq.getObject();
+        if (obj) {
+          const shouldBeVisible = (idx === currentSeqIndex);
+          if (obj.visible !== shouldBeVisible) {
+            obj.visible = shouldBeVisible;
+            if (shouldBeVisible) {
+              obj.traverse((child) => {
+                if (child.isMesh && child.material) {
+                  const materials = Array.isArray(child.material) ? child.material : [child.material];
+                  materials.forEach((mat) => {
+                    // Restore original opacity, leaving transparent=true for vehicle materials
+                    const origOpacity = mat.userData.originalOpacity !== undefined ? mat.userData.originalOpacity : 1.0;
+                    mat.opacity = origOpacity;
+                  });
+                }
+              });
+            }
+          }
+        }
+      });
+
+      if (transform) {
+        // Rigid follow without lerp to prevent relative sloping/tilting and viewport drift
+        currentCamPos.copy(transform.position);
+        currentCamTarget.copy(transform.target);
+
+        camera.up.copy(transform.up);
+        camera.position.copy(currentCamPos);
+        camera.lookAt(currentCamTarget);
+      }
+    }
+
+    // Disable orbit controls during camera follow so they don't fight, but allow them when paused
+    if (isOrbitAnimating || isTransitioning) {
+      controls.enabled = false;
+    } else {
+      controls.enabled = true;
+      controls.update();
+    }
   }
 
   renderer.render(scene, camera);
