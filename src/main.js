@@ -2648,6 +2648,14 @@ if (homeTab) homeTab.classList.add('active');
 // --- Audio Toggle Handling ---
 const audio = document.getElementById('bg-audio');
 const audioToggle = document.getElementById('audio-toggle');
+
+if (audio) {
+  const songs = ['/suis_mois.mp3', '/windmills.mp3', '/ciao.mp3'];
+  const randomSong = songs[Math.floor(Math.random() * songs.length)];
+  audio.src = randomSong;
+  console.log("Selected background music:", randomSong);
+}
+
 if (audio && audioToggle) {
   audioToggle.addEventListener('click', () => {
     if (audio.paused) {
