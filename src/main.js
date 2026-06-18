@@ -109,6 +109,9 @@ let unwriteTimer = 0;
 let loadedCount = 0;
 let allAssetsLoaded = false;
 let fullyOptimized = false;
+let isPostSequence = false;
+let postSeqTimer = 0;
+let sequenceEverCompleted = false;
 
 let cursivePlane = null;
 let cursiveCanvas = null;
@@ -144,7 +147,7 @@ function initCursivePlane() {
     depthTest: false
   });
   
-  const geometry = new THREE.PlaneGeometry(2.0, 1.0);
+  const geometry = new THREE.PlaneGeometry(1.2, 0.6);
   cursivePlane = new THREE.Mesh(geometry, material);
   cursivePlane.position.set(0, 0, 2.275);
   // Face Y = -1.8 direction
@@ -162,7 +165,7 @@ function drawCursiveName(writeProgress, unwriteProgress) {
   const name2 = "jadhav";
 
   // Use the Serif 420 font
-  ctx.font = '55px "Serif 420", Georgia, serif';
+  ctx.font = '55px "Instrument Serif", Georgia, serif';
   ctx.textBaseline = 'top';
   ctx.fillStyle = '#000000'; // Make writing black
 
@@ -213,7 +216,17 @@ function drawCursiveName(writeProgress, unwriteProgress) {
 function checkAllAssetsLoaded() {
   if (loadedCount === 12) {
     allAssetsLoaded = true;
+    // Hide loading overlay with fade-out
+    const loaderOverlay = document.getElementById('loading-overlay');
+    if (loaderOverlay) {
+      loaderOverlay.classList.add('fade-out');
+    }
     console.log("All 12 assets loaded, starting incremental caching in background...");
+  }
+  // Update loading percentage
+  const pctEl = document.getElementById('loader-percent');
+  if (pctEl) {
+    pctEl.innerText = Math.round((loadedCount / 12) * 100) + '%';
   }
 }
 
@@ -2107,21 +2120,46 @@ function animate() {
 
       // If transition is triggered, switch focus to the next vehicle but keep both animating
       if (shouldTriggerTransition) {
-        const nextIndex = (currentSeqIndex + 1) % orbitSequence.length;
-        const nextSeq = orbitSequence[nextIndex];
-        if (nextSeq && nextSeq.params) {
-          nextSeq.params.orbitDegrees = nextSeq.start;
-        }
-        
-        currentSeqIndex = nextIndex;
-        syncCamGuiFromSequence();
-
-        if (cameraFollowEnabled) {
-          isTransitioning = true;
-          transitionProgress = 0;
+        // Check if this is the last vehicle in the sequence (Racecar)
+        if (currentSeqIndex === orbitSequence.length - 1 && !sequenceEverCompleted) {
+          // Sequence complete — enter post-sequence state
+          isPostSequence = true;
+          isOrbitAnimating = false;
+          sequenceEverCompleted = true;
+          postSeqTimer = 0;
+          currentSeq.params.orbitDegrees = currentSeq.end;
+          
+          // Capture current camera state for smooth transition start
           transitionStartPos.copy(camera.position);
           transitionStartTarget.copy(currentCamTarget);
           transitionStartUp.copy(camera.up);
+          
+          // Reorient cursive plane to face +Z for the ending view
+          if (cursivePlane) {
+            cursivePlane.visible = true;
+            cursivePlane.rotation.set(0, 0, 0);
+            cursivePlane.position.set(0, 0, 0);
+            cursivePlane.material.opacity = 0.0;
+          }
+          
+          console.log("Orbit sequence complete — transitioning to portfolio view.");
+        } else {
+          const nextIndex = (currentSeqIndex + 1) % orbitSequence.length;
+          const nextSeq = orbitSequence[nextIndex];
+          if (nextSeq && nextSeq.params) {
+            nextSeq.params.orbitDegrees = nextSeq.start;
+          }
+          
+          currentSeqIndex = nextIndex;
+          syncCamGuiFromSequence();
+
+          if (cameraFollowEnabled) {
+            isTransitioning = true;
+            transitionProgress = 0;
+            transitionStartPos.copy(camera.position);
+            transitionStartTarget.copy(currentCamTarget);
+            transitionStartUp.copy(camera.up);
+          }
         }
       }
     }
@@ -2243,17 +2281,12 @@ function animate() {
     if (introTransitionProgress >= 1.0) {
       isIntroTransitioning = false;
       
-      // Complete cleanup of cursive resources
+      // Keep cursive plane alive, just hide it and restore full text for post-sequence view
       if (cursivePlane) {
-        scene.remove(cursivePlane);
-        cursivePlane.geometry.dispose();
-        cursivePlane.material.dispose();
+        cursivePlane.visible = false;
+        drawCursiveName(1.0, 0.0);
       }
-      if (cursiveTexture) {
-        cursiveTexture.dispose();
-      }
-      cursiveCanvas = null;
-      console.log("Intro transition complete. Resources disposed.");
+      console.log("Intro transition complete. Cursive plane preserved for post-sequence.");
     }
     controls.enabled = false;
   } else if (cameraFollowEnabled) {
@@ -2346,6 +2379,58 @@ function animate() {
       controls.enabled = true;
       controls.update();
     }
+  } else if (isPostSequence) {
+    // Post-sequence: smoothly lerp camera to (0, 0, 25) looking at (0, 0, 0)
+    if (!isPaused) {
+      postSeqTimer += realDeltaTime;
+    }
+    const postSeqDuration = 3.0; // 3 seconds for the final camera sweep
+    const t = smoothstep(Math.min(postSeqTimer / postSeqDuration, 1.0));
+    
+    const finalCamPos = new THREE.Vector3(0, 0, 25);
+    const finalCamTarget = new THREE.Vector3(0, 0, 0);
+    const finalUp = new THREE.Vector3(0, 1, 0);
+    
+    // Lerp camera position and target
+    currentCamPos.lerpVectors(transitionStartPos, finalCamPos, t);
+    currentCamTarget.lerpVectors(transitionStartTarget, finalCamTarget, t);
+    camera.up.lerpVectors(transitionStartUp, finalUp, t).normalize();
+    camera.position.copy(currentCamPos);
+    camera.lookAt(currentCamTarget);
+    
+    // Fade in cursive text and cylinder
+    globeMaterial.opacity = THREE.MathUtils.lerp(globeMaterial.opacity, 0.35, 0.02);
+    orbitMaterial.opacity = THREE.MathUtils.lerp(orbitMaterial.opacity, 0.45, 0.02);
+    
+    // Fade in the cursive name
+    if (cursivePlane) {
+      cursivePlane.material.opacity = THREE.MathUtils.lerp(cursivePlane.material.opacity, 0.9, 0.03);
+    }
+    
+    // Fade out all vehicles
+    orbitSequence.forEach(seq => {
+      const obj = seq.getObject();
+      if (obj && obj.visible) {
+        const currentOpacity = obj.children[0]?.material?.opacity || 1.0;
+        setOpacity(obj, Math.max(0, currentOpacity - 0.02));
+      }
+    });
+    
+    // Show all backgrounds
+    const bgNames = ['City', 'School', 'Landscape', 'Beach', 'Desert', 'Cafe'];
+    bgNames.forEach(name => {
+      const model = scene.getObjectByName(name);
+      if (model) model.visible = true;
+    });
+    
+    // Enable orbit controls once camera reaches final position
+    if (t >= 0.95) {
+      controls.enabled = true;
+      controls.target.copy(finalCamTarget);
+      controls.update();
+    } else {
+      controls.enabled = false;
+    }
   } else {
     controls.enabled = true;
     controls.update();
@@ -2355,4 +2440,89 @@ function animate() {
 }
 
 animate();
+
+// --- Navigation Tab Click Handlers ---
+// Tab-to-vehicle mapping: home→motorcycle(0), school→airplane(1), experience→car_v2(2), projects→boat(3), skills→racecar(5)
+const tabToVehicleIndex = {
+  'home': 0,
+  'school': 1,
+  'experience': 2,
+  'projects': 3,
+  'skills': 5
+};
+
+const navTabs = document.querySelectorAll('.nav-tab');
+navTabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    const tabClass = [...tab.classList].find(c => tabToVehicleIndex[c] !== undefined);
+    
+    if (tab.classList.contains('resume')) {
+      // Resume tab — open link (placeholder for now)
+      window.open('http://localhost', '_blank');
+      return;
+    }
+    
+    if (tabClass === undefined) return;
+    
+    const targetIndex = tabToVehicleIndex[tabClass];
+    if (targetIndex === undefined || targetIndex >= orbitSequence.length) return;
+    
+    // Exit post-sequence state if active
+    if (isPostSequence) {
+      isPostSequence = false;
+      isOrbitAnimating = true;
+    }
+    
+    // Update active tab styling
+    navTabs.forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    
+    // Switch to the target vehicle
+    const targetSeq = orbitSequence[targetIndex];
+    if (targetSeq && targetSeq.params) {
+      // Skip if already on this vehicle and not in post-sequence
+      if (currentSeqIndex === targetIndex && !isPostSequence) return;
+      
+      // Reset the target vehicle to its start position
+      targetSeq.params.orbitDegrees = targetSeq.start;
+      
+      // If we're already following a vehicle, trigger a smooth camera transition
+      if (currentSeqIndex !== targetIndex) {
+        const prevSeq = orbitSequence[currentSeqIndex];
+        
+        // Capture current camera state for transition
+        transitionStartPos.copy(camera.position);
+        transitionStartTarget.copy(currentCamTarget);
+        transitionStartUp.copy(camera.up);
+        
+        currentSeqIndex = targetIndex;
+        syncCamGuiFromSequence();
+        
+        // Trigger camera transition
+        isTransitioning = true;
+        transitionProgress = 0;
+        
+        // Ensure previous vehicle is visible for fade-out (transition handles actual fade)
+        const prevObj = prevSeq ? prevSeq.getObject() : null;
+        const nextObj = targetSeq.getObject();
+        if (prevObj) prevObj.visible = true;
+        if (nextObj) {
+          setOpacity(nextObj, 1.0);
+        }
+        
+        // Re-enable orbit animation so the vehicle moves
+        isOrbitAnimating = true;
+      }
+      
+      // Update the target vehicle
+      if (targetSeq.update) {
+        targetSeq.update();
+      }
+    }
+  });
+});
+
+// Set initial active tab
+const homeTab = document.querySelector('.nav-tab.home');
+if (homeTab) homeTab.classList.add('active');
 

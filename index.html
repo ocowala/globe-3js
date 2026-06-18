@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Globe Portfolio</title>
+
+  <!-- Inline background so the page has color before CSS loads -->
+  <style>
+    body{background:radial-gradient(circle at top,#fdeecf 0%,#f1e3d8 45%,#c9d7e2 100%)}
+  </style>
+
+  <link rel="stylesheet" href="./styles.css">
+
+
+  <!-- Preload font and JS module tree before anything else -->
+  <link rel="preload" as="font" href="/InstrumentSerif-Regular.ttf" crossorigin>
+  <link rel="modulepreload" href="/src/main.js">
+
+  <!-- Preload all GLB assets so the browser downloads them in parallel before JS executes -->
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/city_at_night_v4_meshopt.glb">
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/motorcycle.glb">
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/school_v2_meshopt.glb">
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/airplane.glb">
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/desert_meshopt.glb">
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/bronco.glb">
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/beach_v2_meshopt.glb">
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/boat.glb">
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/landscape_v5_meshopt.glb">
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/car_v2.glb">
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/cafe_meshopt.glb">
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/sls_amg_63_black_series.glb">
+</head>
+<body>
+  <!-- Loading Overlay -->
+  <div id="loading-overlay">
+    <div class="loader-circle">
+      <img src="/prince-icon.png" alt="Loading" class="loader-icon">
+    </div>
+    <span id="loader-percent">0%</span>
+  </div>
+
+  <nav class="nav-bar">
+    <button class="nav-tab home active">Home</button>
+    <button class="nav-tab school">School</button>
+    <button class="nav-tab experience">Experience</button>
+    <button class="nav-tab projects">Projects</button>
+    <button class="nav-tab skills">Skills</button>
+    <button class="nav-tab resume">Resume</button>
+  </nav>
+
+  <div id="app">
+    <div class="hero">
+      <h1>Globe Portfolio</h1>
+      <p>Little Prince-inspired travel globe.</p>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <audio id="bg-audio" src="/suis_mois.mp3" preload="auto" loop></audio>
+    <button id="audio-toggle" title="Toggle Audio" aria-label="Toggle Audio">
+      <span class="icon">🔇</span>
+    </button>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
