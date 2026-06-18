@@ -105,53 +105,64 @@ canvas {
   inset: 0;
   z-index: 100;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at top, #fdeecf 0%, #f1e3d8 45%, #c9d7e2 100%);
-  transition: opacity 0.6s ease, visibility 0.6s ease;
+  background: transparent;
+  transition: opacity 0.6s ease;
 }
 
 #loading-overlay.fade-out {
   opacity: 0;
   visibility: hidden;
-  pointer-events: none;
 }
 
-.loader-circle {
+.loader-container {
   position: relative;
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  background: rgba(255, 251, 244, 0.85);
-  border: 2px solid rgba(52, 68, 86, 0.12);
-  box-shadow: 0 12px 40px rgba(32, 48, 63, 0.15);
+  width: 180px;
+  height: 180px;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  animation: loader-pulse 2s ease-in-out infinite;
 }
 
-@keyframes loader-pulse {
-  0%, 100% { transform: scale(1); box-shadow: 0 12px 40px rgba(32, 48, 63, 0.15); }
-  50% { transform: scale(1.04); box-shadow: 0 18px 52px rgba(32, 48, 63, 0.22); }
+/* Prince icon orbits around the percentage number */
+.loader-orbit-ring {
+  position: absolute;
+  inset: 0;
+  animation: orbit-spin 3s linear infinite;
 }
 
 .loader-icon {
-  width: 72px;
-  height: 72px;
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 44px;
+  height: 44px;
   object-fit: contain;
   border-radius: 50%;
+  box-shadow: 0 4px 18px rgba(32, 48, 63, 0.2);
+  animation: orbit-counter-spin 3s linear infinite;
+}
+
+@keyframes orbit-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes orbit-counter-spin {
+  from { transform: translateX(-50%) rotate(0deg); }
+  to { transform: translateX(-50%) rotate(-360deg); }
 }
 
 #loader-percent {
-  margin-top: 18px;
   font-family: "Instrument Serif", Georgia, serif;
-  font-size: 28px;
+  font-size: 42px;
   letter-spacing: -0.02em;
   color: #24333f;
-  opacity: 0.75;
+  opacity: 0.85;
+  z-index: 2;
+  text-shadow: 0 2px 8px rgba(255, 251, 244, 0.6);
 }
 
 /* ── Navigation Bar ── */

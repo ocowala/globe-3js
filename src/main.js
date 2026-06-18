@@ -216,11 +216,6 @@ function drawCursiveName(writeProgress, unwriteProgress) {
 function checkAllAssetsLoaded() {
   if (loadedCount === 12) {
     allAssetsLoaded = true;
-    // Hide loading overlay with fade-out
-    const loaderOverlay = document.getElementById('loading-overlay');
-    if (loaderOverlay) {
-      loaderOverlay.classList.add('fade-out');
-    }
     console.log("All 12 assets loaded, starting incremental caching in background...");
   }
   // Update loading percentage
@@ -2018,6 +2013,13 @@ function animate() {
 
       if (cacheVehicleIdx >= 5) {
         fullyOptimized = true;
+        
+        // Hide loading overlay now that everything is loaded and cached
+        const loaderOverlay = document.getElementById('loading-overlay');
+        if (loaderOverlay) {
+          loaderOverlay.classList.add('fade-out');
+        }
+        
         console.log("All 12 assets loaded and fully optimized/cached!");
         // Temporarily show all backgrounds to pre-compile their shaders
         if (city) city.visible = true;
@@ -2047,11 +2049,12 @@ function animate() {
 
   // --- Cursive Intro Animation ---
   if (introActive) {
-    if (!isPaused) {
+    // Only start writing once all assets are fully cached — no lag during animation
+    if (!isPaused && fullyOptimized) {
       introTimer += realDeltaTime;
     }
     
-    const writeProgress = Math.min(introTimer / Math.max(introParams.writeDuration, 0.1), 1.0);
+    const writeProgress = fullyOptimized ? Math.min(introTimer / Math.max(introParams.writeDuration, 0.1), 1.0) : 0.0;
     let unwriteProgress = 0.0;
     
     if (writeProgress >= 1.0 && fullyOptimized) {
