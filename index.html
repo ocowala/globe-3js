@@ -5,10 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Globe Portfolio</title>
 
-  <!-- Inline background so the page has color before CSS loads -->
-  <style>
-    body{background:radial-gradient(circle at top,#fdeecf 0%,#f1e3d8 45%,#c9d7e2 100%)}
-  </style>
+
 
   <link rel="stylesheet" href="./styles.css">
 
@@ -52,17 +49,14 @@
   </nav>
 
   <div id="app">
-    <div class="hero">
-      <h1>Globe Portfolio</h1>
-      <p>Little Prince-inspired travel globe.</p>
-    </div>
+
 
     <div id="canvas-container"></div>
 
-    <audio id="bg-audio" src="/suis_mois.mp3" preload="auto" loop></audio>
-    <button id="audio-toggle" title="Toggle Audio" aria-label="Toggle Audio">
-      <span class="icon">🔇</span>
-    </button>
+    <audio id="bg-audio" preload="auto" loop></audio>
+    <span id="audio-toggle" title="Toggle Audio" aria-label="Toggle Audio">
+      <span class="music-emoji">🎶</span><span id="song-name"></span>
+    </span>
   </div>
 
   <script type="module" src="./src/main.js"></script>

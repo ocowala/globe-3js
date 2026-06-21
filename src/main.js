@@ -14,6 +14,14 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;
 container.appendChild(renderer.domElement);
 
+let canvasRect = null;
+function updateCanvasRect() {
+  if (renderer && renderer.domElement) {
+    canvasRect = renderer.domElement.getBoundingClientRect();
+  }
+}
+updateCanvasRect();
+
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -38,6 +46,7 @@ scene.add(directionalLight);
 
 const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
 scene.add(hemiLight);
+
 
 const createThickCylinderGeometry = (innerRadius, outerRadius, height) => {
   const shape = new THREE.Shape();
@@ -428,7 +437,7 @@ function getSnappedData(cache, raycastFn, angle) {
 }
 
 // --- Textbox Helpers ---
-function createTextBox(text) {
+function createTextBox(data) {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 256;
@@ -470,11 +479,75 @@ function createTextBox(text) {
   ctx.lineWidth = 4;
   ctx.stroke();
 
-  ctx.fillStyle = '#000000'; // Make text black
-  ctx.font = '44px "Instrument Serif", Georgia, serif';
+  ctx.fillStyle = '#000000';
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+  if (typeof data === 'string') {
+    ctx.font = '44px "Instrument Serif", Georgia, serif';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(data, canvas.width / 2, canvas.height / 2);
+  } else {
+    // 1. Draw Title
+    ctx.font = 'bold 36px "Instrument Serif", Georgia, serif';
+    ctx.textBaseline = 'top';
+    ctx.fillText(data.title || '', canvas.width / 2, 42);
+
+    // 2. Draw Subtitle
+    ctx.fillStyle = '#3c3c3c';
+    ctx.font = 'italic 25px "Instrument Serif", Georgia, serif';
+    ctx.fillText(data.subtitle || '', canvas.width / 2, 94);
+
+    // 3. Draw Badges/Tags at the bottom
+    if (data.badges && data.badges.length > 0) {
+      const badgeFontSize = 21;
+      ctx.font = `bold ${badgeFontSize}px "Instrument Serif", Georgia, serif`;
+      
+      const spacing = 12;
+      const paddingX = 14;
+      const paddingY = 6;
+      let totalWidth = 0;
+      const badgeWidths = [];
+
+      data.badges.forEach((badge) => {
+        const textWidth = ctx.measureText(badge).width;
+        const w = textWidth + paddingX * 2;
+        badgeWidths.push(w);
+        totalWidth += w;
+      });
+      totalWidth += spacing * (data.badges.length - 1);
+
+      let currentX = (canvas.width - totalWidth) / 2;
+      const badgeY = 158;
+
+      data.badges.forEach((badge, idx) => {
+        const w = badgeWidths[idx];
+        const h = badgeFontSize + paddingY * 2;
+
+        // Draw badge background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+        ctx.beginPath();
+        const r = 8;
+        ctx.moveTo(currentX + r, badgeY);
+        ctx.lineTo(currentX + w - r, badgeY);
+        ctx.quadraticCurveTo(currentX + w, badgeY, currentX + w, badgeY + r);
+        ctx.lineTo(currentX + w, badgeY + h - r);
+        ctx.quadraticCurveTo(currentX + w, badgeY + h, currentX + w - r, badgeY + h);
+        ctx.lineTo(currentX + r, badgeY + h);
+        ctx.quadraticCurveTo(currentX, badgeY + h, currentX, badgeY + h - r);
+        ctx.lineTo(currentX, badgeY + r);
+        ctx.quadraticCurveTo(currentX, badgeY, currentX + r, badgeY);
+        ctx.closePath();
+        ctx.fill();
+
+        // Draw badge text
+        ctx.fillStyle = '#222222';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(badge, currentX + w / 2, badgeY + h / 2);
+
+        currentX += w + spacing;
+      });
+    }
+  }
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
@@ -517,6 +590,160 @@ function addTextboxGUI(folder, params, updateFn, minOffset = -10.0, maxOffset = 
   tbFolder.add(params, 'textboxRotZ', -Math.PI, Math.PI).step(0.01).name('Rot Z').onChange(updateFn);
 }
 
+// --- 3D Cylinder Nav Labels ---
+const navLabelConfig = [
+  { key: 'home',       label: 'Home',       scene: 'City',      angle: 1.73,  color: '#f7c5c0', vehicleIdx: 0 },
+  { key: 'school',     label: 'School',     scene: 'School',    angle: 0.74,  color: '#c7b8ea', vehicleIdx: 1 },
+  { key: 'experience', label: 'Experience', scene: 'Landscape', angle: -0.06, color: '#fce8a3', vehicleIdx: 2 },
+  { key: 'projects',   label: 'Projects',   scene: 'Beach',     angle: -0.95, color: '#b8e6c8', vehicleIdx: 3 },
+  { key: 'skills',     label: 'Skills',     scene: 'Cafe',      angle: -3.1,  color: '#a8d8ea', vehicleIdx: 5 },
+];
+
+let navLabels = [];        // Array of { mesh, config, baseAngle, targetOpacity, targetScale }
+let activeNavIndex = 0;    // Currently highlighted label index
+let navLabelsVisible = false;
+
+// Pre-allocated vectors for nav label orientation math
+const _navUp = new THREE.Vector3(0, 0, 1);
+const _navOutward = new THREE.Vector3();
+const _navTangent = new THREE.Vector3();
+const _navRotMatrix = new THREE.Matrix4();
+
+function createNavLabel(text, pastelHex) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 320;
+  canvas.height = 112;
+  const ctx = canvas.getContext('2d');
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Parse pastel hex
+  const r = parseInt(pastelHex.slice(1, 3), 16);
+  const g = parseInt(pastelHex.slice(3, 5), 16);
+  const b = parseInt(pastelHex.slice(5, 7), 16);
+
+  // Mix 70% white with 30% pastel color for a solid whitish-pastel background
+  const mix = 0.7;
+  const r_blend = Math.round(r * (1 - mix) + 255 * mix);
+  const g_blend = Math.round(g * (1 - mix) + 255 * mix);
+  const b_blend = Math.round(b * (1 - mix) + 255 * mix);
+  const bgColor = `rgb(${r_blend}, ${g_blend}, ${b_blend})`;
+
+  const pad = 10;
+  const cornerR = 22;
+  const w = canvas.width - 2 * pad;
+  const h = canvas.height - 2 * pad;
+
+  // Background box shadow
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetY = 3;
+
+  ctx.fillStyle = bgColor;
+  ctx.beginPath();
+  ctx.moveTo(pad + cornerR, pad);
+  ctx.lineTo(pad + w - cornerR, pad);
+  ctx.quadraticCurveTo(pad + w, pad, pad + w, pad + cornerR);
+  ctx.lineTo(pad + w, pad + h - cornerR);
+  ctx.quadraticCurveTo(pad + w, pad + h, pad + w - cornerR, pad + h);
+  ctx.lineTo(pad + cornerR, pad + h);
+  ctx.quadraticCurveTo(pad, pad + h, pad, pad + h - cornerR);
+  ctx.lineTo(pad, pad + cornerR);
+  ctx.quadraticCurveTo(pad, pad, pad + cornerR, pad);
+  ctx.closePath();
+  ctx.fill();
+
+  // Subtle border using the original solid pastel color
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Draw black text
+  ctx.fillStyle = '#000000';
+  ctx.font = 'bold 36px "Instrument Serif", Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+
+  const material = new THREE.MeshBasicMaterial({
+    map: texture,
+    transparent: true,
+    opacity: 0.0,
+    side: THREE.DoubleSide,
+    depthTest: true
+  });
+
+  const aspect = canvas.width / canvas.height;
+  const planeH = 0.28;
+  const geometry = new THREE.PlaneGeometry(planeH * aspect, planeH);
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.renderOrder = 999;
+
+  return mesh;
+}
+
+function updateNavLabelPositions() {
+  const innerR = cylinderParams.radius * cylinderParams.wallRatio;
+  const outerR = cylinderParams.radius;
+  const midR = (innerR + outerR) / 2;
+
+  navLabels.forEach((entry) => {
+    const angle = entry.baseAngle;
+    // Position on the top cap of the translucent cylinder (Z = 4.01)
+    entry.mesh.position.set(
+      midR * Math.cos(angle),
+      midR * Math.sin(angle),
+      4.01
+    );
+
+    // Orientation: flat on the cap, normal pointing along Z, reading clockwise
+    _navOutward.set(Math.cos(angle), Math.sin(angle), 0);
+    _navTangent.crossVectors(_navUp, _navOutward);
+    const col0 = _navTangent.clone().negate();
+    _navRotMatrix.makeBasis(col0, _navOutward, _navUp);
+    entry.mesh.quaternion.setFromRotationMatrix(_navRotMatrix);
+  });
+}
+
+function initNavLabels() {
+  // Remove any existing labels
+  navLabels.forEach(({ mesh }) => scene.remove(mesh));
+  navLabels = [];
+
+  navLabelConfig.forEach((config) => {
+    const mesh = createNavLabel(config.label, config.color);
+    mesh.visible = false;
+    scene.add(mesh);
+    navLabels.push({
+      mesh,
+      config,
+      baseAngle: config.angle,
+      targetOpacity: 0.0,
+      targetScale: 1.0
+    });
+  });
+
+  updateNavLabelPositions();
+}
+
+function highlightNavLabel(activeIdx) {
+  navLabels.forEach((entry, idx) => {
+    if (idx === activeIdx) {
+      entry.targetOpacity = 1.0;
+      entry.targetScale = 1.25;
+    } else {
+      entry.targetOpacity = 0.75;
+      entry.targetScale = 1.0;
+    }
+  });
+}
+
 // --- Boat raycasting state ---
 let boatObject = null;
 let boatRadialOffset = null;
@@ -528,7 +755,7 @@ const boatParams = {
   angle: -0.94,        // base angle (aligns with beach)
   orbitDegrees: 20,    // orbit rotation
   scale: 1.5,         // scale
-  rotX: -1.6,          // rotation X
+  rotX: -Math.PI/2.0,          // rotation X
   rotY: 2.9,          // rotation Y
   rotZ: 1.55,         // rotation Z
   speed: 7,             // orbit speed
@@ -536,8 +763,8 @@ const boatParams = {
   textboxOffsetX: 0.0,
   textboxOffsetY: 0.333,
   textboxOffsetZ: 0.0,
-  textboxRotX: 1.57,
-  textboxRotY: -1.57,
+  textboxRotX: Math.PI/2.0,
+  textboxRotY: -Math.PI/2.0,
   textboxRotZ: 0.0
 };
 
@@ -616,26 +843,46 @@ function updateBoat() {
 
 // Caches are declared at the top of the file
 
+// --- Hover Protrusion Animation System ---
+const hoverScenes = {
+  'City': { target: 0.0, current: 0.0, maxProtrusion: 0.8 },
+  'School': { target: 0.0, current: 0.0, maxProtrusion: 0.8 },
+  'Landscape': { target: 0.0, current: 0.0, maxProtrusion: 0.8 },
+  'Beach': { target: 0.0, current: 0.0, maxProtrusion: 0.8 },
+  'Cafe': { target: 0.0, current: 0.0, maxProtrusion: 0.8 }
+};
+const loadedEnvironments = {};
+
+// Pre-allocated variables to prevent GC allocations during hover animation
+const _tempQuat1 = new THREE.Quaternion();
+const _tempQuat2 = new THREE.Quaternion();
+const _tempEuler = new THREE.Euler();
+const _tempAxisZ = new THREE.Vector3(0, 0, 1);
+const _tempAxisX = new THREE.Vector3(1, 0, 0);
+
 function loadModelWithGUI(name, url, defaults) {
   const params = { ...defaults };
   let obj = null;
 
   function update() {
     if (!obj) return;
-    const x = params.distance * Math.cos(params.angle);
-    const y = params.distance * Math.sin(params.angle);
+    const hoverData = hoverScenes[name];
+    const hoverOffset = hoverData ? (hoverData.current * hoverData.maxProtrusion) : 0.0;
+    const activeDistance = params.distance + hoverOffset;
+    const x = activeDistance * Math.cos(params.angle);
+    const y = activeDistance * Math.sin(params.angle);
     obj.position.set(x, y, params.posZ);
 
     if (params.cylinderAlign) {
-      // Auto-align to cylinder surface, then apply small user adjustments.
-      // This avoids gimbal lock because rotX/rotY/rotZ stay near 0.
-      const alignQuat = new THREE.Quaternion()
-        .setFromAxisAngle(new THREE.Vector3(0, 0, 1), params.angle)
-        .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2));
-      const adjustQuat = new THREE.Quaternion().setFromEuler(
-        new THREE.Euler(params.rotX, params.rotY, params.rotZ)
-      );
-      obj.quaternion.copy(alignQuat).multiply(adjustQuat);
+      // Auto-align to cylinder surface, then apply small user adjustments without dynamic allocations.
+      _tempQuat1.setFromAxisAngle(_tempAxisZ, params.angle);
+      _tempQuat2.setFromAxisAngle(_tempAxisX, Math.PI / 2);
+      _tempQuat1.multiply(_tempQuat2);
+      
+      _tempEuler.set(params.rotX, params.rotY, params.rotZ);
+      _tempQuat2.setFromEuler(_tempEuler);
+      
+      obj.quaternion.copy(_tempQuat1).multiply(_tempQuat2);
     } else {
       if (params.rotOrder) obj.rotation.order = params.rotOrder;
       obj.rotation.set(params.rotX, params.rotY, params.rotZ);
@@ -724,7 +971,16 @@ function loadModelWithGUI(name, url, defaults) {
             desertGroundMeshes.push(child);
           }
         } else if (name === 'Landscape') {
-          landscapeMeshes.push(child);
+          if (child.material) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            const isRoadOrGround = mats.some(mat => {
+              const matName = mat && mat.name ? mat.name : '';
+              return matName === 'Material.005' || matName === 'Material.013' || matName === 'Material.001' || matName === 'Material.015';
+            });
+            if (isRoadOrGround) {
+              landscapeMeshes.push(child);
+            }
+          }
         } else if (name === 'Cafe') {
           cafeMeshes.push(child);
         }
@@ -735,6 +991,7 @@ function loadModelWithGUI(name, url, defaults) {
 
     obj = model;
     model.name = name;  // Tag the model so we can find it by name at runtime
+    loadedEnvironments[name] = { params: params, getObject: () => obj, update: update };
     if (typeof introActive !== 'undefined' && introActive) {
       model.visible = false;
     }
@@ -773,17 +1030,17 @@ const motorcycleParams = {
   height: 3.8,         // height along cylinder (Z-axis offset)
   orbitDegrees: 20,    // orbit rotation in degrees
   scale: 0.32,         // scale of the motorcycle
-  rotX: 1.6,          // rotation X (tilt for cylinder alignment)
+  rotX: Math.PI/2.0,          // rotation X (tilt for cylinder alignment)
   rotY: -3.05,          // rotation Y
   rotZ: -1.2,         // rotation Z
   wheelSpeed: 0.5,     // wheel spin speed
   speed: 8,            // orbit speed
   textboxScale: 0.5,
   textboxOffsetX: 0.0,
-  textboxOffsetY: 2.2,
+  textboxOffsetY: 0.0,
   textboxOffsetZ: 0.0,
-  textboxRotX: 1.57,
-  textboxRotY: -1.57,
+  textboxRotX: Math.PI/2.0,
+  textboxRotY: Math.PI/2.0,
   textboxRotZ: 0.0
 };
 
@@ -819,27 +1076,35 @@ motoFolder.open();
 
 // --- All models with GUI (Static Backgrounds) ---
 loadModelWithGUI('City', new URL('../assets/models/city_at_night_v4_meshopt.glb', import.meta.url).href, {
-  distance: 2.45, angle: 1.73, rotX: 1.58, rotY: 1.73, rotZ: -1.58, posZ: 2.57, scale: 0.35
+  distance: 2.45, angle: 1.73, rotX: Math.PI/2.0, rotY: 1.73, rotZ: -Math.PI/2.0, posZ: 2.57, scale: 0.35
 });
 
 loadModelWithGUI('School', new URL('../assets/models/school_v2_meshopt.glb', import.meta.url).href, {
-  distance: 2.55, angle: 0.74, rotX: 1.6, rotY: -2.45, rotZ: 1.6, posZ: 2.8, scale: 0.12
-});
+  distance: 2.55, angle: 0.74, rotX: Math.PI/2.0, rotY: -2.45, rotZ: Math.PI/2, posZ: 2.83, scale: 0.12
+}); 
 
 loadModelWithGUI('Landscape', new URL('../assets/models/landscape_v5_meshopt.glb', import.meta.url).href, {
-  distance: 2.88, angle: -0.06, rotX: 1.58, rotY: 3.14, rotZ: 0, posZ: 3.2, scale: 0.038, cylinderAlign: true
+  distance: 2.88, angle: -0.06, rotX: Math.PI/2.0, rotY: Math.PI, rotZ: 0, posZ: 3.21, scale: 0.038, cylinderAlign: true
 });
 
 loadModelWithGUI('Beach', new URL('../assets/models/beach_v2_meshopt.glb', import.meta.url).href, {
-  distance: 2.8, angle: -0.95, rotX: 1.58, rotY: 0.62, rotZ: -1.58, posZ: 2.49, scale: 1.53
+  distance: 2.8, angle: -0.95, rotX: Math.PI/2.0, rotY: 0.62, rotZ: -Math.PI/2.0, posZ: 2.49, scale: 1.53
 });
 
-loadModelWithGUI('Desert', new URL('../assets/models/desert_meshopt.glb', import.meta.url).href, {
-  distance: 3.05, angle: -1.86, rotX: 1.58, rotY: -0.48, rotZ: 1.58, posZ: 2.42, scale: 0.15
+// loadModelWithGUI('Desert', new URL('../assets/models/desert_meshopt.glb', import.meta.url).href, {
+//   distance: 3.05, angle: -1.86, rotX: 1.58, rotY: -0.48, rotZ: 1.58, posZ: 2.42, scale: 0.15
+// });
+
+loadModelWithGUI('Desert', new URL('../assets/models/desert_v3_meshopt.glb', import.meta.url).href, {
+  distance: 2.89, angle: -1.86, rotX: Math.PI/2.0, rotY: -0.35, rotZ: Math.PI/2.0, posZ: 2.23, scale: 0.17
 });
+
+// loadModelWithGUI('Cafe', new URL('../assets/models/cafe_meshopt.glb', import.meta.url).href, {
+//   distance: 2.45, angle: -3.1, rotX: 0, rotY: 0, rotZ: -0.11, posZ: 2.2, scale: 0.028
+// });
 
 loadModelWithGUI('Cafe', new URL('../assets/models/cafe_meshopt.glb', import.meta.url).href, {
-  distance: 2.45, angle: -3.1, rotX: 0, rotY: 0, rotZ: -0.11, posZ: 2.2, scale: 0.025
+  distance: 2.44, angle: 3.1, rotX: 0, rotY: 0, rotZ: -0.2, posZ: 2.11, scale: 0.0265
 });
 
 
@@ -850,6 +1115,7 @@ function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  updateCanvasRect();
 }
 
 // --- Motorcycle update ---
@@ -952,7 +1218,11 @@ rawLoader.load(new URL('../assets/models/motorcycle.glb', import.meta.url).href,
   });
 
   motorcycleGroup = model;
-  const textbox = createTextBox("hello world");
+  const textbox = createTextBox({
+    title: "backend systems",
+    subtitle: "scalable apis & databases",
+    badges: ["Go", "Python", "gRPC", "SQL"]
+  });
   model.add(textbox);
   if (typeof introActive !== 'undefined' && introActive) {
     model.visible = false;
@@ -978,9 +1248,9 @@ const airplaneParams = {
   height: 2.8,         // height along cylinder (Z-axis offset)
   orbitDegrees: 20,    // orbit rotation in degrees
   scale: 0.01,         // scale of the airplane
-  rotX: -1.58,         // rotation X
+  rotX: -Math.PI/2.0,         // rotation X
   rotY: 2.4,           // rotation Y
-  rotZ: 1.58,          // rotation Z
+  rotZ: Math.PI/2.0,          // rotation Z
   propellerSpeed: 0.3,   // propeller spin speed
   speed: 8,            // orbit speed
   textboxScale: 0.5,
@@ -1063,7 +1333,11 @@ rawLoader.load(new URL('../assets/models/airplane.glb', import.meta.url).href, (
   });
 
   airplaneGroup = model;
-  const textbox = createTextBox("hello world");
+  const textbox = createTextBox({
+    title: "cloud & infrastructure",
+    subtitle: "distributed systems & cloud deployments",
+    badges: ["AWS", "Docker", "Kubernetes", "Linux"]
+  });
   model.add(textbox);
   if (typeof introActive !== 'undefined' && introActive) {
     model.visible = false;
@@ -1092,9 +1366,9 @@ const broncoParams = {
   height: 3.42,        // height along cylinder (Z-axis offset)
   orbitDegrees: 15,     // orbit rotation in degrees
   scale: 0.15,         // scale of the bronco
-  rotX: 1.58,          // rotation X (tilt for cylinder alignment)
+  rotX: Math.PI/2.0,          // rotation X (tilt for cylinder alignment)
   rotY: 1.2,         // rotation Y
-  rotZ: 1.58,          // rotation Z
+  rotZ: Math.PI/2.0,          // rotation Z
   wheelSpeed: 0.05,    // wheel spin speed
   speed: 7,             // orbit speed
   textboxScale: 0.5,
@@ -1254,7 +1528,11 @@ rawLoader.load(new URL('../assets/models/bronco.glb', import.meta.url).href, (gl
   });
 
   broncoGroup = model;
-  const textbox = createTextBox("hello world");
+  const textbox = createTextBox({
+    title: "devops engineering",
+    subtitle: "resilient infrastructures & ci/cd",
+    badges: ["Terraform", "GitHub Actions", "Docker", "AWS"]
+  });
   model.add(textbox);
   if (typeof introActive !== 'undefined' && introActive) {
     model.visible = false;
@@ -1288,7 +1566,11 @@ rawLoader.load(new URL('../assets/models/boat.glb', import.meta.url).href, (gltf
   });
 
   boatObject = model;
-  const textbox = createTextBox("hello world");
+  const textbox = createTextBox({
+    title: "data pipelines",
+    subtitle: "real-time streaming & analytics",
+    badges: ["Kafka", "Flink", "PostgreSQL", "Python"]
+  });
   model.add(textbox);
   if (typeof introActive !== 'undefined' && introActive) {
     model.visible = false;
@@ -1340,14 +1622,14 @@ let car2WheelBR = null;
 const _car2Raycaster = new THREE.Raycaster();
 
 const car2Params = {
-  distance: 2.48,      // distance offset
+  distance: 2.725,      // distance offset
   height: 3.2,      // height offset along Z axis
   angle: -0.2,        // base angle (aligns with city road)
   orbitDegrees: 22,    // orbit rotation
   scale: 0.15,         // scale
-  rotX: -1.58,          // rotation X
+  rotX: -Math.PI/2.0,          // rotation X
   rotY: -3.0,          // rotation Y
-  rotZ: -1.58,          // rotation Z
+  rotZ: Math.PI/2.0,          // rotation Z
   wheelSpeed: 0.05,     // wheel speed
   speed: 7,             // orbit speed
   textboxScale: 0.5,
@@ -1463,9 +1745,9 @@ const racecarParams = {
   angle: -3.05,        // base angle (aligns with nascar_racetrack)
   orbitDegrees: 8,    // orbit rotation
   scale: 15.0,        // scale
-  rotX: -1.58,          // rotation X
+  rotX: -Math.PI/2.0,          // rotation X
   rotY: -0.03,        // rotation Y
-  rotZ: 1.58,         // rotation Z
+  rotZ: Math.PI/2.0,         // rotation Z
   wheelSpeed: 0.1,     // wheel spin speed
   speed: 7,             // orbit speed
   textboxScale: 0.5,
@@ -1609,7 +1891,11 @@ rawLoader.load(new URL('../assets/models/sls_amg_63_black_series.glb', import.me
   });
 
   racecarObject = model;
-  const textbox = createTextBox("hello world");
+  const textbox = createTextBox({
+    title: "systems optimization",
+    subtitle: "low-latency and performance profiling",
+    badges: ["C++", "WebAssembly", "Rust", "Go"]
+  });
   model.add(textbox);
   if (typeof introActive !== 'undefined' && introActive) {
     model.visible = false;
@@ -1676,7 +1962,11 @@ rawLoader.load(new URL('../assets/models/car_v2.glb', import.meta.url).href, (gl
   });
 
   car2Object = model;
-  const textbox = createTextBox("hello world");
+  const textbox = createTextBox({
+    title: "full stack development",
+    subtitle: "crafting high-performance web apps",
+    badges: ["React", "Three.js", "Vite", "CSS"]
+  });
   model.add(textbox);
   if (typeof introActive !== 'undefined' && introActive) {
     model.visible = false;
@@ -1938,6 +2228,51 @@ function animate() {
   const deltaTime = Math.min(realDeltaTime, 0.05); // cap for physics/orbit
   lastTime = currentTime;
 
+  // --- Update Hover Protrusion ---
+  const hoverSpeed = 10.0;
+  for (const name in hoverScenes) {
+    const sceneData = hoverScenes[name];
+    
+    // Protrusion is strictly active in the post-sequence finale view
+    if (!isPostSequence) {
+      sceneData.target = 0.0;
+    }
+    
+    const prevVal = sceneData.current;
+    
+    // Smooth interpolation towards target
+    sceneData.current += (sceneData.target - sceneData.current) * hoverSpeed * realDeltaTime;
+    
+    // Clamp if extremely close to avoid endless updates
+    if (Math.abs(sceneData.target - sceneData.current) < 0.001) {
+      sceneData.current = sceneData.target;
+    }
+    
+    if (sceneData.current !== prevVal) {
+      const env = loadedEnvironments[name];
+      if (env && env.update) {
+        env.update();
+      }
+    }
+  }
+
+  // --- Fade out nav labels when not in post-sequence ---
+  if (!isPostSequence && navLabelsVisible) {
+    let allHidden = true;
+    navLabels.forEach(entry => {
+      entry.mesh.material.opacity = Math.max(0, entry.mesh.material.opacity - realDeltaTime * 3.0);
+      if (entry.mesh.material.opacity <= 0.001) {
+        entry.mesh.visible = false;
+        entry.mesh.material.opacity = 0;
+      } else {
+        allHidden = false;
+      }
+    });
+    if (allHidden) {
+      navLabelsVisible = false;
+    }
+  }
+
   const isPaused = camGuiState && camGuiState.paused;
   const isIntroState = introActive || isIntroTransitioning;
 
@@ -2059,7 +2394,7 @@ function animate() {
 
   // --- Cursive Intro Animation ---
   const now = performance.now();
-  const showWriting = allAssetsLoaded && (now - loaderFinishedTime >= 1000);
+  const showWriting = allAssetsLoaded && (now - loaderFinishedTime >= 200);
 
   if (showWriting && !loaderOverlayHidden) {
     loaderOverlayHidden = true;
@@ -2076,7 +2411,7 @@ function animate() {
         introTimer += realDeltaTime;
       } else {
         introTimer = targetWriteTime;
-        if (writePauseTimer < 1.0) {
+        if (writePauseTimer < 0.3) {
           writePauseTimer += realDeltaTime;
         } else {
           const targetUnwriteTime = Math.max(introParams.unwriteDuration, 0.1);
@@ -2084,7 +2419,7 @@ function animate() {
             unwriteTimer += realDeltaTime;
           } else {
             unwriteTimer = targetUnwriteTime;
-            if (unwritePauseTimer < 1.0) {
+            if (unwritePauseTimer < 0.3) {
               unwritePauseTimer += realDeltaTime;
             } else {
               // Trigger first finale (10s sequence complete transition)
@@ -2099,6 +2434,14 @@ function animate() {
               transitionStartPos.copy(camera.position);
               transitionStartTarget.set(0, 0, getCylinderMiddleZ());
               transitionStartUp.copy(camera.up);
+
+              // Reset active nav tab styling since we are entering post-sequence finale
+              const tabs = document.querySelectorAll('.nav-tab');
+              tabs.forEach(t => t.classList.remove('active'));
+              
+              // Activate 3D label mode (hide non-resume HTML nav tabs)
+              const navBar = document.querySelector('.nav-bar');
+              if (navBar) navBar.classList.add('labels-3d-mode');
 
               // Restore cylinder/background visibilities
               globe.visible = true;
@@ -2195,6 +2538,14 @@ function animate() {
             cursivePlane.position.set(0, 0, getCylinderMiddleZ());
             cursivePlane.material.opacity = 0.0;
           }
+
+          // Reset active nav tab styling
+          const tabs = document.querySelectorAll('.nav-tab');
+          tabs.forEach(t => t.classList.remove('active'));
+          
+          // Hide non-resume HTML nav tabs for 3D label mode
+          const navBar = document.querySelector('.nav-bar');
+          if (navBar) navBar.classList.add('labels-3d-mode');
           
           console.log("Orbit sequence complete — transitioning to portfolio view.");
         } else {
@@ -2327,7 +2678,7 @@ function animate() {
     }
 
     // Fade cylinder, ring, and motorcycle in
-    globeMaterial.opacity = THREE.MathUtils.lerp(transitionStartGlobeOpacity, 1.0, t);
+    globeMaterial.opacity = THREE.MathUtils.lerp(transitionStartGlobeOpacity, 0.35, t);
     orbitMaterial.opacity = THREE.MathUtils.lerp(transitionStartOrbitOpacity, 0.45, t);
     setOpacity(motorcycleGroup, t);
 
@@ -2406,6 +2757,32 @@ function animate() {
       if (model) model.visible = true;
     });
     
+    // --- Update 3D Nav Labels ---
+    // Position labels statically on the cylinder cap to rotate with the scene
+    updateNavLabelPositions();
+    
+    // Fade in nav labels and apply active highlighting
+    navLabels.forEach((entry, idx) => {
+      entry.mesh.visible = true;
+      
+      // Set target opacity based on highlight state (initialize if first frame)
+      if (!navLabelsVisible) {
+        highlightNavLabel(activeNavIndex);
+        navLabelsVisible = true;
+      }
+      
+      // Smooth opacity interpolation
+      const currentOpacity = entry.mesh.material.opacity;
+      entry.mesh.material.opacity += (entry.targetOpacity - currentOpacity) * 6.0 * realDeltaTime;
+      
+      // Smooth scale interpolation
+      const currentScaleY = Math.abs(entry.mesh.scale.y);
+      const newScale = currentScaleY + (entry.targetScale - currentScaleY) * 6.0 * realDeltaTime;
+      entry.mesh.scale.y = newScale;
+      entry.mesh.scale.x = newScale; // No X-flip needed anymore since they face the camera directly
+      entry.mesh.scale.z = newScale;
+    });
+    
     // Disable orbit controls to prevent overriding camera.up rotation
     controls.enabled = false;
     controls.autoRotate = false;
@@ -2439,7 +2816,11 @@ function animate() {
         transitionStartOrbitOpacity = orbitMaterial.opacity;
         transitionStartCursiveOpacity = cursivePlane ? cursivePlane.material.opacity : 0.0;
 
-        // Set the active tab styling to "home" for the motorcycle
+        // Set the active tab styling to "home" for the motorcycle and show HTML tabs again
+        const navBar = document.querySelector('.nav-bar');
+        if (navBar) {
+          navBar.classList.remove('labels-3d-mode');
+        }
         const navTabs = document.querySelectorAll('.nav-tab');
         navTabs.forEach(t => {
           t.classList.remove('active');
@@ -2542,9 +2923,12 @@ function animate() {
     }
   }
 
+
+
   renderer.render(scene, camera);
 }
 
+initNavLabels();
 animate();
 
 // --- Navigation Tab Click Handlers ---
@@ -2558,6 +2942,32 @@ const tabToVehicleIndex = {
 };
 
 const navTabs = document.querySelectorAll('.nav-tab');
+
+// Hover Protrusion mappings
+const tabToSceneName = {
+  'home': 'City',
+  'school': 'School',
+  'experience': 'Landscape',
+  'projects': 'Beach',
+  'skills': 'Cafe'
+};
+
+navTabs.forEach(tab => {
+  const tabClass = [...tab.classList].find(c => tabToSceneName[c] !== undefined);
+  if (tabClass) {
+    const sceneName = tabToSceneName[tabClass];
+    tab.addEventListener('mouseenter', () => {
+      if (isPostSequence && hoverScenes[sceneName]) {
+        hoverScenes[sceneName].target = 1.0;
+      }
+    });
+    tab.addEventListener('mouseleave', () => {
+      if (hoverScenes[sceneName]) {
+        hoverScenes[sceneName].target = 0.0;
+      }
+    });
+  }
+});
 navTabs.forEach(tab => {
   tab.addEventListener('click', () => {
     const tabClass = [...tab.classList].find(c => tabToVehicleIndex[c] !== undefined);
@@ -2584,7 +2994,7 @@ navTabs.forEach(tab => {
       isPostSequence = false;
       isOrbitAnimating = true;
       controls.autoRotate = false;
-      globeMaterial.opacity = 1.0;
+      globeMaterial.opacity = 0.35;
       orbitMaterial.opacity = 0.45;
       if (cursivePlane) {
         cursivePlane.visible = false;
@@ -2595,6 +3005,10 @@ navTabs.forEach(tab => {
     // Update active tab styling
     navTabs.forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
+    
+    // Deactivate 3D label mode (show all HTML nav tabs)
+    const navBar = document.querySelector('.nav-bar');
+    if (navBar) navBar.classList.remove('labels-3d-mode');
     
     // Switch to the target vehicle
     const targetSeq = orbitSequence[targetIndex];
@@ -2645,14 +3059,164 @@ navTabs.forEach(tab => {
 const homeTab = document.querySelector('.nav-tab.home');
 if (homeTab) homeTab.classList.add('active');
 
+// --- 3D Nav Label Keyboard Controls ---
+
+function returnToFinale() {
+  if (isPostSequence) return; // already there
+  
+  introActive = false;
+  isIntroTransitioning = false;
+  introFinaleActive = false;
+  isPostSequence = true;
+  isOrbitAnimating = false;
+  isTransitioning = false;
+  sequenceEverCompleted = true;
+  postSeqTimer = 0;
+
+  // Capture current camera state for smooth transition start
+  transitionStartPos.copy(camera.position);
+  transitionStartTarget.copy(currentCamTarget);
+  transitionStartUp.copy(camera.up);
+
+  // Prepare cursive plane
+  if (cursivePlane) {
+    cursivePlane.visible = true;
+    cursivePlane.rotation.set(0, 0, 0);
+    cursivePlane.position.set(0, 0, getCylinderMiddleZ());
+    cursivePlane.material.opacity = 0.0;
+  }
+
+  // Reset active nav tab styling
+  navTabs.forEach(t => t.classList.remove('active'));
+  
+  // Hide non-resume HTML nav tabs for 3D label mode
+  const navBar = document.querySelector('.nav-bar');
+  if (navBar) navBar.classList.add('labels-3d-mode');
+
+  console.log("Returning to post-sequence finale via keyboard.");
+}
+
+function triggerNavigation(navIdx) {
+  if (navIdx < 0 || navIdx >= navLabelConfig.length) return;
+  
+  const config = navLabelConfig[navIdx];
+  const targetIndex = config.vehicleIdx;
+  if (targetIndex === undefined || targetIndex >= orbitSequence.length) return;
+
+  // Cancel intro animations
+  introActive = false;
+  isIntroTransitioning = false;
+  introFinaleActive = false;
+
+  const wasPostSequence = isPostSequence;
+  
+  // Exit post-sequence state
+  if (isPostSequence) {
+    isPostSequence = false;
+    isOrbitAnimating = true;
+    controls.autoRotate = false;
+    globeMaterial.opacity = 0.35;
+    orbitMaterial.opacity = 0.45;
+    if (cursivePlane) {
+      cursivePlane.visible = false;
+    }
+  }
+  sequenceEverCompleted = false;
+
+  // Update active HTML tab styling
+  navTabs.forEach(t => t.classList.remove('active'));
+  const matchingTab = document.querySelector(`.nav-tab.${config.key}`);
+  if (matchingTab) matchingTab.classList.add('active');
+  
+  // Show HTML nav tabs again
+  const navBar = document.querySelector('.nav-bar');
+  if (navBar) navBar.classList.remove('labels-3d-mode');
+
+  // Switch to the target vehicle
+  const targetSeq = orbitSequence[targetIndex];
+  if (targetSeq && targetSeq.params) {
+    targetSeq.params.orbitDegrees = targetSeq.start;
+
+    // Trigger camera transition
+    transitionStartPos.copy(camera.position);
+    transitionStartTarget.copy(currentCamTarget);
+    transitionStartUp.copy(camera.up);
+
+    currentSeqIndex = targetIndex;
+    syncCamGuiFromSequence();
+
+    isTransitioning = true;
+    transitionProgress = 0;
+    isOrbitAnimating = true;
+
+    // Ensure the target vehicle is visible
+    const nextObj = targetSeq.getObject();
+    if (nextObj) {
+      setOpacity(nextObj, 1.0);
+    }
+
+    if (targetSeq.update) {
+      targetSeq.update();
+    }
+  }
+
+  console.log(`Navigating to ${config.label} (vehicle index ${targetIndex}) via keyboard.`);
+}
+
+// Keyboard event handlers
+window.addEventListener('keydown', (e) => {
+  // Escape — return to post-sequence finale from any state
+  if (e.key === 'Escape') {
+    returnToFinale();
+    return;
+  }
+
+  // The following keys only work during post-sequence
+  if (!isPostSequence) return;
+
+  if (e.key === 'ArrowRight') {
+    e.preventDefault();
+    activeNavIndex = (activeNavIndex + 1) % navLabelConfig.length;
+    highlightNavLabel(activeNavIndex);
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    activeNavIndex = (activeNavIndex - 1 + navLabelConfig.length) % navLabelConfig.length;
+    highlightNavLabel(activeNavIndex);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    triggerNavigation(activeNavIndex);
+  } else if (e.key === ' ') {
+    e.preventDefault();
+    camGuiState.paused = true;
+  }
+});
+
+window.addEventListener('keyup', (e) => {
+  if (e.key === ' ') {
+    camGuiState.paused = false;
+  }
+});
+
 // --- Audio Toggle Handling ---
 const audio = document.getElementById('bg-audio');
 const audioToggle = document.getElementById('audio-toggle');
+const songNameEl = document.getElementById('song-name');
+
+const songMap = {
+  '/suis_mois.mp3': 'suis mois - camille, hans zimmer',
+  '/windmills.mp3': 'windmills of your mind - sting',
+  '/ciao.mp3': "l'amore dice ciao - armando trovajoli",
+  '/bean-sabine.mp3': 'bean sabine ost - howard goodall',
+  '/imagination.mp3': 'pure imagination - walter scharf'
+};
 
 if (audio) {
-  const songs = ['/suis_mois.mp3', '/windmills.mp3', '/ciao.mp3'];
-  const randomSong = songs[Math.floor(Math.random() * songs.length)];
+  const songKeys = Object.keys(songMap);
+  const randomSong = songKeys[Math.floor(Math.random() * songKeys.length)];
   audio.src = randomSong;
+  if (songNameEl) {
+    songNameEl.textContent = songMap[randomSong];
+  }
   console.log("Selected background music:", randomSong);
 }
 
@@ -2660,13 +3224,13 @@ if (audio && audioToggle) {
   audioToggle.addEventListener('click', () => {
     if (audio.paused) {
       audio.play().then(() => {
-        audioToggle.querySelector('.icon').textContent = '🔊';
+        if (songNameEl) songNameEl.classList.add('playing');
       }).catch(err => {
         console.error("Audio playback failed:", err);
       });
     } else {
       audio.pause();
-      audioToggle.querySelector('.icon').textContent = '🔇';
+      if (songNameEl) songNameEl.classList.remove('playing');
     }
   });
 }
@@ -2674,13 +3238,14 @@ if (audio && audioToggle) {
 // --- Raycast Click on Cylinder (Globe) ---
 const _globeRaycaster = new THREE.Raycaster();
 const _mouse = new THREE.Vector2();
+const _hoverRaycaster = new THREE.Raycaster();
+const _hoverMouse = new THREE.Vector2();
 
 window.addEventListener('click', (event) => {
   // Ignore clicks on HTML UI elements (tabs, buttons, text, dat.GUI etc.)
   if (event.target.tagName === 'BUTTON' || 
       event.target.closest('.nav-bar') || 
       event.target.closest('.dg') || 
-      event.target.closest('.hero') || 
       event.target.id === 'audio-toggle' ||
       event.target.closest('#audio-toggle')) {
     return;
@@ -2725,6 +3290,10 @@ window.addEventListener('click', (event) => {
         // Reset active nav tab styling since we are no longer focusing on a vehicle
         const navTabs = document.querySelectorAll('.nav-tab');
         navTabs.forEach(t => t.classList.remove('active'));
+        
+        // Activate 3D label mode (hide non-resume HTML nav tabs)
+        const navBar = document.querySelector('.nav-bar');
+        if (navBar) navBar.classList.add('labels-3d-mode');
 
         console.log("Cylinder background clicked — transitioning to post-sequence final view.");
       }
@@ -2738,7 +3307,6 @@ window.addEventListener('pointerdown', (event) => {
   if (event.target.tagName === 'BUTTON' || 
       event.target.closest('.nav-bar') || 
       event.target.closest('.dg') || 
-      event.target.closest('.hero') || 
       event.target.id === 'audio-toggle' ||
       event.target.closest('#audio-toggle')) {
     return;
@@ -2779,4 +3347,83 @@ const releaseVehicleHold = () => {
 window.addEventListener('pointerup', releaseVehicleHold);
 window.addEventListener('pointercancel', releaseVehicleHold);
 window.addEventListener('mouseleave', releaseVehicleHold);
+
+// --- Raycast Hover on 3D Environment Scenes ---
+let lastHoveredSceneName = null;
+
+window.addEventListener('pointermove', (event) => {
+  // Only allow hover protrusion during post-sequence finale
+  if (!isPostSequence) {
+    if (lastHoveredSceneName) {
+      if (hoverScenes[lastHoveredSceneName]) hoverScenes[lastHoveredSceneName].target = 0.0;
+      lastHoveredSceneName = null;
+    }
+    return;
+  }
+
+  // Ignore pointermove on HTML UI elements (tabs, buttons, text, dat.GUI etc.)
+  if (event.target.closest('.nav-bar') || 
+      event.target.closest('.dg') || 
+      event.target.id === 'audio-toggle' ||
+      event.target.closest('#audio-toggle')) {
+    // Reset hover targets to 0 when hovering UI elements
+    if (lastHoveredSceneName) {
+      if (hoverScenes[lastHoveredSceneName]) hoverScenes[lastHoveredSceneName].target = 0.0;
+      lastHoveredSceneName = null;
+    }
+    return;
+  }
+
+  // Calculate mouse position in normalized device coordinates using cached rect
+  if (!canvasRect) updateCanvasRect();
+  const rect = canvasRect;
+  _hoverMouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  _hoverMouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  
+  _hoverRaycaster.setFromCamera(_hoverMouse, camera);
+
+  let hoveredSceneName = null;
+
+  // Raycast ONLY against the simple low-poly globe cylinder
+  if (globe) {
+    const intersects = _hoverRaycaster.intersectObject(globe);
+    if (intersects.length > 0) {
+      const point = intersects[0].point;
+      const angle = Math.atan2(point.y, point.x);
+      
+      const sceneAngles = {
+        'City': 1.73,
+        'School': 0.74,
+        'Landscape': -0.06,
+        'Beach': -0.95,
+        'Cafe': -3.1
+      };
+
+      let minDist = Infinity;
+      for (const name in sceneAngles) {
+        const baseAngle = sceneAngles[name];
+        let diff = Math.abs(angle - baseAngle) % (Math.PI * 2);
+        if (diff > Math.PI) diff = Math.PI * 2 - diff;
+        
+        if (diff < minDist) {
+          minDist = diff;
+          if (diff < 1.05) { // within ~60 degrees sector
+            hoveredSceneName = name;
+          }
+        }
+      }
+    }
+  }
+
+  // Update targets if hovered scene has changed
+  if (hoveredSceneName !== lastHoveredSceneName) {
+    if (lastHoveredSceneName && hoverScenes[lastHoveredSceneName]) {
+      hoverScenes[lastHoveredSceneName].target = 0.0;
+    }
+    if (hoveredSceneName && hoverScenes[hoveredSceneName]) {
+      hoverScenes[hoveredSceneName].target = 1.0;
+    }
+    lastHoveredSceneName = hoveredSceneName;
+  }
+});
 
