@@ -899,6 +899,7 @@ const hoverScenes = {
   'School': { target: 0.0, current: 0.0, maxProtrusion: 0.8 },
   'Landscape': { target: 0.0, current: 0.0, maxProtrusion: 0.8 },
   'Beach': { target: 0.0, current: 0.0, maxProtrusion: 0.8 },
+  'Desert': { target: 0.0, current: 0.0, maxProtrusion: 0.8 },
   'Cafe': { target: 0.0, current: 0.0, maxProtrusion: 0.8 }
 };
 const loadedEnvironments = {};
