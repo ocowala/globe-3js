@@ -606,12 +606,18 @@ const navLabelConfig = [
 
 // --- Nav Label GUI params (Projects label only) ---
 const navLabelParams = {
+  homeZOffset: 4.015,
+  homeAngle: 1.73,
+  schoolZOffset: 4.015,
+  schoolAngle: 0.74,
+  skillsZOffset: 4.015,
+  skillsAngle: -0.1,
+  experienceZOffset: 4.015,
+  experienceAngle: -0.95,
   projectsZOffset: 4.03,
   projectsAngle: -2.1,
   hobbiesZOffset: 4.015,
-  hobbiesAngle: 2.87,
-  skillsZOffset: 4.015,
-  skillsAngle: -0.06
+  hobbiesAngle: 2.87
 };
 
 let navLabels = [];        // Array of { mesh, config, baseAngle, targetOpacity, targetScale }
@@ -718,20 +724,13 @@ function createNavLabel(text, pastelHex) {
 
 function updateNavLabelPositions() {
   navLabels.forEach((entry) => {
-    if (entry.config.key === 'projects') {
-      // Projects label uses GUI-adjustable params
-      entry.mesh.position.set(0, 0, navLabelParams.projectsZOffset);
-      entry.mesh.rotation.set(0, 0, navLabelParams.projectsAngle);
-    } else if (entry.config.key === 'hobbies') {
-      // Hobbies label uses GUI-adjustable params
-      entry.mesh.position.set(0, 0, navLabelParams.hobbiesZOffset);
-      entry.mesh.rotation.set(0, 0, navLabelParams.hobbiesAngle);
-    } else if (entry.config.key === 'skills') {
-      // Skills label uses GUI-adjustable params
-      entry.mesh.position.set(0, 0, navLabelParams.skillsZOffset);
-      entry.mesh.rotation.set(0, 0, navLabelParams.skillsAngle);
+    const key = entry.config.key;
+    const zProp = key + 'ZOffset';
+    const aProp = key + 'Angle';
+    if (navLabelParams[zProp] !== undefined) {
+      entry.mesh.position.set(0, 0, navLabelParams[zProp]);
+      entry.mesh.rotation.set(0, 0, navLabelParams[aProp]);
     } else {
-      // Other labels stay at hardcoded positions
       entry.mesh.position.set(0, 0, 4.015);
       entry.mesh.rotation.set(0, 0, entry.baseAngle);
     }
@@ -779,14 +778,20 @@ function highlightNavLabel(activeIdx) {
   });
 }
 
-// --- Nav Labels GUI (Projects, Hobbies & Skills) ---
+// --- Nav Labels GUI (All labels) ---
 const navLabelFolder = gui.addFolder('Nav Labels');
+navLabelFolder.add(navLabelParams, 'homeZOffset', -10.0, 10.0).step(0.01).name('Home Z Offset').onChange(updateNavLabelPositions);
+navLabelFolder.add(navLabelParams, 'homeAngle', -Math.PI, Math.PI).step(0.01).name('Home Angle').onChange(updateNavLabelPositions);
+navLabelFolder.add(navLabelParams, 'schoolZOffset', -10.0, 10.0).step(0.01).name('School Z Offset').onChange(updateNavLabelPositions);
+navLabelFolder.add(navLabelParams, 'schoolAngle', -Math.PI, Math.PI).step(0.01).name('School Angle').onChange(updateNavLabelPositions);
+navLabelFolder.add(navLabelParams, 'skillsZOffset', -10.0, 10.0).step(0.01).name('Skills Z Offset').onChange(updateNavLabelPositions);
+navLabelFolder.add(navLabelParams, 'skillsAngle', -Math.PI, Math.PI).step(0.01).name('Skills Angle').onChange(updateNavLabelPositions);
+navLabelFolder.add(navLabelParams, 'experienceZOffset', -10.0, 10.0).step(0.01).name('Experience Z Offset').onChange(updateNavLabelPositions);
+navLabelFolder.add(navLabelParams, 'experienceAngle', -Math.PI, Math.PI).step(0.01).name('Experience Angle').onChange(updateNavLabelPositions);
 navLabelFolder.add(navLabelParams, 'projectsZOffset', -10.0, 10.0).step(0.01).name('Projects Z Offset').onChange(updateNavLabelPositions);
 navLabelFolder.add(navLabelParams, 'projectsAngle', -Math.PI, Math.PI).step(0.01).name('Projects Angle').onChange(updateNavLabelPositions);
 navLabelFolder.add(navLabelParams, 'hobbiesZOffset', -10.0, 10.0).step(0.01).name('Hobbies Z Offset').onChange(updateNavLabelPositions);
 navLabelFolder.add(navLabelParams, 'hobbiesAngle', -Math.PI, Math.PI).step(0.01).name('Hobbies Angle').onChange(updateNavLabelPositions);
-navLabelFolder.add(navLabelParams, 'skillsZOffset', -10.0, 10.0).step(0.01).name('Skills Z Offset').onChange(updateNavLabelPositions);
-navLabelFolder.add(navLabelParams, 'skillsAngle', -Math.PI, Math.PI).step(0.01).name('Skills Angle').onChange(updateNavLabelPositions);
 navLabelFolder.open();
 
 // --- Boat raycasting state ---
