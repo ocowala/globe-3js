@@ -27,7 +27,7 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(7.5, 0.8, 1.2);
 camera.lookAt(0, 0, 0);
-  
+
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.enablePan = true;
@@ -109,6 +109,10 @@ function buildCylinder() {
     globe.visible = false;
     orbitRing.visible = false;
   }
+
+  if (window.labelsInitialized) {
+    initNavLabels();
+  }
 }
 
 // --- Intro Cursive Animation State ---
@@ -162,17 +166,17 @@ function initCursivePlane() {
   cursiveCanvas = document.createElement('canvas');
   cursiveCanvas.width = 4096;
   cursiveCanvas.height = 2048;
-  
+
   cursiveTexture = new THREE.CanvasTexture(cursiveCanvas);
   cursiveTexture.minFilter = THREE.LinearFilter;
-  
+
   const material = new THREE.MeshBasicMaterial({
     map: cursiveTexture,
     transparent: true,
     side: THREE.DoubleSide,
     depthTest: false
   });
-  
+
   const geometry = new THREE.PlaneGeometry(3.6, 1.8);
   cursivePlane = new THREE.Mesh(geometry, material);
   cursivePlane.position.set(0, 0, getCylinderMiddleZ());
@@ -296,7 +300,7 @@ cylFolder.add(cylinderParams, 'radius', 0.5, 40.0).step(0.01).name('Radius').onC
   boatRadialOffset = null;
   broncoRadialOffset = null;
   car2RadialOffset = null;
-  
+
   // Update all distance slider max to 2× new radius
   const newMax = cylinderParams.radius * 2;
   distanceControllers.forEach(ctrl => {
@@ -346,7 +350,7 @@ function prepareMesh(child, isVehicle = false) {
     if (child.material) {
       // High metalness without environment maps renders pitch black in Three.js.
       // We cap metalness to 0.1 and raise roughness to at least 0.4 to make materials diffuse light.
-      if (child.material.metalness !== undefined   && child.material.metalness > 0.1) {
+      if (child.material.metalness !== undefined && child.material.metalness > 0.1) {
         child.material.metalness = 0.1;
       }
       if (child.material.roughness !== undefined && child.material.roughness < 0.4) {
@@ -501,7 +505,7 @@ function createTextBox(data) {
     if (data.badges && data.badges.length > 0) {
       const badgeFontSize = 21;
       ctx.font = `bold ${badgeFontSize}px "Instrument Serif", Georgia, serif`;
-      
+
       const spacing = 12;
       const paddingX = 14;
       const paddingY = 6;
@@ -551,7 +555,7 @@ function createTextBox(data) {
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
-  
+
   const material = new THREE.MeshBasicMaterial({
     map: texture,
     transparent: true,
@@ -563,7 +567,7 @@ function createTextBox(data) {
   const geometry = new THREE.PlaneGeometry(2.0, 1.0);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = 'textbox';
-  
+
   return mesh;
 }
 
@@ -592,16 +596,17 @@ function addTextboxGUI(folder, params, updateFn, minOffset = -10.0, maxOffset = 
 
 // --- 3D Cylinder Nav Labels ---
 const navLabelConfig = [
-  { key: 'home',       label: 'Home',       scene: 'City',      angle: 1.73,  color: '#f7c5c0', vehicleIdx: 0 },
-  { key: 'school',     label: 'School',     scene: 'School',    angle: 0.74,  color: '#c7b8ea', vehicleIdx: 1 },
+  { key: 'home', label: 'Home', scene: 'City', angle: 1.73, color: '#f7c5c0', vehicleIdx: 0 },
+  { key: 'school', label: 'School', scene: 'School', angle: 0.74, color: '#c7b8ea', vehicleIdx: 1 },
   { key: 'experience', label: 'Experience', scene: 'Landscape', angle: -0.06, color: '#fce8a3', vehicleIdx: 2 },
-  { key: 'projects',   label: 'Projects',   scene: 'Beach',     angle: -0.95, color: '#b8e6c8', vehicleIdx: 3 },
-  { key: 'skills',     label: 'Skills',     scene: 'Cafe',      angle: -3.1,  color: '#a8d8ea', vehicleIdx: 5 },
+  { key: 'projects', label: 'Projects', scene: 'Beach', angle: -0.95, color: '#b8e6c8', vehicleIdx: 3 },
+  { key: 'skills', label: 'Skills', scene: 'Cafe', angle: 2.95, color: '#a8d8ea', vehicleIdx: 5 },
 ];
 
 let navLabels = [];        // Array of { mesh, config, baseAngle, targetOpacity, targetScale }
 let activeNavIndex = 0;    // Currently highlighted label index
 let navLabelsVisible = false;
+let hoverTimeoutTimer = 0; // Timer to automatically reset 3D sector highlighting and scene protrusion
 
 // Pre-allocated vectors for nav label orientation math
 const _navUp = new THREE.Vector3(0, 0, 1);
@@ -609,10 +614,50 @@ const _navOutward = new THREE.Vector3();
 const _navTangent = new THREE.Vector3();
 const _navRotMatrix = new THREE.Matrix4();
 
+function createRingSectorGeometry(innerR, outerR, thetaLength, segments = 32) {
+  const geometry = new THREE.BufferGeometry();
+  const vertices = [];
+  const uvs = [];
+  const indices = [];
+
+  const halfTheta = thetaLength / 2;
+
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments;
+    const angle = halfTheta * (1 - 2 * t); // Goes from +halfTheta to -halfTheta
+
+    // Inner vertex
+    const xInner = innerR * Math.cos(angle);
+    const yInner = innerR * Math.sin(angle);
+    vertices.push(xInner, yInner, 0);
+    uvs.push(t, 0); // U = t, V = 0
+
+    // Outer vertex
+    const xOuter = outerR * Math.cos(angle);
+    const yOuter = outerR * Math.sin(angle);
+    vertices.push(xOuter, yOuter, 0);
+    uvs.push(t, 1); // U = t, V = 1
+  }
+
+  for (let i = 0; i < segments; i++) {
+    // Triangle 1: [2i, 2i+3, 2i+1]
+    indices.push(2 * i, 2 * i + 3, 2 * i + 1);
+    // Triangle 2: [2i, 2i+2, 2i+3]
+    indices.push(2 * i, 2 * i + 2, 2 * i + 3);
+  }
+
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+
+  return geometry;
+}
+
 function createNavLabel(text, pastelHex) {
   const canvas = document.createElement('canvas');
-  canvas.width = 320;
-  canvas.height = 112;
+  canvas.width = 1024;
+  canvas.height = 256;
   const ctx = canvas.getContext('2d');
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -622,48 +667,18 @@ function createNavLabel(text, pastelHex) {
   const g = parseInt(pastelHex.slice(3, 5), 16);
   const b = parseInt(pastelHex.slice(5, 7), 16);
 
-  // Mix 70% white with 30% pastel color for a solid whitish-pastel background
-  const mix = 0.7;
-  const r_blend = Math.round(r * (1 - mix) + 255 * mix);
-  const g_blend = Math.round(g * (1 - mix) + 255 * mix);
-  const b_blend = Math.round(b * (1 - mix) + 255 * mix);
-  const bgColor = `rgb(${r_blend}, ${g_blend}, ${b_blend})`;
+  // Fill canvas with translucent pastel background
+  ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.75)`;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const pad = 10;
-  const cornerR = 22;
-  const w = canvas.width - 2 * pad;
-  const h = canvas.height - 2 * pad;
+  // Thin border on canvas edges using darker, more opaque version
+  ctx.strokeStyle = `rgba(${Math.round(r * 0.75)}, ${Math.round(g * 0.75)}, ${Math.round(b * 0.75)}, 0.9)`;
+  ctx.lineWidth = 16;
+  ctx.strokeRect(0, 0, canvas.width, canvas.height);
 
-  // Background box shadow
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
-  ctx.shadowBlur = 8;
-  ctx.shadowOffsetY = 3;
-
-  ctx.fillStyle = bgColor;
-  ctx.beginPath();
-  ctx.moveTo(pad + cornerR, pad);
-  ctx.lineTo(pad + w - cornerR, pad);
-  ctx.quadraticCurveTo(pad + w, pad, pad + w, pad + cornerR);
-  ctx.lineTo(pad + w, pad + h - cornerR);
-  ctx.quadraticCurveTo(pad + w, pad + h, pad + w - cornerR, pad + h);
-  ctx.lineTo(pad + cornerR, pad + h);
-  ctx.quadraticCurveTo(pad, pad + h, pad, pad + h - cornerR);
-  ctx.lineTo(pad, pad + cornerR);
-  ctx.quadraticCurveTo(pad, pad, pad + cornerR, pad);
-  ctx.closePath();
-  ctx.fill();
-
-  // Subtle border using the original solid pastel color
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetY = 0;
-  ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
-  ctx.lineWidth = 3;
-  ctx.stroke();
-
-  // Draw black text
+  // Draw text in Instrumental Serif
   ctx.fillStyle = '#000000';
-  ctx.font = 'bold 36px "Instrument Serif", Georgia, serif';
+  ctx.font = 'bold 96px "Instrument Serif", Georgia, serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, canvas.width / 2, canvas.height / 2);
@@ -679,9 +694,11 @@ function createNavLabel(text, pastelHex) {
     depthTest: true
   });
 
-  const aspect = canvas.width / canvas.height;
-  const planeH = 0.28;
-  const geometry = new THREE.PlaneGeometry(planeH * aspect, planeH);
+  const innerR = cylinderParams.radius * cylinderParams.wallRatio;
+  const outerR = cylinderParams.radius;
+  
+  // Use thetaLength = 0.8 radians
+  const geometry = createRingSectorGeometry(innerR, outerR, 0.8, 32);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.renderOrder = 999;
 
@@ -689,25 +706,11 @@ function createNavLabel(text, pastelHex) {
 }
 
 function updateNavLabelPositions() {
-  const innerR = cylinderParams.radius * cylinderParams.wallRatio;
-  const outerR = cylinderParams.radius;
-  const midR = (innerR + outerR) / 2;
-
   navLabels.forEach((entry) => {
-    const angle = entry.baseAngle;
-    // Position on the top cap of the translucent cylinder (Z = 4.01)
-    entry.mesh.position.set(
-      midR * Math.cos(angle),
-      midR * Math.sin(angle),
-      4.01
-    );
-
-    // Orientation: flat on the cap, normal pointing along Z, reading clockwise
-    _navOutward.set(Math.cos(angle), Math.sin(angle), 0);
-    _navTangent.crossVectors(_navUp, _navOutward);
-    const col0 = _navTangent.clone().negate();
-    _navRotMatrix.makeBasis(col0, _navOutward, _navUp);
-    entry.mesh.quaternion.setFromRotationMatrix(_navRotMatrix);
+    // Position mesh at center of cap, slightly offset in Z to prevent Z-fighting
+    entry.mesh.position.set(0, 0, 4.015);
+    // Rotate mesh around Z-axis by its baseAngle
+    entry.mesh.rotation.set(0, 0, entry.baseAngle);
   });
 }
 
@@ -730,16 +733,24 @@ function initNavLabels() {
   });
 
   updateNavLabelPositions();
+  window.labelsInitialized = true;
 }
 
 function highlightNavLabel(activeIdx) {
   navLabels.forEach((entry, idx) => {
-    if (idx === activeIdx) {
+    const isCurrent = (idx === activeIdx);
+    if (isCurrent) {
       entry.targetOpacity = 1.0;
       entry.targetScale = 1.25;
+      if (hoverScenes[entry.config.scene]) {
+        hoverScenes[entry.config.scene].target = 1.0;
+      }
     } else {
       entry.targetOpacity = 0.75;
       entry.targetScale = 1.0;
+      if (hoverScenes[entry.config.scene]) {
+        hoverScenes[entry.config.scene].target = 0.0;
+      }
     }
   });
 }
@@ -755,7 +766,7 @@ const boatParams = {
   angle: -0.94,        // base angle (aligns with beach)
   orbitDegrees: 20,    // orbit rotation
   scale: 1.5,         // scale
-  rotX: -Math.PI/2.0,          // rotation X
+  rotX: -Math.PI / 2.0,          // rotation X
   rotY: 2.9,          // rotation Y
   rotZ: 1.55,         // rotation Z
   speed: 7,             // orbit speed
@@ -763,8 +774,8 @@ const boatParams = {
   textboxOffsetX: 0.0,
   textboxOffsetY: 0.333,
   textboxOffsetZ: 0.0,
-  textboxRotX: Math.PI/2.0,
-  textboxRotY: -Math.PI/2.0,
+  textboxRotX: Math.PI / 2.0,
+  textboxRotY: -Math.PI / 2.0,
   textboxRotZ: 0.0
 };
 
@@ -878,10 +889,10 @@ function loadModelWithGUI(name, url, defaults) {
       _tempQuat1.setFromAxisAngle(_tempAxisZ, params.angle);
       _tempQuat2.setFromAxisAngle(_tempAxisX, Math.PI / 2);
       _tempQuat1.multiply(_tempQuat2);
-      
+
       _tempEuler.set(params.rotX, params.rotY, params.rotZ);
       _tempQuat2.setFromEuler(_tempEuler);
-      
+
       obj.quaternion.copy(_tempQuat1).multiply(_tempQuat2);
     } else {
       if (params.rotOrder) obj.rotation.order = params.rotOrder;
@@ -913,7 +924,7 @@ function loadModelWithGUI(name, url, defaults) {
 
   loader.load(url, (gltf) => {
     const model = gltf.scene;
-    
+
     if (name === 'City') cityRoadMeshes.length = 0;
     else if (name === 'Beach') beachGroundMeshes.length = 0;
     else if (name === 'Desert') desertGroundMeshes.length = 0;
@@ -1030,7 +1041,7 @@ const motorcycleParams = {
   height: 3.8,         // height along cylinder (Z-axis offset)
   orbitDegrees: 20,    // orbit rotation in degrees
   scale: 0.32,         // scale of the motorcycle
-  rotX: Math.PI/2.0,          // rotation X (tilt for cylinder alignment)
+  rotX: Math.PI / 2.0,          // rotation X (tilt for cylinder alignment)
   rotY: -3.05,          // rotation Y
   rotZ: -1.2,         // rotation Z
   wheelSpeed: 0.5,     // wheel spin speed
@@ -1039,8 +1050,8 @@ const motorcycleParams = {
   textboxOffsetX: 0.0,
   textboxOffsetY: 0.0,
   textboxOffsetZ: 0.0,
-  textboxRotX: Math.PI/2.0,
-  textboxRotY: Math.PI/2.0,
+  textboxRotX: Math.PI / 2.0,
+  textboxRotY: Math.PI / 2.0,
   textboxRotZ: 0.0
 };
 
@@ -1076,19 +1087,19 @@ motoFolder.open();
 
 // --- All models with GUI (Static Backgrounds) ---
 loadModelWithGUI('City', new URL('../assets/models/city_at_night_v4_meshopt.glb', import.meta.url).href, {
-  distance: 2.45, angle: 1.73, rotX: Math.PI/2.0, rotY: 1.73, rotZ: -Math.PI/2.0, posZ: 2.57, scale: 0.35
+  distance: 2.45, angle: 1.73, rotX: Math.PI / 2.0, rotY: 1.73, rotZ: -Math.PI / 2.0, posZ: 2.57, scale: 0.35
 });
 
 loadModelWithGUI('School', new URL('../assets/models/school_v2_meshopt.glb', import.meta.url).href, {
-  distance: 2.55, angle: 0.74, rotX: Math.PI/2.0, rotY: -2.45, rotZ: Math.PI/2, posZ: 2.83, scale: 0.12
-}); 
+  distance: 2.55, angle: 0.74, rotX: Math.PI / 2.0, rotY: -2.45, rotZ: Math.PI / 2, posZ: 2.83, scale: 0.12
+});
 
 loadModelWithGUI('Landscape', new URL('../assets/models/landscape_v5_meshopt.glb', import.meta.url).href, {
-  distance: 2.88, angle: -0.06, rotX: Math.PI/2.0, rotY: Math.PI, rotZ: 0, posZ: 3.21, scale: 0.038, cylinderAlign: true
+  distance: 2.88, angle: -0.06, rotX: Math.PI / 2.0, rotY: Math.PI, rotZ: 0, posZ: 3.21, scale: 0.038, cylinderAlign: true
 });
 
 loadModelWithGUI('Beach', new URL('../assets/models/beach_v2_meshopt.glb', import.meta.url).href, {
-  distance: 2.8, angle: -0.95, rotX: Math.PI/2.0, rotY: 0.62, rotZ: -Math.PI/2.0, posZ: 2.49, scale: 1.53
+  distance: 2.8, angle: -0.95, rotX: Math.PI / 2.0, rotY: 0.62, rotZ: -Math.PI / 2.0, posZ: 2.49, scale: 1.53
 });
 
 // loadModelWithGUI('Desert', new URL('../assets/models/desert_meshopt.glb', import.meta.url).href, {
@@ -1096,7 +1107,7 @@ loadModelWithGUI('Beach', new URL('../assets/models/beach_v2_meshopt.glb', impor
 // });
 
 loadModelWithGUI('Desert', new URL('../assets/models/desert_v3_meshopt.glb', import.meta.url).href, {
-  distance: 2.89, angle: -1.86, rotX: Math.PI/2.0, rotY: -0.35, rotZ: Math.PI/2.0, posZ: 2.23, scale: 0.17
+  distance: 2.89, angle: -1.86, rotX: Math.PI / 2.0, rotY: -0.35, rotZ: Math.PI / 2.0, posZ: 2.23, scale: 0.17
 });
 
 // loadModelWithGUI('Cafe', new URL('../assets/models/cafe_meshopt.glb', import.meta.url).href, {
@@ -1182,7 +1193,7 @@ function updateMotorcycle() {
   const baseEuler = new THREE.Euler(motorcycleParams.rotX, motorcycleParams.rotY, motorcycleParams.rotZ);
   const baseQuat = new THREE.Quaternion().setFromEuler(baseEuler);
   const orbitQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), totalAngularDelta);
-  
+
   motorcycleGroup.quaternion.copy(orbitQuat).multiply(baseQuat);
   motorcycleGroup.scale.setScalar(motorcycleParams.scale);
 
@@ -1196,7 +1207,7 @@ function updateMotorcycle() {
 // --- Load Standalone Motorcycle ---
 rawLoader.load(new URL('../assets/models/motorcycle.glb', import.meta.url).href, (gltf) => {
   const model = gltf.scene;
-  
+
   model.traverse((child) => {
     prepareMesh(child, true);
   });
@@ -1248,9 +1259,9 @@ const airplaneParams = {
   height: 2.8,         // height along cylinder (Z-axis offset)
   orbitDegrees: 20,    // orbit rotation in degrees
   scale: 0.01,         // scale of the airplane
-  rotX: -Math.PI/2.0,         // rotation X
+  rotX: -Math.PI / 2.0,         // rotation X
   rotY: 2.4,           // rotation Y
-  rotZ: Math.PI/2.0,          // rotation Z
+  rotZ: Math.PI / 2.0,          // rotation Z
   propellerSpeed: 0.3,   // propeller spin speed
   speed: 8,            // orbit speed
   textboxScale: 0.5,
@@ -1366,9 +1377,9 @@ const broncoParams = {
   height: 3.42,        // height along cylinder (Z-axis offset)
   orbitDegrees: 15,     // orbit rotation in degrees
   scale: 0.15,         // scale of the bronco
-  rotX: Math.PI/2.0,          // rotation X (tilt for cylinder alignment)
+  rotX: Math.PI / 2.0,          // rotation X (tilt for cylinder alignment)
   rotY: 1.2,         // rotation Y
-  rotZ: Math.PI/2.0,          // rotation Z
+  rotZ: Math.PI / 2.0,          // rotation Z
   wheelSpeed: 0.05,    // wheel spin speed
   speed: 7,             // orbit speed
   textboxScale: 0.5,
@@ -1627,9 +1638,9 @@ const car2Params = {
   angle: -0.2,        // base angle (aligns with city road)
   orbitDegrees: 22,    // orbit rotation
   scale: 0.15,         // scale
-  rotX: -Math.PI/2.0,          // rotation X
+  rotX: -Math.PI / 2.0,          // rotation X
   rotY: -3.0,          // rotation Y
-  rotZ: Math.PI/2.0,          // rotation Z
+  rotZ: Math.PI / 2.0,          // rotation Z
   wheelSpeed: 0.05,     // wheel speed
   speed: 7,             // orbit speed
   textboxScale: 0.5,
@@ -1745,9 +1756,9 @@ const racecarParams = {
   angle: -3.05,        // base angle (aligns with nascar_racetrack)
   orbitDegrees: 8,    // orbit rotation
   scale: 15.0,        // scale
-  rotX: -Math.PI/2.0,          // rotation X
+  rotX: -Math.PI / 2.0,          // rotation X
   rotY: -0.03,        // rotation Y
-  rotZ: Math.PI/2.0,         // rotation Z
+  rotZ: Math.PI / 2.0,         // rotation Z
   wheelSpeed: 0.1,     // wheel spin speed
   speed: 7,             // orbit speed
   textboxScale: 0.5,
@@ -1825,7 +1836,7 @@ function updateRacecar() {
 
   // Align car to actual road surface normal (same technique as Bronco on desert)
   const cylinderNormal = new THREE.Vector3(Math.cos(currentAngle), Math.sin(currentAngle), 0).normalize();
-  
+
   if (localHitNormal) {
     const alignQuat = new THREE.Quaternion().setFromUnitVectors(cylinderNormal, localHitNormal);
 
@@ -2014,11 +2025,11 @@ rawLoader.load(new URL('../assets/models/car_v2.glb', import.meta.url).href, (gl
 // lookOffset: same coordinate frame, relative to vehicle position
 const orbitSequence = [
   { name: 'Motorcycle', update: updateMotorcycle, params: motorcycleParams, start: 20, end: -30, getObject: () => motorcycleGroup, camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: 1.74 },
-  { name: 'Airplane',  update: updateAirplane,   params: airplaneParams, start: 20, end: -15, getObject: () => airplaneGroup,  camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: 0.74 },
-  { name: 'Car V2',    update: updateCar2,       params: car2Params,     start: 22, end: -12, getObject: () => car2Object,     camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: -0.12 },
-  { name: 'Boat',      update: updateBoat,       params: boatParams,     start: 20, end: -23, getObject: () => boatObject,     camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: -0.94 },
-  { name: 'Bronco',    update: updateBronco,     params: broncoParams,   start: 15, end: -40, getObject: () => broncoGroup,    camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: -1.86 },
-  { name: 'Racecar',   update: updateRacecar,    params: racecarParams,  start: 8,  end: -40, getObject: () => racecarObject,  camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: -3.05 }
+  { name: 'Airplane', update: updateAirplane, params: airplaneParams, start: 20, end: -15, getObject: () => airplaneGroup, camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: 0.74 },
+  { name: 'Car V2', update: updateCar2, params: car2Params, start: 22, end: -12, getObject: () => car2Object, camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: -0.12 },
+  { name: 'Boat', update: updateBoat, params: boatParams, start: 20, end: -23, getObject: () => boatObject, camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: -0.94 },
+  { name: 'Bronco', update: updateBronco, params: broncoParams, start: 15, end: -40, getObject: () => broncoGroup, camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: -1.86 },
+  { name: 'Racecar', update: updateRacecar, params: racecarParams, start: 8, end: -40, getObject: () => racecarObject, camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: -3.05 }
 ];
 
 let currentSeqIndex = 0;
@@ -2182,14 +2193,14 @@ function smoothstep(t) {
  */
 function updateBackgroundVisibility() {
   const activeAngles = [];
-  
+
   // Get active vehicle angles
   const currentSeq = orbitSequence[currentSeqIndex];
   if (currentSeq && currentSeq.params) {
     const orbitRad = THREE.MathUtils.degToRad(currentSeq.params.orbitDegrees);
     activeAngles.push(currentSeq.params.angle + orbitRad);
   }
-  
+
   if (isTransitioning) {
     const prevIndex = (currentSeqIndex - 1 + orbitSequence.length) % orbitSequence.length;
     const prevSeq = orbitSequence[prevIndex];
@@ -2198,22 +2209,22 @@ function updateBackgroundVisibility() {
       activeAngles.push(prevSeq.params.angle + orbitRad);
     }
   }
-  
+
   const bgNames = ['City', 'School', 'Landscape', 'Beach', 'Desert', 'Cafe'];
-  
+
   bgNames.forEach(name => {
     const model = scene.getObjectByName(name);
     if (model) {
       // Calculate current angle based on model's position
       const bgAngle = Math.atan2(model.position.y, model.position.x);
-      
+
       // Check if it is close to any active vehicle
       const isClose = activeAngles.some(activeAngle => {
         let diff = Math.abs(activeAngle - bgAngle) % (Math.PI * 2);
         if (diff > Math.PI) diff = Math.PI * 2 - diff;
         return diff < 1.95; // ~112 degrees threshold
       });
-      
+
       model.visible = isClose;
     }
   });
@@ -2232,22 +2243,22 @@ function animate() {
   const hoverSpeed = 10.0;
   for (const name in hoverScenes) {
     const sceneData = hoverScenes[name];
-    
+
     // Protrusion is strictly active in the post-sequence finale view
     if (!isPostSequence) {
       sceneData.target = 0.0;
     }
-    
+
     const prevVal = sceneData.current;
-    
+
     // Smooth interpolation towards target
     sceneData.current += (sceneData.target - sceneData.current) * hoverSpeed * realDeltaTime;
-    
+
     // Clamp if extremely close to avoid endless updates
     if (Math.abs(sceneData.target - sceneData.current) < 0.001) {
       sceneData.current = sceneData.target;
     }
-    
+
     if (sceneData.current !== prevVal) {
       const env = loadedEnvironments[name];
       if (env && env.update) {
@@ -2438,7 +2449,7 @@ function animate() {
               // Reset active nav tab styling since we are entering post-sequence finale
               const tabs = document.querySelectorAll('.nav-tab');
               tabs.forEach(t => t.classList.remove('active'));
-              
+
               // Activate 3D label mode (hide non-resume HTML nav tabs)
               const navBar = document.querySelector('.nav-bar');
               if (navBar) navBar.classList.add('labels-3d-mode');
@@ -2469,7 +2480,7 @@ function animate() {
         }
       }
     }
-    
+
     const writeProgress = (fullyOptimized && showWriting) ? Math.min(introTimer / Math.max(introParams.writeDuration, 0.1), 1.0) : 0.0;
     const unwriteProgress = (fullyOptimized && showWriting) ? Math.min(unwriteTimer / Math.max(introParams.unwriteDuration, 0.1), 1.0) : 0.0;
 
@@ -2488,7 +2499,7 @@ function animate() {
     const currentSeq = orbitSequence[currentSeqIndex];
     if (currentSeq && currentSeq.params) {
       const direction = currentSeq.end > currentSeq.start ? 1 : -1;
-      
+
       // Update current vehicle position (only when not transitioning to prevent double-speed updates)
       if (!isTransitioning && !isVehicleHeld) {
         currentSeq.params.orbitDegrees += direction * currentSeq.params.speed * deltaTime;
@@ -2497,7 +2508,7 @@ function animate() {
       // Check if we should trigger transition early (e.g. 5 degrees before end angle)
       const earlyTriggerAngle = 5; // degrees before end
       let shouldTriggerTransition = false;
-      
+
       if (direction === 1) {
         if (currentSeq.params.orbitDegrees >= currentSeq.end) {
           currentSeq.params.orbitDegrees = currentSeq.end;
@@ -2525,12 +2536,12 @@ function animate() {
           sequenceEverCompleted = true;
           postSeqTimer = 0;
           currentSeq.params.orbitDegrees = currentSeq.end;
-          
+
           // Capture current camera state for smooth transition start
           transitionStartPos.copy(camera.position);
           transitionStartTarget.copy(currentCamTarget);
           transitionStartUp.copy(camera.up);
-          
+
           // Reorient cursive plane to face +Z for the ending view
           if (cursivePlane) {
             cursivePlane.visible = true;
@@ -2542,11 +2553,11 @@ function animate() {
           // Reset active nav tab styling
           const tabs = document.querySelectorAll('.nav-tab');
           tabs.forEach(t => t.classList.remove('active'));
-          
+
           // Hide non-resume HTML nav tabs for 3D label mode
           const navBar = document.querySelector('.nav-bar');
           if (navBar) navBar.classList.add('labels-3d-mode');
-          
+
           console.log("Orbit sequence complete — transitioning to portfolio view.");
         } else {
           const nextIndex = (currentSeqIndex + 1) % orbitSequence.length;
@@ -2554,7 +2565,7 @@ function animate() {
           if (nextSeq && nextSeq.params) {
             nextSeq.params.orbitDegrees = nextSeq.start;
           }
-          
+
           currentSeqIndex = nextIndex;
           syncCamGuiFromSequence();
 
@@ -2692,14 +2703,14 @@ function animate() {
 
     if (introTransitionProgress >= 1.0) {
       isIntroTransitioning = false;
-      
+
       // Sync camera follow system to prevent duplicate camera lerp
       currentCamPos.copy(camera.position);
       const finalTransform = getVehicleCameraTransform(orbitSequence[0]);
       if (finalTransform) {
         currentCamTarget.copy(finalTransform.target);
       }
-      
+
       // Keep cursive plane alive, just hide it and restore full text for post-sequence view
       if (cursivePlane) {
         cursivePlane.visible = false;
@@ -2719,28 +2730,28 @@ function animate() {
     }
     const postSeqDuration = 3.0; // 3 seconds for the final camera sweep
     const t = smoothstep(Math.min(postSeqTimer / postSeqDuration, 1.0));
-    
+
     const finalCamPos = new THREE.Vector3(0, 0, 15);
     const finalCamTarget = new THREE.Vector3(0, 0, 0);
     const finalUp = new THREE.Vector3(-Math.sin(postSeqAngle), Math.cos(postSeqAngle), 0).normalize();
-    
+
     // Lerp camera position and target
     currentCamPos.lerpVectors(transitionStartPos, finalCamPos, t);
     currentCamTarget.lerpVectors(transitionStartTarget, finalCamTarget, t);
     camera.up.lerpVectors(transitionStartUp, finalUp, t).normalize();
     camera.position.copy(currentCamPos);
     camera.lookAt(currentCamTarget);
-    
+
     // Fade in cursive text and cylinder
     globeMaterial.opacity = THREE.MathUtils.lerp(globeMaterial.opacity, 0.35, 0.02);
     orbitMaterial.opacity = THREE.MathUtils.lerp(orbitMaterial.opacity, 0.45, 0.02);
-    
+
     // Fade in the cursive name and apply counter-rotation to keep it static/horizontal
     if (cursivePlane) {
       cursivePlane.material.opacity = THREE.MathUtils.lerp(cursivePlane.material.opacity, 0.9, 0.03);
       cursivePlane.rotation.z = postSeqAngle;
     }
-    
+
     // Fade out all vehicles
     orbitSequence.forEach(seq => {
       const obj = seq.getObject();
@@ -2749,32 +2760,41 @@ function animate() {
         setOpacity(obj, Math.max(0, currentOpacity - 0.02));
       }
     });
-    
+
     // Show all backgrounds
     const bgNames = ['City', 'School', 'Landscape', 'Beach', 'Desert', 'Cafe'];
     bgNames.forEach(name => {
       const model = scene.getObjectByName(name);
       if (model) model.visible = true;
     });
-    
+
     // --- Update 3D Nav Labels ---
     // Position labels statically on the cylinder cap to rotate with the scene
     updateNavLabelPositions();
-    
+
     // Fade in nav labels and apply active highlighting
     navLabels.forEach((entry, idx) => {
       entry.mesh.visible = true;
-      
+
       // Set target opacity based on highlight state (initialize if first frame)
       if (!navLabelsVisible) {
-        highlightNavLabel(activeNavIndex);
+        // Reset all background scenes to flat (no protrusion)
+        for (const name in hoverScenes) {
+          hoverScenes[name].target = 0.0;
+        }
+        // Set all nav labels to default opacity/scale at start of post-sequence
+        navLabels.forEach((e) => {
+          e.targetOpacity = 0.75;
+          e.targetScale = 1.0;
+        });
         navLabelsVisible = true;
+        hoverTimeoutTimer = 0; // Reset hover timer on entry
       }
-      
+
       // Smooth opacity interpolation
       const currentOpacity = entry.mesh.material.opacity;
       entry.mesh.material.opacity += (entry.targetOpacity - currentOpacity) * 6.0 * realDeltaTime;
-      
+
       // Smooth scale interpolation
       const currentScaleY = Math.abs(entry.mesh.scale.y);
       const newScale = currentScaleY + (entry.targetScale - currentScaleY) * 6.0 * realDeltaTime;
@@ -2782,7 +2802,24 @@ function animate() {
       entry.mesh.scale.x = newScale; // No X-flip needed anymore since they face the camera directly
       entry.mesh.scale.z = newScale;
     });
-    
+
+    // --- Decrement and Handle Hover Timeout ---
+    if (hoverTimeoutTimer > 0 && !isPaused) {
+      hoverTimeoutTimer -= realDeltaTime;
+      if (hoverTimeoutTimer <= 0) {
+        hoverTimeoutTimer = 0;
+        // Reset all background scenes to flat (no protrusion)
+        for (const name in hoverScenes) {
+          hoverScenes[name].target = 0.0;
+        }
+        // Reset all nav labels to default opacity/scale
+        navLabels.forEach((entry) => {
+          entry.targetOpacity = 0.75;
+          entry.targetScale = 1.0;
+        });
+      }
+    }
+
     // Disable orbit controls to prevent overriding camera.up rotation
     controls.enabled = false;
     controls.autoRotate = false;
@@ -2952,6 +2989,8 @@ const tabToSceneName = {
   'skills': 'Cafe'
 };
 
+// HTML nav tab mouseenter/mouseleave hover protrusion animations disabled as navigation is strictly keyboard-driven.
+/*
 navTabs.forEach(tab => {
   const tabClass = [...tab.classList].find(c => tabToSceneName[c] !== undefined);
   if (tabClass) {
@@ -2968,21 +3007,22 @@ navTabs.forEach(tab => {
     });
   }
 });
+*/
 navTabs.forEach(tab => {
   tab.addEventListener('click', () => {
     const tabClass = [...tab.classList].find(c => tabToVehicleIndex[c] !== undefined);
-    
+
     if (tab.classList.contains('resume')) {
       // Resume tab — open link (placeholder for now)
       window.open('http://localhost', '_blank');
       return;
     }
-    
+
     if (tabClass === undefined) return;
-    
+
     const targetIndex = tabToVehicleIndex[tabClass];
     if (targetIndex === undefined || targetIndex >= orbitSequence.length) return;
-    
+
     // Cancel intro animations and first finale if any are active
     introActive = false;
     isIntroTransitioning = false;
@@ -3001,40 +3041,40 @@ navTabs.forEach(tab => {
       }
     }
     sequenceEverCompleted = false;
-    
+
     // Update active tab styling
     navTabs.forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
-    
+
     // Deactivate 3D label mode (show all HTML nav tabs)
     const navBar = document.querySelector('.nav-bar');
     if (navBar) navBar.classList.remove('labels-3d-mode');
-    
+
     // Switch to the target vehicle
     const targetSeq = orbitSequence[targetIndex];
     if (targetSeq && targetSeq.params) {
       // Skip if already on this vehicle and not in post-sequence
       if (currentSeqIndex === targetIndex && !wasPostSequence) return;
-      
+
       // Reset the target vehicle to its start position
       targetSeq.params.orbitDegrees = targetSeq.start;
-      
+
       // If we're already following a vehicle, trigger a smooth camera transition
       if (currentSeqIndex !== targetIndex || wasPostSequence) {
         const prevSeq = orbitSequence[currentSeqIndex];
-        
+
         // Capture current camera state for transition
         transitionStartPos.copy(camera.position);
         transitionStartTarget.copy(currentCamTarget);
         transitionStartUp.copy(camera.up);
-        
+
         currentSeqIndex = targetIndex;
         syncCamGuiFromSequence();
-        
+
         // Trigger camera transition
         isTransitioning = true;
         transitionProgress = 0;
-        
+
         // Ensure previous vehicle is visible for fade-out (transition handles actual fade)
         const prevObj = prevSeq ? prevSeq.getObject() : null;
         const nextObj = targetSeq.getObject();
@@ -3042,11 +3082,11 @@ navTabs.forEach(tab => {
         if (nextObj) {
           setOpacity(nextObj, 1.0);
         }
-        
+
         // Re-enable orbit animation so the vehicle moves
         isOrbitAnimating = true;
       }
-      
+
       // Update the target vehicle
       if (targetSeq.update) {
         targetSeq.update();
@@ -3061,9 +3101,18 @@ if (homeTab) homeTab.classList.add('active');
 
 // --- 3D Nav Label Keyboard Controls ---
 
+function getSectorIndexFromVehicleIndex(vehicleIdx) {
+  if (vehicleIdx === 0) return 0;
+  if (vehicleIdx === 1) return 1;
+  if (vehicleIdx === 2) return 2;
+  if (vehicleIdx === 3) return 3;
+  if (vehicleIdx === 5) return 4;
+  return -1;
+}
+
 function returnToFinale() {
   if (isPostSequence) return; // already there
-  
+
   introActive = false;
   isIntroTransitioning = false;
   introFinaleActive = false;
@@ -3072,6 +3121,23 @@ function returnToFinale() {
   isTransitioning = false;
   sequenceEverCompleted = true;
   postSeqTimer = 0;
+
+  // Sync active nav sector highlighting to the vehicle we just exited
+  let sectorIdx = getSectorIndexFromVehicleIndex(currentSeqIndex);
+  if (sectorIdx !== -1) {
+    activeNavIndex = sectorIdx;
+  }
+  
+  // Ensure all background scenes are flat (not hovering/protruding) upon returning to the finale
+  for (const name in hoverScenes) {
+    hoverScenes[name].target = 0.0;
+  }
+  // Reset all nav labels to default opacity/scale
+  navLabels.forEach((entry) => {
+    entry.targetOpacity = 0.75;
+    entry.targetScale = 1.0;
+  });
+  hoverTimeoutTimer = 0; // Reset hover timer on entry
 
   // Capture current camera state for smooth transition start
   transitionStartPos.copy(camera.position);
@@ -3088,7 +3154,7 @@ function returnToFinale() {
 
   // Reset active nav tab styling
   navTabs.forEach(t => t.classList.remove('active'));
-  
+
   // Hide non-resume HTML nav tabs for 3D label mode
   const navBar = document.querySelector('.nav-bar');
   if (navBar) navBar.classList.add('labels-3d-mode');
@@ -3098,7 +3164,7 @@ function returnToFinale() {
 
 function triggerNavigation(navIdx) {
   if (navIdx < 0 || navIdx >= navLabelConfig.length) return;
-  
+
   const config = navLabelConfig[navIdx];
   const targetIndex = config.vehicleIdx;
   if (targetIndex === undefined || targetIndex >= orbitSequence.length) return;
@@ -3109,7 +3175,7 @@ function triggerNavigation(navIdx) {
   introFinaleActive = false;
 
   const wasPostSequence = isPostSequence;
-  
+
   // Exit post-sequence state
   if (isPostSequence) {
     isPostSequence = false;
@@ -3127,7 +3193,7 @@ function triggerNavigation(navIdx) {
   navTabs.forEach(t => t.classList.remove('active'));
   const matchingTab = document.querySelector(`.nav-tab.${config.key}`);
   if (matchingTab) matchingTab.classList.add('active');
-  
+
   // Show HTML nav tabs again
   const navBar = document.querySelector('.nav-bar');
   if (navBar) navBar.classList.remove('labels-3d-mode');
@@ -3171,29 +3237,51 @@ window.addEventListener('keydown', (e) => {
     return;
   }
 
-  // The following keys only work during post-sequence
-  if (!isPostSequence) return;
+  // Space — toggle pause
+  if (e.key === ' ') {
+    e.preventDefault();
+    camGuiState.paused = !camGuiState.paused;
+    isOrbitAnimating = !camGuiState.paused;
+    if (camGuiState.paused && cameraFollowEnabled) {
+      controls.target.copy(currentCamTarget);
+      controls.update();
+    }
+    return;
+  }
 
   if (e.key === 'ArrowRight') {
     e.preventDefault();
-    activeNavIndex = (activeNavIndex + 1) % navLabelConfig.length;
-    highlightNavLabel(activeNavIndex);
+    if (isPostSequence) {
+      activeNavIndex = (activeNavIndex + 1) % navLabelConfig.length;
+      highlightNavLabel(activeNavIndex);
+      hoverTimeoutTimer = 5.0; // Reset hover timer to 5s on arrow key activity
+    } else {
+      let sectorIdx = getSectorIndexFromVehicleIndex(currentSeqIndex);
+      if (sectorIdx === -1) sectorIdx = 3; // fallback if on Bronco
+      const nextSectorIdx = (sectorIdx + 1) % navLabelConfig.length;
+      activeNavIndex = nextSectorIdx;
+      highlightNavLabel(activeNavIndex);
+      triggerNavigation(nextSectorIdx);
+    }
   } else if (e.key === 'ArrowLeft') {
     e.preventDefault();
-    activeNavIndex = (activeNavIndex - 1 + navLabelConfig.length) % navLabelConfig.length;
-    highlightNavLabel(activeNavIndex);
+    if (isPostSequence) {
+      activeNavIndex = (activeNavIndex - 1 + navLabelConfig.length) % navLabelConfig.length;
+      highlightNavLabel(activeNavIndex);
+      hoverTimeoutTimer = 5.0; // Reset hover timer to 5s on arrow key activity
+    } else {
+      let sectorIdx = getSectorIndexFromVehicleIndex(currentSeqIndex);
+      if (sectorIdx === -1) sectorIdx = 4; // fallback if on Bronco
+      const prevSectorIdx = (sectorIdx - 1 + navLabelConfig.length) % navLabelConfig.length;
+      activeNavIndex = prevSectorIdx;
+      highlightNavLabel(prevSectorIdx);
+      triggerNavigation(prevSectorIdx);
+    }
   } else if (e.key === 'Enter') {
-    e.preventDefault();
-    triggerNavigation(activeNavIndex);
-  } else if (e.key === ' ') {
-    e.preventDefault();
-    camGuiState.paused = true;
-  }
-});
-
-window.addEventListener('keyup', (e) => {
-  if (e.key === ' ') {
-    camGuiState.paused = false;
+    if (isPostSequence) {
+      e.preventDefault();
+      triggerNavigation(activeNavIndex);
+    }
   }
 });
 
@@ -3243,11 +3331,11 @@ const _hoverMouse = new THREE.Vector2();
 
 window.addEventListener('click', (event) => {
   // Ignore clicks on HTML UI elements (tabs, buttons, text, dat.GUI etc.)
-  if (event.target.tagName === 'BUTTON' || 
-      event.target.closest('.nav-bar') || 
-      event.target.closest('.dg') || 
-      event.target.id === 'audio-toggle' ||
-      event.target.closest('#audio-toggle')) {
+  if (event.target.tagName === 'BUTTON' ||
+    event.target.closest('.nav-bar') ||
+    event.target.closest('.dg') ||
+    event.target.id === 'audio-toggle' ||
+    event.target.closest('#audio-toggle')) {
     return;
   }
 
@@ -3290,7 +3378,7 @@ window.addEventListener('click', (event) => {
         // Reset active nav tab styling since we are no longer focusing on a vehicle
         const navTabs = document.querySelectorAll('.nav-tab');
         navTabs.forEach(t => t.classList.remove('active'));
-        
+
         // Activate 3D label mode (hide non-resume HTML nav tabs)
         const navBar = document.querySelector('.nav-bar');
         if (navBar) navBar.classList.add('labels-3d-mode');
@@ -3304,11 +3392,11 @@ window.addEventListener('click', (event) => {
 // --- Raycast Click-and-Hold on Active Vehicle ---
 window.addEventListener('pointerdown', (event) => {
   // Ignore pointerdown on HTML UI elements (tabs, buttons, text, dat.GUI etc.)
-  if (event.target.tagName === 'BUTTON' || 
-      event.target.closest('.nav-bar') || 
-      event.target.closest('.dg') || 
-      event.target.id === 'audio-toggle' ||
-      event.target.closest('#audio-toggle')) {
+  if (event.target.tagName === 'BUTTON' ||
+    event.target.closest('.nav-bar') ||
+    event.target.closest('.dg') ||
+    event.target.id === 'audio-toggle' ||
+    event.target.closest('#audio-toggle')) {
     return;
   }
 
@@ -3352,6 +3440,8 @@ window.addEventListener('mouseleave', releaseVehicleHold);
 let lastHoveredSceneName = null;
 
 window.addEventListener('pointermove', (event) => {
+  // Disable mouse hover transitions entirely for strictly keyboard-driven navigation
+  return;
   // Only allow hover protrusion during post-sequence finale
   if (!isPostSequence) {
     if (lastHoveredSceneName) {
@@ -3362,10 +3452,10 @@ window.addEventListener('pointermove', (event) => {
   }
 
   // Ignore pointermove on HTML UI elements (tabs, buttons, text, dat.GUI etc.)
-  if (event.target.closest('.nav-bar') || 
-      event.target.closest('.dg') || 
-      event.target.id === 'audio-toggle' ||
-      event.target.closest('#audio-toggle')) {
+  if (event.target.closest('.nav-bar') ||
+    event.target.closest('.dg') ||
+    event.target.id === 'audio-toggle' ||
+    event.target.closest('#audio-toggle')) {
     // Reset hover targets to 0 when hovering UI elements
     if (lastHoveredSceneName) {
       if (hoverScenes[lastHoveredSceneName]) hoverScenes[lastHoveredSceneName].target = 0.0;
@@ -3379,7 +3469,7 @@ window.addEventListener('pointermove', (event) => {
   const rect = canvasRect;
   _hoverMouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   _hoverMouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-  
+
   _hoverRaycaster.setFromCamera(_hoverMouse, camera);
 
   let hoveredSceneName = null;
@@ -3390,13 +3480,13 @@ window.addEventListener('pointermove', (event) => {
     if (intersects.length > 0) {
       const point = intersects[0].point;
       const angle = Math.atan2(point.y, point.x);
-      
+
       const sceneAngles = {
         'City': 1.73,
         'School': 0.74,
         'Landscape': -0.06,
         'Beach': -0.95,
-        'Cafe': -3.1
+        'Cafe': 2.95
       };
 
       let minDist = Infinity;
@@ -3404,7 +3494,7 @@ window.addEventListener('pointermove', (event) => {
         const baseAngle = sceneAngles[name];
         let diff = Math.abs(angle - baseAngle) % (Math.PI * 2);
         if (diff > Math.PI) diff = Math.PI * 2 - diff;
-        
+
         if (diff < minDist) {
           minDist = diff;
           if (diff < 1.05) { // within ~60 degrees sector
