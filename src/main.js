@@ -2307,22 +2307,6 @@ function animate() {
     }
   }
 
-  // --- Fade out nav labels when not in post-sequence ---
-  if (!isPostSequence && navLabelsVisible) {
-    let allHidden = true;
-    navLabels.forEach(entry => {
-      entry.mesh.material.opacity = Math.max(0, entry.mesh.material.opacity - realDeltaTime * 3.0);
-      if (entry.mesh.material.opacity <= 0.001) {
-        entry.mesh.visible = false;
-        entry.mesh.material.opacity = 0;
-      } else {
-        allHidden = false;
-      }
-    });
-    if (allHidden) {
-      navLabelsVisible = false;
-    }
-  }
 
   const isPaused = camGuiState && camGuiState.paused;
   const isIntroState = introActive || isIntroTransitioning;
@@ -2808,58 +2792,6 @@ function animate() {
       if (model) model.visible = true;
     });
 
-    // --- Update 3D Nav Labels ---
-    // Position labels statically on the cylinder cap to rotate with the scene
-    updateNavLabelPositions();
-
-    // Fade in nav labels and apply active highlighting
-    navLabels.forEach((entry, idx) => {
-      entry.mesh.visible = true;
-
-      // Set target opacity based on highlight state (initialize if first frame)
-      if (!navLabelsVisible) {
-        // Reset all background scenes to flat (no protrusion)
-        for (const name in hoverScenes) {
-          hoverScenes[name].target = 0.0;
-        }
-        // Set all nav labels to default opacity/scale at start of post-sequence
-        navLabels.forEach((e) => {
-          e.targetOpacity = 0.75;
-          e.targetScale = 1.0;
-        });
-        navLabelsVisible = true;
-        hoverTimeoutTimer = 0; // Reset hover timer on entry
-      }
-
-      // Smooth opacity interpolation
-      const currentOpacity = entry.mesh.material.opacity;
-      entry.mesh.material.opacity += (entry.targetOpacity - currentOpacity) * 6.0 * realDeltaTime;
-
-      // Smooth scale interpolation
-      const currentScaleY = Math.abs(entry.mesh.scale.y);
-      const newScale = currentScaleY + (entry.targetScale - currentScaleY) * 6.0 * realDeltaTime;
-      entry.mesh.scale.y = newScale;
-      entry.mesh.scale.x = newScale; // No X-flip needed anymore since they face the camera directly
-      entry.mesh.scale.z = newScale;
-    });
-
-    // --- Decrement and Handle Hover Timeout ---
-    if (hoverTimeoutTimer > 0 && !isPaused) {
-      hoverTimeoutTimer -= realDeltaTime;
-      if (hoverTimeoutTimer <= 0) {
-        hoverTimeoutTimer = 0;
-        // Reset all background scenes to flat (no protrusion)
-        for (const name in hoverScenes) {
-          hoverScenes[name].target = 0.0;
-        }
-        // Reset all nav labels to default opacity/scale
-        navLabels.forEach((entry) => {
-          entry.targetOpacity = 0.75;
-          entry.targetScale = 1.0;
-        });
-      }
-    }
-
     // Disable orbit controls to prevent overriding camera.up rotation
     controls.enabled = false;
     controls.autoRotate = false;
@@ -2873,6 +2805,7 @@ function animate() {
         introTransitionProgress = 0;
         currentSeqIndex = 0;
         isOrbitAnimating = true;
+        navLabelsVisible = true;
         isTransitioning = false;
         transitionProgress = 0;
 
@@ -3002,6 +2935,61 @@ function animate() {
 
 
 
+  // --- Update 3D Nav Labels (runs in both post-sequence and orbit) ---
+  // Nav label animation runs outside the camera if/else chain so it persists during orbit animation
+  if (isPostSequence || navLabelsVisible) {
+    // Position labels statically on the cylinder cap to rotate with the scene
+    updateNavLabelPositions();
+
+    // Fade in nav labels and apply active highlighting
+    navLabels.forEach((entry, idx) => {
+      entry.mesh.visible = true;
+
+      // Set target opacity based on highlight state (initialize if first frame)
+      if (!navLabelsVisible) {
+        // Reset all background scenes to flat (no protrusion)
+        for (const name in hoverScenes) {
+          hoverScenes[name].target = 0.0;
+        }
+        // Set all nav labels to default opacity/scale at start of post-sequence
+        navLabels.forEach((e) => {
+          e.targetOpacity = 0.75;
+          e.targetScale = 1.0;
+        });
+        navLabelsVisible = true;
+        hoverTimeoutTimer = 0; // Reset hover timer on entry
+      }
+
+      // Smooth opacity interpolation
+      const currentOpacity = entry.mesh.material.opacity;
+      entry.mesh.material.opacity += (entry.targetOpacity - currentOpacity) * 6.0 * realDeltaTime;
+
+      // Smooth scale interpolation
+      const currentScaleY = Math.abs(entry.mesh.scale.y);
+      const newScale = currentScaleY + (entry.targetScale - currentScaleY) * 6.0 * realDeltaTime;
+      entry.mesh.scale.y = newScale;
+      entry.mesh.scale.x = newScale;
+      entry.mesh.scale.z = newScale;
+    });
+
+    // --- Decrement and Handle Hover Timeout ---
+    if (hoverTimeoutTimer > 0 && !isPaused) {
+      hoverTimeoutTimer -= realDeltaTime;
+      if (hoverTimeoutTimer <= 0) {
+        hoverTimeoutTimer = 0;
+        // Reset all background scenes to flat (no protrusion)
+        for (const name in hoverScenes) {
+          hoverScenes[name].target = 0.0;
+        }
+        // Reset all nav labels to default opacity/scale
+        navLabels.forEach((entry) => {
+          entry.targetOpacity = 0.75;
+          entry.targetScale = 1.0;
+        });
+      }
+    }
+  }
+
   renderer.render(scene, camera);
 }
 
@@ -3076,6 +3064,7 @@ navTabs.forEach(tab => {
       isPostSequence = false;
       isOrbitAnimating = true;
       controls.autoRotate = false;
+      navLabelsVisible = true;
       globeMaterial.opacity = 0.35;
       orbitMaterial.opacity = 0.45;
       if (cursivePlane) {
