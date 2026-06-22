@@ -606,8 +606,10 @@ const navLabelConfig = [
 
 // --- Nav Label GUI params (Projects label only) ---
 const navLabelParams = {
-  projectsZOffset: 4.015,
-  projectsAngle: -1.86
+  projectsZOffset: 4.03,
+  projectsAngle: -2.1,
+  hobbiesZOffset: 4.015,
+  hobbiesAngle: 3.1
 };
 
 let navLabels = [];        // Array of { mesh, config, baseAngle, targetOpacity, targetScale }
@@ -718,6 +720,10 @@ function updateNavLabelPositions() {
       // Projects label uses GUI-adjustable params
       entry.mesh.position.set(0, 0, navLabelParams.projectsZOffset);
       entry.mesh.rotation.set(0, 0, navLabelParams.projectsAngle);
+    } else if (entry.config.key === 'hobbies') {
+      // Hobbies label uses GUI-adjustable params
+      entry.mesh.position.set(0, 0, navLabelParams.hobbiesZOffset);
+      entry.mesh.rotation.set(0, 0, navLabelParams.hobbiesAngle);
     } else {
       // Other labels stay at hardcoded positions
       entry.mesh.position.set(0, 0, 4.015);
@@ -767,10 +773,12 @@ function highlightNavLabel(activeIdx) {
   });
 }
 
-// --- Nav Labels GUI (Projects / Desert label only) ---
+// --- Nav Labels GUI (Projects & Hobbies) ---
 const navLabelFolder = gui.addFolder('Nav Labels');
 navLabelFolder.add(navLabelParams, 'projectsZOffset', -10.0, 10.0).step(0.01).name('Projects Z Offset').onChange(updateNavLabelPositions);
 navLabelFolder.add(navLabelParams, 'projectsAngle', -Math.PI, Math.PI).step(0.01).name('Projects Angle').onChange(updateNavLabelPositions);
+navLabelFolder.add(navLabelParams, 'hobbiesZOffset', -10.0, 10.0).step(0.01).name('Hobbies Z Offset').onChange(updateNavLabelPositions);
+navLabelFolder.add(navLabelParams, 'hobbiesAngle', -Math.PI, Math.PI).step(0.01).name('Hobbies Angle').onChange(updateNavLabelPositions);
 navLabelFolder.open();
 
 // --- Boat raycasting state ---
