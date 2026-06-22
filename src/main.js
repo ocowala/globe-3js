@@ -598,10 +598,17 @@ function addTextboxGUI(folder, params, updateFn, minOffset = -10.0, maxOffset = 
 const navLabelConfig = [
   { key: 'home', label: 'Home', scene: 'City', angle: 1.73, color: '#f7c5c0', vehicleIdx: 0 },
   { key: 'school', label: 'School', scene: 'School', angle: 0.74, color: '#c7b8ea', vehicleIdx: 1 },
-  { key: 'experience', label: 'Experience', scene: 'Landscape', angle: -0.06, color: '#fce8a3', vehicleIdx: 2 },
-  { key: 'projects', label: 'Projects', scene: 'Beach', angle: -0.95, color: '#b8e6c8', vehicleIdx: 3 },
-  { key: 'skills', label: 'Skills', scene: 'Cafe', angle: 2.95, color: '#a8d8ea', vehicleIdx: 5 },
+  { key: 'skills', label: 'Skills', scene: 'Landscape', angle: -0.06, color: '#fce8a3', vehicleIdx: 2 },
+  { key: 'experience', label: 'Experience', scene: 'Beach', angle: -0.95, color: '#b8e6c8', vehicleIdx: 3 },
+  { key: 'projects', label: 'Projects', scene: 'Desert', angle: -1.86, color: '#ffd8b1', vehicleIdx: 4 },
+  { key: 'hobbies', label: 'Hobbies', scene: 'Cafe', angle: 3.1, color: '#a8d8ea', vehicleIdx: 5 },
 ];
+
+// --- Nav Label GUI params (Projects label only) ---
+const navLabelParams = {
+  projectsZOffset: 4.015,
+  projectsAngle: -1.86
+};
 
 let navLabels = [];        // Array of { mesh, config, baseAngle, targetOpacity, targetScale }
 let activeNavIndex = 0;    // Currently highlighted label index
@@ -707,10 +714,15 @@ function createNavLabel(text, pastelHex) {
 
 function updateNavLabelPositions() {
   navLabels.forEach((entry) => {
-    // Position mesh at center of cap, slightly offset in Z to prevent Z-fighting
-    entry.mesh.position.set(0, 0, 4.015);
-    // Rotate mesh around Z-axis by its baseAngle
-    entry.mesh.rotation.set(0, 0, entry.baseAngle);
+    if (entry.config.key === 'projects') {
+      // Projects label uses GUI-adjustable params
+      entry.mesh.position.set(0, 0, navLabelParams.projectsZOffset);
+      entry.mesh.rotation.set(0, 0, navLabelParams.projectsAngle);
+    } else {
+      // Other labels stay at hardcoded positions
+      entry.mesh.position.set(0, 0, 4.015);
+      entry.mesh.rotation.set(0, 0, entry.baseAngle);
+    }
   });
 }
 
@@ -754,6 +766,12 @@ function highlightNavLabel(activeIdx) {
     }
   });
 }
+
+// --- Nav Labels GUI (Projects / Desert label only) ---
+const navLabelFolder = gui.addFolder('Nav Labels');
+navLabelFolder.add(navLabelParams, 'projectsZOffset', -10.0, 10.0).step(0.01).name('Projects Z Offset').onChange(updateNavLabelPositions);
+navLabelFolder.add(navLabelParams, 'projectsAngle', -Math.PI, Math.PI).step(0.01).name('Projects Angle').onChange(updateNavLabelPositions);
+navLabelFolder.open();
 
 // --- Boat raycasting state ---
 let boatObject = null;
@@ -2969,13 +2987,14 @@ initNavLabels();
 animate();
 
 // --- Navigation Tab Click Handlers ---
-// Tab-to-vehicle mapping: home→motorcycle(0), school→airplane(1), experience→car_v2(2), projects→boat(3), skills→racecar(5)
+// Tab-to-vehicle mapping: home→motorcycle(0), school→airplane(1), skills→car_v2(2), experience→boat(3), projects→bronco(4), hobbies→racecar(5)
 const tabToVehicleIndex = {
   'home': 0,
   'school': 1,
-  'experience': 2,
-  'projects': 3,
-  'skills': 5
+  'skills': 2,
+  'experience': 3,
+  'projects': 4,
+  'hobbies': 5
 };
 
 const navTabs = document.querySelectorAll('.nav-tab');
@@ -2984,9 +3003,10 @@ const navTabs = document.querySelectorAll('.nav-tab');
 const tabToSceneName = {
   'home': 'City',
   'school': 'School',
-  'experience': 'Landscape',
-  'projects': 'Beach',
-  'skills': 'Cafe'
+  'skills': 'Landscape',
+  'experience': 'Beach',
+  'projects': 'Desert',
+  'hobbies': 'Cafe'
 };
 
 // HTML nav tab mouseenter/mouseleave hover protrusion animations disabled as navigation is strictly keyboard-driven.
@@ -3102,11 +3122,7 @@ if (homeTab) homeTab.classList.add('active');
 // --- 3D Nav Label Keyboard Controls ---
 
 function getSectorIndexFromVehicleIndex(vehicleIdx) {
-  if (vehicleIdx === 0) return 0;
-  if (vehicleIdx === 1) return 1;
-  if (vehicleIdx === 2) return 2;
-  if (vehicleIdx === 3) return 3;
-  if (vehicleIdx === 5) return 4;
+  if (vehicleIdx >= 0 && vehicleIdx <= 5) return vehicleIdx;
   return -1;
 }
 
@@ -3257,7 +3273,7 @@ window.addEventListener('keydown', (e) => {
       hoverTimeoutTimer = 5.0; // Reset hover timer to 5s on arrow key activity
     } else {
       let sectorIdx = getSectorIndexFromVehicleIndex(currentSeqIndex);
-      if (sectorIdx === -1) sectorIdx = 3; // fallback if on Bronco
+      if (sectorIdx === -1) sectorIdx = 0;
       const nextSectorIdx = (sectorIdx + 1) % navLabelConfig.length;
       activeNavIndex = nextSectorIdx;
       highlightNavLabel(activeNavIndex);
@@ -3271,7 +3287,7 @@ window.addEventListener('keydown', (e) => {
       hoverTimeoutTimer = 5.0; // Reset hover timer to 5s on arrow key activity
     } else {
       let sectorIdx = getSectorIndexFromVehicleIndex(currentSeqIndex);
-      if (sectorIdx === -1) sectorIdx = 4; // fallback if on Bronco
+      if (sectorIdx === -1) sectorIdx = 0;
       const prevSectorIdx = (sectorIdx - 1 + navLabelConfig.length) % navLabelConfig.length;
       activeNavIndex = prevSectorIdx;
       highlightNavLabel(prevSectorIdx);
