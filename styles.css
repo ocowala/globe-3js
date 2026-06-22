@@ -203,16 +203,18 @@ canvas {
 /* Pastel per-tab accent colors */
 .nav-tab.home::after       { background: #f7c5c0; }  /* light pink */
 .nav-tab.school::after     { background: #c7b8ea; }  /* light purple */
-.nav-tab.experience::after { background: #fce8a3; }  /* pastel yellow */
-.nav-tab.projects::after   { background: #b8e6c8; }  /* pastel green */
-.nav-tab.skills::after     { background: #a8d8ea; }  /* pastel aqua */
+.nav-tab.skills::after     { background: #fce8a3; }  /* pastel yellow */
+.nav-tab.experience::after { background: #b8e6c8; }  /* pastel green */
+.nav-tab.projects::after   { background: #ffd8b1; }  /* pastel orange */
+.nav-tab.hobbies::after    { background: #a8d8ea; }  /* pastel aqua */
+.nav-tab.resume::after     { background: #fcd5b5; }  /* pastel peach */
 
 .nav-tab.home.active        { background: rgba(247, 197, 192, 0.25); }
 .nav-tab.school.active      { background: rgba(199, 184, 234, 0.25); }
-.nav-tab.experience.active  { background: rgba(252, 232, 163, 0.25); }
-.nav-tab.projects.active    { background: rgba(184, 230, 200, 0.25); }
-.nav-tab.skills.active      { background: rgba(168, 216, 234, 0.25); }
-.nav-tab.resume::after      { background: #fcd5b5; }  /* pastel peach */
+.nav-tab.skills.active      { background: rgba(252, 232, 163, 0.25); }
+.nav-tab.experience.active  { background: rgba(184, 230, 200, 0.25); }
+.nav-tab.projects.active    { background: rgba(255, 216, 177, 0.25); } /* orange */
+.nav-tab.hobbies.active     { background: rgba(168, 216, 234, 0.25); } /* aqua */
 .nav-tab.resume.active      { background: rgba(252, 213, 181, 0.25); }
 
 /* 3D label mode: hide non-resume tabs with smooth transition */

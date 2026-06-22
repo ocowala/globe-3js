@@ -3322,7 +3322,9 @@ const songMap = {
   '/windmills.mp3': 'windmills of your mind - sting',
   '/ciao.mp3': "l'amore dice ciao - armando trovajoli",
   '/bean-sabine.mp3': 'bean sabine ost - howard goodall',
-  '/imagination.mp3': 'pure imagination - walter scharf'
+  '/imagination.mp3': 'pure imagination - walter scharf',
+  '/dreamers.mp3': 'sea dreamers - shankar, kale, sting',
+  '/fly.mp3': 'fly by day - anri'
 };
 
 if (audio) {
