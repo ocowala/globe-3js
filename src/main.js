@@ -613,7 +613,7 @@ const navLabelParams = {
   skillsZOffset: 4.015,
   skillsAngle: -0.1,
   experienceZOffset: 4.015,
-  experienceAngle: -0.95,
+  experienceAngle: -1.00,
   projectsZOffset: 4.03,
   projectsAngle: -2.1,
   hobbiesZOffset: 4.015,
