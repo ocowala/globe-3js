@@ -596,7 +596,7 @@ function addTextboxGUI(folder, params, updateFn, minOffset = -10.0, maxOffset = 
 
 // --- 3D Cylinder Nav Labels ---
 const navLabelConfig = [
-  { key: 'home', label: 'Home', scene: 'City', angle: 1.73, color: '#f7c5c0', vehicleIdx: 0 },
+  { key: 'home', label: 'Resume', scene: 'City', angle: 1.73, color: '#f7c5c0', vehicleIdx: 0 },
   { key: 'school', label: 'School', scene: 'School', angle: 0.74, color: '#c7b8ea', vehicleIdx: 1 },
   { key: 'skills', label: 'Skills', scene: 'Landscape', angle: -0.06, color: '#fce8a3', vehicleIdx: 2 },
   { key: 'experience', label: 'Experience', scene: 'Beach', angle: -0.95, color: '#b8e6c8', vehicleIdx: 3 },
@@ -720,6 +720,49 @@ function createNavLabel(text, pastelHex) {
   mesh.renderOrder = 999;
 
   return mesh;
+}
+
+function updateNavLabelCanvas(entry, isHovered) {
+  const mesh = entry.mesh;
+  if (!mesh || !mesh.material || !mesh.material.map) return;
+
+  const canvas = mesh.material.map.image;
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const pastelHex = entry.config.color;
+  const r = parseInt(pastelHex.slice(1, 3), 16);
+  const g = parseInt(pastelHex.slice(3, 5), 16);
+  const b = parseInt(pastelHex.slice(5, 7), 16);
+
+  if (isHovered) {
+    // Blend with white to make it lighter/brighter, and increase opacity to 0.95
+    const rLight = Math.round(r + (255 - r) * 0.5);
+    const gLight = Math.round(g + (255 - g) * 0.5);
+    const bLight = Math.round(b + (255 - b) * 0.5);
+    ctx.fillStyle = `rgba(${rLight}, ${gLight}, ${bLight}, 0.95)`;
+  } else {
+    // Original background
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.75)`;
+  }
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Thin border using darker, more opaque version
+  ctx.strokeStyle = `rgba(${Math.round(r * 0.75)}, ${Math.round(g * 0.75)}, ${Math.round(b * 0.75)}, 0.9)`;
+  ctx.lineWidth = 16;
+  ctx.strokeRect(0, 0, canvas.width, canvas.height);
+
+  // Draw text in Instrumental Serif
+  ctx.fillStyle = '#000000';
+  ctx.font = 'bold 96px "Instrument Serif", Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(entry.config.label, canvas.width / 2, canvas.height / 2);
+
+  // Mark texture for GPU upload update
+  mesh.material.map.needsUpdate = true;
 }
 
 function updateNavLabelPositions() {
@@ -2469,15 +2512,6 @@ function animate() {
               transitionStartPos.copy(camera.position);
               transitionStartTarget.set(0, 0, getCylinderMiddleZ());
               transitionStartUp.copy(camera.up);
-
-              // Reset active nav tab styling since we are entering post-sequence finale
-              const tabs = document.querySelectorAll('.nav-tab');
-              tabs.forEach(t => t.classList.remove('active'));
-
-              // Activate 3D label mode (hide non-resume HTML nav tabs)
-              const navBar = document.querySelector('.nav-bar');
-              if (navBar) navBar.classList.add('labels-3d-mode');
-
               // Restore cylinder/background visibilities
               globe.visible = true;
               orbitRing.visible = true;
@@ -2573,15 +2607,6 @@ function animate() {
             cursivePlane.position.set(0, 0, getCylinderMiddleZ());
             cursivePlane.material.opacity = 0.0;
           }
-
-          // Reset active nav tab styling
-          const tabs = document.querySelectorAll('.nav-tab');
-          tabs.forEach(t => t.classList.remove('active'));
-
-          // Hide non-resume HTML nav tabs for 3D label mode
-          const navBar = document.querySelector('.nav-bar');
-          if (navBar) navBar.classList.add('labels-3d-mode');
-
           console.log("Orbit sequence complete — transitioning to portfolio view.");
         } else {
           const nextIndex = (currentSeqIndex + 1) % orbitSequence.length;
@@ -2825,20 +2850,6 @@ function animate() {
         transitionStartGlobeOpacity = globeMaterial.opacity;
         transitionStartOrbitOpacity = orbitMaterial.opacity;
         transitionStartCursiveOpacity = cursivePlane ? cursivePlane.material.opacity : 0.0;
-
-        // Set the active tab styling to "home" for the motorcycle and show HTML tabs again
-        const navBar = document.querySelector('.nav-bar');
-        if (navBar) {
-          navBar.classList.remove('labels-3d-mode');
-        }
-        const navTabs = document.querySelectorAll('.nav-tab');
-        navTabs.forEach(t => {
-          t.classList.remove('active');
-          if (t.classList.contains('home')) {
-            t.classList.add('active');
-          }
-        });
-
         console.log("10s first finale complete — transitioning to Motorcycle.");
       }
     }
@@ -2997,138 +3008,7 @@ initNavLabels();
 animate();
 
 // --- Navigation Tab Click Handlers ---
-// Tab-to-vehicle mapping: home→motorcycle(0), school→airplane(1), skills→car_v2(2), experience→boat(3), projects→bronco(4), hobbies→racecar(5)
-const tabToVehicleIndex = {
-  'home': 0,
-  'school': 1,
-  'skills': 2,
-  'experience': 3,
-  'projects': 4,
-  'hobbies': 5
-};
 
-const navTabs = document.querySelectorAll('.nav-tab');
-
-// Hover Protrusion mappings
-const tabToSceneName = {
-  'home': 'City',
-  'school': 'School',
-  'skills': 'Landscape',
-  'experience': 'Beach',
-  'projects': 'Desert',
-  'hobbies': 'Cafe'
-};
-
-// HTML nav tab mouseenter/mouseleave hover protrusion animations disabled as navigation is strictly keyboard-driven.
-/*
-navTabs.forEach(tab => {
-  const tabClass = [...tab.classList].find(c => tabToSceneName[c] !== undefined);
-  if (tabClass) {
-    const sceneName = tabToSceneName[tabClass];
-    tab.addEventListener('mouseenter', () => {
-      if (isPostSequence && hoverScenes[sceneName]) {
-        hoverScenes[sceneName].target = 1.0;
-      }
-    });
-    tab.addEventListener('mouseleave', () => {
-      if (hoverScenes[sceneName]) {
-        hoverScenes[sceneName].target = 0.0;
-      }
-    });
-  }
-});
-*/
-navTabs.forEach(tab => {
-  tab.addEventListener('click', () => {
-    const tabClass = [...tab.classList].find(c => tabToVehicleIndex[c] !== undefined);
-
-    if (tab.classList.contains('resume')) {
-      // Resume tab — open link (placeholder for now)
-      window.open('http://localhost', '_blank');
-      return;
-    }
-
-    if (tabClass === undefined) return;
-
-    const targetIndex = tabToVehicleIndex[tabClass];
-    if (targetIndex === undefined || targetIndex >= orbitSequence.length) return;
-
-    // Cancel intro animations and first finale if any are active
-    introActive = false;
-    isIntroTransitioning = false;
-    introFinaleActive = false;
-
-    const wasPostSequence = isPostSequence;
-    // Exit post-sequence state if active
-    if (isPostSequence) {
-      isPostSequence = false;
-      isOrbitAnimating = true;
-      controls.autoRotate = false;
-      navLabelsVisible = true;
-      globeMaterial.opacity = 0.35;
-      orbitMaterial.opacity = 0.45;
-      if (cursivePlane) {
-        cursivePlane.visible = false;
-      }
-    }
-    sequenceEverCompleted = false;
-
-    // Update active tab styling
-    navTabs.forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-
-    // Deactivate 3D label mode (show all HTML nav tabs)
-    const navBar = document.querySelector('.nav-bar');
-    if (navBar) navBar.classList.remove('labels-3d-mode');
-
-    // Switch to the target vehicle
-    const targetSeq = orbitSequence[targetIndex];
-    if (targetSeq && targetSeq.params) {
-      // Skip if already on this vehicle and not in post-sequence
-      if (currentSeqIndex === targetIndex && !wasPostSequence) return;
-
-      // Reset the target vehicle to its start position
-      targetSeq.params.orbitDegrees = targetSeq.start;
-
-      // If we're already following a vehicle, trigger a smooth camera transition
-      if (currentSeqIndex !== targetIndex || wasPostSequence) {
-        const prevSeq = orbitSequence[currentSeqIndex];
-
-        // Capture current camera state for transition
-        transitionStartPos.copy(camera.position);
-        transitionStartTarget.copy(currentCamTarget);
-        transitionStartUp.copy(camera.up);
-
-        currentSeqIndex = targetIndex;
-        syncCamGuiFromSequence();
-
-        // Trigger camera transition
-        isTransitioning = true;
-        transitionProgress = 0;
-
-        // Ensure previous vehicle is visible for fade-out (transition handles actual fade)
-        const prevObj = prevSeq ? prevSeq.getObject() : null;
-        const nextObj = targetSeq.getObject();
-        if (prevObj) prevObj.visible = true;
-        if (nextObj) {
-          setOpacity(nextObj, 1.0);
-        }
-
-        // Re-enable orbit animation so the vehicle moves
-        isOrbitAnimating = true;
-      }
-
-      // Update the target vehicle
-      if (targetSeq.update) {
-        targetSeq.update();
-      }
-    }
-  });
-});
-
-// Set initial active tab
-const homeTab = document.querySelector('.nav-tab.home');
-if (homeTab) homeTab.classList.add('active');
 
 // --- 3D Nav Label Keyboard Controls ---
 
@@ -3179,13 +3059,6 @@ function returnToFinale() {
     cursivePlane.material.opacity = 0.0;
   }
 
-  // Reset active nav tab styling
-  navTabs.forEach(t => t.classList.remove('active'));
-
-  // Hide non-resume HTML nav tabs for 3D label mode
-  const navBar = document.querySelector('.nav-bar');
-  if (navBar) navBar.classList.add('labels-3d-mode');
-
   console.log("Returning to post-sequence finale via keyboard.");
 }
 
@@ -3213,17 +3086,21 @@ function triggerNavigation(navIdx) {
     if (cursivePlane) {
       cursivePlane.visible = false;
     }
+    if (isResumeHovered) {
+      document.body.style.cursor = 'default';
+      const resumeEntry = navLabels.find(entry => entry.config.label === 'Resume');
+      if (resumeEntry) {
+        updateNavLabelCanvas(resumeEntry, false);
+      }
+      isResumeHovered = false;
+    }
+    // Reset all nav label targets to their default, non-highlighted state
+    navLabels.forEach((entry) => {
+      entry.targetOpacity = 0.75;
+      entry.targetScale = 1.0;
+    });
   }
   sequenceEverCompleted = false;
-
-  // Update active HTML tab styling
-  navTabs.forEach(t => t.classList.remove('active'));
-  const matchingTab = document.querySelector(`.nav-tab.${config.key}`);
-  if (matchingTab) matchingTab.classList.add('active');
-
-  // Show HTML nav tabs again
-  const navBar = document.querySelector('.nav-bar');
-  if (navBar) navBar.classList.remove('labels-3d-mode');
 
   // Switch to the target vehicle
   const targetSeq = orbitSequence[targetIndex];
@@ -3361,7 +3238,6 @@ const _hoverMouse = new THREE.Vector2();
 window.addEventListener('click', (event) => {
   // Ignore clicks on HTML UI elements (tabs, buttons, text, dat.GUI etc.)
   if (event.target.tagName === 'BUTTON' ||
-    event.target.closest('.nav-bar') ||
     event.target.closest('.dg') ||
     event.target.id === 'audio-toggle' ||
     event.target.closest('#audio-toggle')) {
@@ -3375,7 +3251,22 @@ window.addEventListener('click', (event) => {
   // Set the raycaster from the camera
   _globeRaycaster.setFromCamera(_mouse, camera);
 
-  // Raycast against the globe cylinder
+  // 1. Raycast against 3D navigation labels if in the post-sequence finale view
+  if (isPostSequence) {
+    const labelMeshes = navLabels.map(entry => entry.mesh);
+    const intersectsLabels = _globeRaycaster.intersectObjects(labelMeshes);
+    if (intersectsLabels.length > 0) {
+      const clickedMesh = intersectsLabels[0].object;
+      const clickedEntry = navLabels.find(entry => entry.mesh === clickedMesh);
+      if (clickedEntry && clickedEntry.config.label === 'Resume') {
+        console.log("3D Resume Nav Label clicked. Opening /resume_v1.pdf");
+        window.open('/resume_v1.pdf', '_blank');
+        return;
+      }
+    }
+  }
+
+  // 2. Raycast against the globe cylinder to transition to the finale view
   if (globe) {
     const intersects = _globeRaycaster.intersectObject(globe);
     if (intersects.length > 0) {
@@ -3404,14 +3295,6 @@ window.addEventListener('click', (event) => {
           cursivePlane.material.opacity = 0.0;
         }
 
-        // Reset active nav tab styling since we are no longer focusing on a vehicle
-        const navTabs = document.querySelectorAll('.nav-tab');
-        navTabs.forEach(t => t.classList.remove('active'));
-
-        // Activate 3D label mode (hide non-resume HTML nav tabs)
-        const navBar = document.querySelector('.nav-bar');
-        if (navBar) navBar.classList.add('labels-3d-mode');
-
         console.log("Cylinder background clicked — transitioning to post-sequence final view.");
       }
     }
@@ -3422,7 +3305,6 @@ window.addEventListener('click', (event) => {
 window.addEventListener('pointerdown', (event) => {
   // Ignore pointerdown on HTML UI elements (tabs, buttons, text, dat.GUI etc.)
   if (event.target.tagName === 'BUTTON' ||
-    event.target.closest('.nav-bar') ||
     event.target.closest('.dg') ||
     event.target.id === 'audio-toggle' ||
     event.target.closest('#audio-toggle')) {
@@ -3465,84 +3347,44 @@ window.addEventListener('pointerup', releaseVehicleHold);
 window.addEventListener('pointercancel', releaseVehicleHold);
 window.addEventListener('mouseleave', releaseVehicleHold);
 
-// --- Raycast Hover on 3D Environment Scenes ---
-let lastHoveredSceneName = null;
+let isResumeHovered = false;
 
 window.addEventListener('pointermove', (event) => {
-  // Disable mouse hover transitions entirely for strictly keyboard-driven navigation
-  return;
-  // Only allow hover protrusion during post-sequence finale
+  // Only handle hover logic in the post-sequence finale view
   if (!isPostSequence) {
-    if (lastHoveredSceneName) {
-      if (hoverScenes[lastHoveredSceneName]) hoverScenes[lastHoveredSceneName].target = 0.0;
-      lastHoveredSceneName = null;
+    if (isResumeHovered) {
+      document.body.style.cursor = 'default';
+      const resumeEntry = navLabels.find(entry => entry.config.label === 'Resume');
+      if (resumeEntry) {
+        updateNavLabelCanvas(resumeEntry, false);
+      }
+      isResumeHovered = false;
     }
     return;
   }
 
-  // Ignore pointermove on HTML UI elements (tabs, buttons, text, dat.GUI etc.)
-  if (event.target.closest('.nav-bar') ||
-    event.target.closest('.dg') ||
-    event.target.id === 'audio-toggle' ||
-    event.target.closest('#audio-toggle')) {
-    // Reset hover targets to 0 when hovering UI elements
-    if (lastHoveredSceneName) {
-      if (hoverScenes[lastHoveredSceneName]) hoverScenes[lastHoveredSceneName].target = 0.0;
-      lastHoveredSceneName = null;
-    }
-    return;
-  }
+  // Calculate mouse position in normalized device coordinates (-1 to +1)
+  _mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  _mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-  // Calculate mouse position in normalized device coordinates using cached rect
-  if (!canvasRect) updateCanvasRect();
-  const rect = canvasRect;
-  _hoverMouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  _hoverMouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  _globeRaycaster.setFromCamera(_mouse, camera);
 
-  _hoverRaycaster.setFromCamera(_hoverMouse, camera);
-
-  let hoveredSceneName = null;
-
-  // Raycast ONLY against the simple low-poly globe cylinder
-  if (globe) {
-    const intersects = _hoverRaycaster.intersectObject(globe);
+  const resumeEntry = navLabels.find(entry => entry.config.label === 'Resume');
+  if (resumeEntry) {
+    const intersects = _globeRaycaster.intersectObject(resumeEntry.mesh);
     if (intersects.length > 0) {
-      const point = intersects[0].point;
-      const angle = Math.atan2(point.y, point.x);
-
-      const sceneAngles = {
-        'City': 1.73,
-        'School': 0.74,
-        'Landscape': -0.06,
-        'Beach': -0.95,
-        'Cafe': 2.95
-      };
-
-      let minDist = Infinity;
-      for (const name in sceneAngles) {
-        const baseAngle = sceneAngles[name];
-        let diff = Math.abs(angle - baseAngle) % (Math.PI * 2);
-        if (diff > Math.PI) diff = Math.PI * 2 - diff;
-
-        if (diff < minDist) {
-          minDist = diff;
-          if (diff < 1.05) { // within ~60 degrees sector
-            hoveredSceneName = name;
-          }
-        }
+      if (!isResumeHovered) {
+        document.body.style.cursor = 'pointer';
+        updateNavLabelCanvas(resumeEntry, true);
+        isResumeHovered = true;
+      }
+    } else {
+      if (isResumeHovered) {
+        document.body.style.cursor = 'default';
+        updateNavLabelCanvas(resumeEntry, false);
+        isResumeHovered = false;
       }
     }
-  }
-
-  // Update targets if hovered scene has changed
-  if (hoveredSceneName !== lastHoveredSceneName) {
-    if (lastHoveredSceneName && hoverScenes[lastHoveredSceneName]) {
-      hoverScenes[lastHoveredSceneName].target = 0.0;
-    }
-    if (hoveredSceneName && hoverScenes[hoveredSceneName]) {
-      hoverScenes[hoveredSceneName].target = 1.0;
-    }
-    lastHoveredSceneName = hoveredSceneName;
   }
 });
 
