@@ -140,5 +140,110 @@ canvas {
   text-shadow: 0 2px 8px rgba(255, 251, 244, 0.6);
 }
 
+/* ── Social Links (Top Left) ── */
+.social-links {
+  position: fixed;
+  top: 18px;
+  left: 28px;
+  z-index: 30;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.social-icon {
+  width: 24px;
+  height: 24px;
+  opacity: 0.75;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  object-fit: contain;
+}
+
+.social-icon:hover {
+  opacity: 1.0;
+  transform: scale(1.1);
+}
+
+/* ── Info Controls Tooltip (Top Left) ── */
+.info-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.info-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid #24333f;
+  background: transparent;
+  color: #24333f;
+  font-family: "Instrument Serif", Georgia, serif;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.75;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  padding: 0;
+  line-height: 1;
+}
+
+.info-btn:hover {
+  opacity: 1.0;
+  transform: scale(1.1);
+}
+
+.info-tooltip {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  width: 140px;
+  background: rgba(253, 238, 207, 0.85); /* matching body radial-gradient base */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 0.5px solid rgba(36, 51, 63, 0.15);
+  border-radius: 6px;
+  padding: 10px 12px;
+  box-shadow: 0 6px 18px rgba(32, 48, 63, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-5px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* Show on container hover or button focus */
+.info-container:hover .info-tooltip,
+.info-btn:focus + .info-tooltip {
+  opacity: 1.0;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #24333f;
+  letter-spacing: -0.01em;
+  text-transform: lowercase;
+}
+
+.info-row .key {
+  font-family: monospace, sans-serif;
+  background: rgba(36, 51, 63, 0.08);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+
 
 
