@@ -958,6 +958,14 @@ function loadModelWithGUI(name, url, defaults) {
   const params = { ...defaults };
   let obj = null;
 
+  let lastDistance = defaults.distance;
+  let lastAngle = defaults.angle;
+  let lastPosZ = defaults.posZ;
+  let lastScale = defaults.scale;
+  let lastRotX = defaults.rotX;
+  let lastRotY = defaults.rotY;
+  let lastRotZ = defaults.rotZ;
+
   function update() {
     if (!obj) return;
     const hoverData = hoverScenes[name];
@@ -987,21 +995,41 @@ function loadModelWithGUI(name, url, defaults) {
     // Update world matrices for raycasting targets when positions shift
     obj.updateMatrixWorld(true);
 
-    // Invalidate snapping caches when the background terrain moves
-    if (name === 'City') {
-      motorcycleCache.clear();
-      motorcycleRadialOffset = null;
-    } else if (name === 'Desert') {
-      broncoCache.clear();
-      broncoRadialOffset = null;
-    } else if (name === 'Beach') {
-      boatCache.clear();
-      boatRadialOffset = null;
-    } else if (name === 'Landscape') {
-      car2Cache.clear();
-      car2RadialOffset = null;
-    } else if (name === 'Cafe') {
-      racecarCache.clear();
+    // Only clear snapping caches if base parameters changed via GUI, NOT during hover animations
+    const baseParamsChanged = (
+      params.distance !== lastDistance ||
+      params.angle !== lastAngle ||
+      params.posZ !== lastPosZ ||
+      params.scale !== lastScale ||
+      params.rotX !== lastRotX ||
+      params.rotY !== lastRotY ||
+      params.rotZ !== lastRotZ
+    );
+
+    if (baseParamsChanged) {
+      lastDistance = params.distance;
+      lastAngle = params.angle;
+      lastPosZ = params.posZ;
+      lastScale = params.scale;
+      lastRotX = params.rotX;
+      lastRotY = params.rotY;
+      lastRotZ = params.rotZ;
+
+      if (name === 'City') {
+        motorcycleCache.clear();
+        motorcycleRadialOffset = null;
+      } else if (name === 'Desert') {
+        broncoCache.clear();
+        broncoRadialOffset = null;
+      } else if (name === 'Beach') {
+        boatCache.clear();
+        boatRadialOffset = null;
+      } else if (name === 'Landscape') {
+        car2Cache.clear();
+        car2RadialOffset = null;
+      } else if (name === 'Cafe') {
+        racecarCache.clear();
+      }
     }
   }
 
@@ -1856,14 +1884,13 @@ const racecarParams = {
 function runRacecarRaycast(angle, skipUpdateMatrix = false) {
   let posRadius = racecarParams.distance;
   const pathZ = racecarParams.height;
-  let localHitNormal = null;
 
   try {
     if (cafeMeshes.length > 0) {
       const radialDir = new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0);
-      const rayOrigin = radialDir.clone().multiplyScalar(10.0);
-      rayOrigin.z = pathZ;
-      const rayDir = radialDir.clone().negate();
+      // Ray origin at the center of the cylinder, shooting outwards
+      const rayOrigin = new THREE.Vector3(0, 0, pathZ);
+      const rayDir = radialDir.clone().normalize();
 
       const _rc = new THREE.Raycaster();
       _rc.set(rayOrigin, rayDir);
@@ -1873,23 +1900,22 @@ function runRacecarRaycast(angle, skipUpdateMatrix = false) {
       const hits = _rc.intersectObjects(cafeMeshes, false);
       if (hits.length > 0) {
         const hit = hits[0];
-        const mesh = hit.object;
-        const face = hit.face;
-
         const hitRadius = Math.sqrt(hit.point.x * hit.point.x + hit.point.y * hit.point.y);
+        // Calibrate radius offset to keep car on top of the road surface
         posRadius = hitRadius + (racecarParams.distance - cylinderParams.radius);
-
-        if (mesh && face) {
-          const normalMatrix = new THREE.Matrix3().getNormalMatrix(mesh.matrixWorld);
-          localHitNormal = face.normal.clone().applyMatrix3(normalMatrix).normalize();
-        }
       }
     }
   } catch (err) {
     console.warn("Error in runRacecarRaycast:", err);
   }
 
-  return { posRadius, localHitNormal: localHitNormal ? localHitNormal.clone() : null };
+  // Prevent sinking below cylinder base
+  const minRadius = cylinderParams.radius + 0.05;
+  if (posRadius < minRadius) {
+    posRadius = minRadius;
+  }
+
+  return { posRadius, localHitNormal: null };
 }
 
 function updateRacecar() {
@@ -1899,42 +1925,51 @@ function updateRacecar() {
   const currentAngle = racecarParams.angle + orbitRad;
   const pathZ = racecarParams.height;
 
-  const snapped = getSnappedData(racecarCache, runRacecarRaycast, currentAngle);
-  const posRadius = snapped.posRadius;
-  const localHitNormal = snapped.localHitNormal;
+  // Retrieve current Cafe model hover offset
+  const hoverData = hoverScenes['Cafe'];
+  const hoverOffset = hoverData ? (hoverData.current * hoverData.maxProtrusion) : 0.0;
 
-  const x = posRadius * Math.cos(currentAngle);
-  const y = posRadius * Math.sin(currentAngle);
-  racecarObject.position.set(x, y, pathZ);
+  // Two-point raycasting for front and rear axles
+  const deltaAngle = 0.07; // ~4 degrees angular half-length of the car
+  const frontAngle = currentAngle + deltaAngle;
+  const rearAngle = currentAngle - deltaAngle;
 
-  // Rotation: apply base euler rotation, then compose with orbit rotation around Z axis.
-  const RACECAR_REF_ANGLE = -3.05; // reference angle where rotX/rotY/rotZ were calibrated
-  const totalAngularDelta = (racecarParams.angle - RACECAR_REF_ANGLE) + orbitRad;
+  const frontSnapped = getSnappedData(racecarCache, runRacecarRaycast, frontAngle);
+  const rearSnapped = getSnappedData(racecarCache, runRacecarRaycast, rearAngle);
+
+  // Add the current hover offset to the base road radius
+  const frontRadius = frontSnapped.posRadius + hoverOffset;
+  const rearRadius = rearSnapped.posRadius + hoverOffset;
+
+  const frontPos = new THREE.Vector3(
+    frontRadius * Math.cos(frontAngle),
+    frontRadius * Math.sin(frontAngle),
+    pathZ
+  );
+
+  const rearPos = new THREE.Vector3(
+    rearRadius * Math.cos(rearAngle),
+    rearRadius * Math.sin(rearAngle),
+    pathZ
+  );
+
+  // Position is the midpoint (naturally pulls center inward to place wheels on the road)
+  const centerPos = new THREE.Vector3().addVectors(frontPos, rearPos).multiplyScalar(0.5);
+  racecarObject.position.copy(centerPos);
+
+  // Heading: compute road angle from front and rear position difference
+  const forward = new THREE.Vector3().subVectors(frontPos, rearPos).normalize();
+  const roadAngle = Math.atan2(forward.y, forward.x) - Math.PI / 2;
+
+  // Base calibration angular delta using the dynamic road angle
+  const RACECAR_REF_ANGLE = -3.05;
+  const totalAngularDelta = (roadAngle - racecarParams.angle) + (racecarParams.angle - RACECAR_REF_ANGLE);
 
   const baseEuler = new THREE.Euler(racecarParams.rotX, racecarParams.rotY, racecarParams.rotZ);
   const baseQuat = new THREE.Quaternion().setFromEuler(baseEuler);
   const orbitQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), totalAngularDelta);
 
   let finalQuat = new THREE.Quaternion().copy(orbitQuat).multiply(baseQuat);
-
-  // Align car to actual road surface normal (same technique as Bronco on desert)
-  const cylinderNormal = new THREE.Vector3(Math.cos(currentAngle), Math.sin(currentAngle), 0).normalize();
-
-  if (localHitNormal) {
-    const alignQuat = new THREE.Quaternion().setFromUnitVectors(cylinderNormal, localHitNormal);
-
-    // Calculate the road path tangent vector in world space
-    const pathTangent = new THREE.Vector3(-Math.sin(currentAngle), Math.cos(currentAngle), 0).normalize();
-    // Rotate path tangent by the raw alignment quaternion
-    const tempTangent = pathTangent.clone().applyQuaternion(alignQuat);
-    // Project the path tangent onto the surface normal plane
-    const targetTangent = pathTangent.clone().projectOnPlane(localHitNormal).normalize();
-    // Calculate the correction rotation around the normal to align the heading
-    const correctionQuat = new THREE.Quaternion().setFromUnitVectors(tempTangent, targetTangent);
-
-    const alignQuatCorrected = new THREE.Quaternion().multiplyQuaternions(correctionQuat, alignQuat);
-    finalQuat.copy(alignQuatCorrected).multiply(orbitQuat).multiply(baseQuat);
-  }
 
   racecarObject.quaternion.copy(finalQuat);
   racecarObject.scale.setScalar(racecarParams.scale);
@@ -3094,12 +3129,19 @@ function triggerNavigation(navIdx) {
       }
       isResumeHovered = false;
     }
-    // Reset all nav label targets to their default, non-highlighted state
-    navLabels.forEach((entry) => {
-      entry.targetOpacity = 0.75;
-      entry.targetScale = 1.0;
-    });
   }
+
+  // Reset all nav label targets to their default, non-highlighted state
+  navLabels.forEach((entry) => {
+    entry.targetOpacity = 0.75;
+    entry.targetScale = 1.0;
+  });
+
+  // Ensure all background scenes retract to flat (0.0) during orbit navigation
+  for (const name in hoverScenes) {
+    hoverScenes[name].target = 0.0;
+  }
+
   sequenceEverCompleted = false;
 
   // Switch to the target vehicle
@@ -3164,7 +3206,6 @@ window.addEventListener('keydown', (e) => {
       if (sectorIdx === -1) sectorIdx = 0;
       const nextSectorIdx = (sectorIdx + 1) % navLabelConfig.length;
       activeNavIndex = nextSectorIdx;
-      highlightNavLabel(activeNavIndex);
       triggerNavigation(nextSectorIdx);
     }
   } else if (e.key === 'ArrowLeft') {
@@ -3178,7 +3219,6 @@ window.addEventListener('keydown', (e) => {
       if (sectorIdx === -1) sectorIdx = 0;
       const prevSectorIdx = (sectorIdx - 1 + navLabelConfig.length) % navLabelConfig.length;
       activeNavIndex = prevSectorIdx;
-      highlightNavLabel(prevSectorIdx);
       triggerNavigation(prevSectorIdx);
     }
   } else if (e.key === 'Enter') {
