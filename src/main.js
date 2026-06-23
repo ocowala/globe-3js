@@ -1765,40 +1765,37 @@ const car2Params = {
 
 function runCar2Raycast(angle, skipUpdateMatrix = false) {
   let posRadius = car2Params.distance;
-  const posZ = car2Params.height;
-  let localHitNormal = null;
+  const pathZ = car2Params.height;
 
   try {
     if (landscapeMeshes.length > 0) {
       const radialDir = new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0);
-      const rayOrigin = radialDir.clone().multiplyScalar(10.0);
-      rayOrigin.z = posZ;
-      const rayDir = radialDir.clone().negate();
+      const rayOrigin = new THREE.Vector3(0, 0, pathZ);
+      const rayDir = radialDir.clone().normalize();
 
-      _car2Raycaster.set(rayOrigin, rayDir);
-      _car2Raycaster.far = 15.0;
-      _car2Raycaster.near = 0;
+      const _rc = new THREE.Raycaster();
+      _rc.set(rayOrigin, rayDir);
+      _rc.far = 15.0;
+      _rc.near = 0;
 
-      const hits = _car2Raycaster.intersectObjects(landscapeMeshes, false);
+      const hits = _rc.intersectObjects(landscapeMeshes, false);
       if (hits.length > 0) {
         const hit = hits[0];
-        const mesh = hit.object;
-        const face = hit.face;
-
         const hitRadius = Math.sqrt(hit.point.x * hit.point.x + hit.point.y * hit.point.y);
         posRadius = hitRadius + (car2Params.distance - cylinderParams.radius);
-
-        if (mesh && face) {
-          const normalMatrix = new THREE.Matrix3().getNormalMatrix(mesh.matrixWorld);
-          localHitNormal = face.normal.clone().applyMatrix3(normalMatrix).normalize();
-        }
       }
     }
   } catch (err) {
     console.warn("Error in runCar2Raycast:", err);
   }
 
-  return { posRadius, localHitNormal: localHitNormal ? localHitNormal.clone() : null };
+  // Prevent sinking below base
+  const minRadius = cylinderParams.radius + 0.05;
+  if (posRadius < minRadius) {
+    posRadius = minRadius;
+  }
+
+  return { posRadius, localHitNormal: null };
 }
 
 function updateCar2() {
@@ -1806,41 +1803,52 @@ function updateCar2() {
 
   const orbitRad = THREE.MathUtils.degToRad(car2Params.orbitDegrees);
   const currentAngle = car2Params.angle + orbitRad;
-  const posZ = car2Params.height;
+  const pathZ = car2Params.height;
 
-  const snapped = getSnappedData(car2Cache, runCar2Raycast, currentAngle);
-  const posRadius = snapped.posRadius;
-  const localHitNormal = snapped.localHitNormal;
+  // Retrieve current Landscape model hover offset
+  const hoverData = hoverScenes['Landscape'];
+  const hoverOffset = hoverData ? (hoverData.current * hoverData.maxProtrusion) : 0.0;
 
-  const x = posRadius * Math.cos(currentAngle);
-  const y = posRadius * Math.sin(currentAngle);
-  car2Object.position.set(x, y, posZ);
+  // Two-point raycasting for front and rear axles
+  const deltaAngle = 0.06; // calibrated for Car V2 size
+  const frontAngle = currentAngle + deltaAngle;
+  const rearAngle = currentAngle - deltaAngle;
 
-  // Rotation: apply base euler rotation, then compose with orbit rotation around Z axis.
-  const CAR2_REF_ANGLE = -0.12; // reference angle where rotX/rotY/rotZ were calibrated
-  const totalAngularDelta = (car2Params.angle - CAR2_REF_ANGLE) + orbitRad;
+  const frontSnapped = getSnappedData(car2Cache, runCar2Raycast, frontAngle);
+  const rearSnapped = getSnappedData(car2Cache, runCar2Raycast, rearAngle);
+
+  const frontRadius = frontSnapped.posRadius + hoverOffset;
+  const rearRadius = rearSnapped.posRadius + hoverOffset;
+
+  const frontPos = new THREE.Vector3(
+    frontRadius * Math.cos(frontAngle),
+    frontRadius * Math.sin(frontAngle),
+    pathZ
+  );
+
+  const rearPos = new THREE.Vector3(
+    rearRadius * Math.cos(rearAngle),
+    rearRadius * Math.sin(rearAngle),
+    pathZ
+  );
+
+  // Position is the midpoint (naturally pulls center inward to place wheels on the road)
+  const centerPos = new THREE.Vector3().addVectors(frontPos, rearPos).multiplyScalar(0.5);
+  car2Object.position.copy(centerPos);
+
+  // Heading: compute road angle from front and rear position difference
+  const forward = new THREE.Vector3().subVectors(frontPos, rearPos).normalize();
+  const roadAngle = Math.atan2(forward.y, forward.x) - Math.PI / 2;
+
+  // Base calibration angular delta using the dynamic road angle
+  const CAR2_REF_ANGLE = -0.12;
+  const totalAngularDelta = (roadAngle - car2Params.angle) + (car2Params.angle - CAR2_REF_ANGLE);
+
   const baseEuler = new THREE.Euler(car2Params.rotX, car2Params.rotY, car2Params.rotZ);
   const baseQuat = new THREE.Quaternion().setFromEuler(baseEuler);
   const orbitQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), totalAngularDelta);
 
   let finalQuat = new THREE.Quaternion().copy(orbitQuat).multiply(baseQuat);
-
-  if (localHitNormal) {
-    const cylinderNormal = new THREE.Vector3(Math.cos(currentAngle), Math.sin(currentAngle), 0).normalize();
-    const alignQuat = new THREE.Quaternion().setFromUnitVectors(cylinderNormal, localHitNormal);
-
-    // Calculate the road path tangent vector in world space
-    const pathTangent = new THREE.Vector3(-Math.sin(currentAngle), Math.cos(currentAngle), 0).normalize();
-    // Rotate path tangent by the raw alignment quaternion
-    const tempTangent = pathTangent.clone().applyQuaternion(alignQuat);
-    // Project the path tangent onto the surface normal plane
-    const targetTangent = pathTangent.clone().projectOnPlane(localHitNormal).normalize();
-    // Calculate the correction rotation around the normal to align the heading
-    const correctionQuat = new THREE.Quaternion().setFromUnitVectors(tempTangent, targetTangent);
-
-    const alignQuatCorrected = new THREE.Quaternion().multiplyQuaternions(correctionQuat, alignQuat);
-    finalQuat.copy(alignQuatCorrected).multiply(orbitQuat).multiply(baseQuat);
-  }
 
   car2Object.quaternion.copy(finalQuat);
   car2Object.scale.setScalar(car2Params.scale);
@@ -2542,6 +2550,15 @@ function animate() {
               introFinaleTimer = 0.0;
               postSeqTimer = 0.0;
               isOrbitAnimating = false;
+
+              // Show the info hint pointing to the (i) icon for 2 seconds
+              const infoHint = document.getElementById('info-hint');
+              if (infoHint) {
+                infoHint.classList.add('show');
+                setTimeout(() => {
+                  infoHint.classList.remove('show');
+                }, 2000);
+              }
 
               // Capture current camera state for smooth transition start (from intro cam position)
               transitionStartPos.copy(camera.position);

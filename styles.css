@@ -244,6 +244,28 @@ canvas {
   font-size: 11px;
 }
 
+.info-hint {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  background: transparent;
+  padding: 4px 0;
+  font-size: 11px;
+  color: #24333f;
+  font-family: "Instrument Serif", Georgia, serif;
+  text-transform: lowercase;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.info-hint.show {
+  opacity: 1.0;
+}
+
 
 
 
