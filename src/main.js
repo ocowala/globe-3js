@@ -616,28 +616,28 @@ const sceneTextboxes = {
 
 const staticTextboxConfigs = {
   'City': [
-    { angleOffset: 10, data: { title: "backend systems", subtitle: "scalable apis & databases", badges: ["Go", "Python", "gRPC", "SQL"] } },
-    { angleOffset: -15, data: { title: "frontend engineering", subtitle: "modern & responsive web apps", badges: ["React", "TypeScript", "Three.js", "Vite"] } }
+    { angleOffset: 1.0, data: { title: "backend systems", subtitle: "scalable apis & databases", badges: ["Go", "Python", "gRPC", "SQL"] } },
+    { angleOffset: -21.0, data: { title: "frontend engineering", subtitle: "modern & responsive web apps", badges: ["React", "TypeScript", "Three.js", "Vite"] } }
   ],
   'School': [
-    { angleOffset: 10, data: { title: "cloud & infrastructure", subtitle: "distributed systems & cloud deployments", badges: ["AWS", "Docker", "Kubernetes", "Linux"] } },
-    { angleOffset: -7.5, data: { title: "computer science", subtitle: "algorithms, data structures & networks", badges: ["Java", "C", "Python", "Git"] } }
+    { angleOffset: 7.5, data: { title: "cloud & infrastructure", subtitle: "distributed systems & cloud deployments", badges: ["AWS", "Docker", "Kubernetes", "Linux"] } },
+    { angleOffset: -12.5, data: { title: "computer science", subtitle: "algorithms, data structures & networks", badges: ["Java", "C", "Python", "Git"] } }
   ],
   'Landscape': [
-    { angleOffset: 0, data: { title: "full stack development", subtitle: "crafting high-performance web apps", badges: ["React", "Three.js", "Vite", "CSS"] } }
+    { angleOffset: 7.2, data: { title: "full stack development", subtitle: "crafting high-performance web apps", badges: ["React", "Three.js", "Vite", "CSS"] } }
   ],
   'Beach': [
-    { angleOffset: 8, data: { title: "data pipelines", subtitle: "real-time streaming & analytics", badges: ["Kafka", "Flink", "PostgreSQL", "Python"] } },
-    { angleOffset: -8, data: { title: "software engineering", subtitle: "building robust & scalable services", badges: ["Go", "gRPC", "Redis", "Docker"] } }
+    { angleOffset: 4.5, data: { title: "data pipelines", subtitle: "real-time streaming & analytics", badges: ["Kafka", "Flink", "PostgreSQL", "Python"] } },
+    { angleOffset: -17.5, data: { title: "software engineering", subtitle: "building robust & scalable services", badges: ["Go", "gRPC", "Redis", "Docker"] } }
   ],
   'Desert': [
-    { angleOffset: 7.5, data: { title: "devops engineering", subtitle: "resilient infrastructures & ci/cd", badges: ["Terraform", "GitHub Actions", "Docker", "AWS"] } },
-    { angleOffset: -12.5, data: { title: "globe-3js", subtitle: "interactive 3d portfolio engine", badges: ["Three.js", "Vite", "Vanilla JS", "CSS"] } },
-    { angleOffset: -30.0, data: { title: "api gateway", subtitle: "routing & auth proxy", badges: ["Go", "Redis", "Prometheus", "Docker"] } }
+    { angleOffset: 1.5, data: { title: "devops engineering", subtitle: "resilient infrastructures & ci/cd", badges: ["Terraform", "GitHub Actions", "Docker", "AWS"] } },
+    { angleOffset: -17.5, data: { title: "globe-3js", subtitle: "interactive 3d portfolio engine", badges: ["Three.js", "Vite", "Vanilla JS", "CSS"] } },
+    { angleOffset: -36.5, data: { title: "api gateway", subtitle: "routing & auth proxy", badges: ["Go", "Redis", "Prometheus", "Docker"] } }
   ],
   'Cafe': [
-    { angleOffset: 10, data: { title: "systems optimization", subtitle: "low-latency & profiling", badges: ["C++", "Rust", "WebAssembly", "Go"] } },
-    { angleOffset: -15, data: { title: "3d graphics", subtitle: "shaders & interactive webgl", badges: ["Three.js", "WebGL", "GLSL", "Blender"] } }
+    { angleOffset: -10.0, data: { title: "systems optimization", subtitle: "low-latency & profiling", badges: ["C++", "Rust", "WebAssembly", "Go"] } },
+    { angleOffset: -32.0, data: { title: "3d graphics", subtitle: "shaders & interactive webgl", badges: ["Three.js", "WebGL", "GLSL", "Blender"] } }
   ]
 };
 
@@ -664,6 +664,7 @@ function initStaticTextboxes() {
     });
   }
 }
+initStaticTextboxes();
 
 function updateSceneTextboxes(sceneName, refAngle, height, cache, raycastFn, hoverOffset, params) {
   const textboxes = sceneTextboxes[sceneName];
@@ -706,7 +707,7 @@ function updateSceneTextboxes(sceneName, refAngle, height, cache, raycastFn, hov
   });
 }
 
-function addTextboxGUI(folder, params, updateFn, minOffset = -10.0, maxOffset = 10.0) {
+function addTextboxGUI(folder, params, updateFn, sceneName, minOffset = -10.0, maxOffset = 10.0) {
   const tbFolder = folder.addFolder('Textbox');
   tbFolder.add(params, 'textboxScale', 0.1, 5.0).step(0.01).name('Scale').onChange(updateFn);
   tbFolder.add(params, 'textboxOffsetX', minOffset, maxOffset).step(0.05).name('Offset X').onChange(updateFn);
@@ -715,6 +716,14 @@ function addTextboxGUI(folder, params, updateFn, minOffset = -10.0, maxOffset = 
   tbFolder.add(params, 'textboxRotX', -Math.PI, Math.PI).step(0.01).name('Rot X').onChange(updateFn);
   tbFolder.add(params, 'textboxRotY', -Math.PI, Math.PI).step(0.01).name('Rot Y').onChange(updateFn);
   tbFolder.add(params, 'textboxRotZ', -Math.PI, Math.PI).step(0.01).name('Rot Z').onChange(updateFn);
+
+  // Add individual angle sliders for textboxes of this scene
+  const textboxes = sceneTextboxes[sceneName];
+  if (textboxes) {
+    textboxes.forEach((tb, index) => {
+      tbFolder.add(tb, 'angleOffset', -180.0, 180.0).step(0.1).name(`TB ${index + 1} Angle (°)`).onChange(updateFn);
+    });
+  }
 }
 
 // --- 3D Cylinder Nav Labels ---
@@ -977,7 +986,7 @@ const boatParams = {
   speed: 7,             // orbit speed
   textboxScale: 0.5,
   textboxOffsetX: 0.0,
-  textboxOffsetY: 0.333,
+  textboxOffsetY: 0.0,
   textboxOffsetZ: 0.0,
   textboxRotX: Math.PI / 2.0,
   textboxRotY: -Math.PI / 2.0,
@@ -1320,7 +1329,7 @@ motoFolder.add(motorcycleParams, 'rotY', -Math.PI, Math.PI).step(0.01).name('Rot
 motoFolder.add(motorcycleParams, 'rotZ', -Math.PI, Math.PI).step(0.01).name('Rotation Z').onChange(updateMotorcycle);
 motoFolder.add(motorcycleParams, 'wheelSpeed', 0, 0.5).step(0.01).name('Wheel Speed');
 motoFolder.add(motorcycleParams, 'speed', 1.0, 30.0).step(0.1).name('Speed').onChange(updateMotorcycle);
-addTextboxGUI(motoFolder, motorcycleParams, updateMotorcycle);
+addTextboxGUI(motoFolder, motorcycleParams, updateMotorcycle, 'City');
 motoFolder.open();
 
 // --- All models with GUI (Static Backgrounds) ---
@@ -1521,7 +1530,7 @@ planeFolder.add(airplaneParams, 'rotY', -Math.PI, Math.PI).step(0.01).name('Rota
 planeFolder.add(airplaneParams, 'rotZ', -Math.PI, Math.PI).step(0.01).name('Rotation Z').onChange(updateAirplane);
 planeFolder.add(airplaneParams, 'propellerSpeed', 0, 1.0).step(0.01).name('Propeller Speed');
 planeFolder.add(airplaneParams, 'speed', 1.0, 30.0).step(0.1).name('Speed').onChange(updateAirplane);
-addTextboxGUI(planeFolder, airplaneParams, updateAirplane, -30.0, 30.0);
+addTextboxGUI(planeFolder, airplaneParams, updateAirplane, 'School', -30.0, 30.0);
 planeFolder.open();
 
 // --- Airplane update ---
@@ -1650,7 +1659,7 @@ broncoFolder.add(broncoParams, 'rotY', -Math.PI, Math.PI).step(0.01).name('Rotat
 broncoFolder.add(broncoParams, 'rotZ', -Math.PI, Math.PI).step(0.01).name('Rotation Z').onChange(updateBronco);
 broncoFolder.add(broncoParams, 'wheelSpeed', 0, 0.5).step(0.01).name('Wheel Speed');
 broncoFolder.add(broncoParams, 'speed', 1.0, 30.0).step(0.1).name('Speed').onChange(updateBronco);
-addTextboxGUI(broncoFolder, broncoParams, updateBronco);
+addTextboxGUI(broncoFolder, broncoParams, updateBronco, 'Desert');
 broncoFolder.open();
 
 // --- Bronco update ---
@@ -1841,7 +1850,7 @@ rawLoader.load(new URL('../assets/models/boat.glb', import.meta.url).href, (gltf
   boatFolder.add(boatParams, 'rotY', -Math.PI, Math.PI).step(0.01).name('Rotation Y').onChange(updateBoat);
   boatFolder.add(boatParams, 'rotZ', -Math.PI, Math.PI).step(0.01).name('Rotation Z').onChange(updateBoat);
   boatFolder.add(boatParams, 'speed', 1.0, 30.0).step(0.1).name('Speed').onChange(updateBoat);
-  addTextboxGUI(boatFolder, boatParams, updateBoat);
+  addTextboxGUI(boatFolder, boatParams, updateBoat, 'Beach');
   boatFolder.open();
 }, undefined, (error) => {
   console.error('Boat load failed:', error);
@@ -2177,7 +2186,7 @@ rawLoader.load(new URL('../assets/models/sls_amg_63_black_series.glb', import.me
   racecarFolder.add(racecarParams, 'rotZ', -Math.PI, Math.PI).step(0.01).name('Rotation Z').onChange(updateRacecar);
   racecarFolder.add(racecarParams, 'wheelSpeed', 0, 0.5).step(0.01).name('Wheel Speed');
   racecarFolder.add(racecarParams, 'speed', 1.0, 30.0).step(0.1).name('Speed').onChange(updateRacecar);
-  addTextboxGUI(racecarFolder, racecarParams, updateRacecar);
+  addTextboxGUI(racecarFolder, racecarParams, updateRacecar, 'Cafe');
   racecarFolder.open();
 }, undefined, (error) => {
   console.error('Racecar load failed:', error);
@@ -2245,7 +2254,7 @@ rawLoader.load(new URL('../assets/models/car_v2.glb', import.meta.url).href, (gl
   car2Folder.add(car2Params, 'rotZ', -Math.PI, Math.PI).step(0.01).name('Rotation Z').onChange(updateCar2);
   car2Folder.add(car2Params, 'wheelSpeed', 0, 0.5).step(0.01).name('Wheel Speed');
   car2Folder.add(car2Params, 'speed', 1.0, 30.0).step(0.1).name('Speed').onChange(updateCar2);
-  addTextboxGUI(car2Folder, car2Params, updateCar2);
+  addTextboxGUI(car2Folder, car2Params, updateCar2, 'Landscape');
   car2Folder.open();
 }, undefined, (error) => {
   console.error('Car V2 load failed:', error);
@@ -3201,7 +3210,7 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-initStaticTextboxes();
+// initStaticTextboxes call moved earlier to setup phase
 initNavLabels();
 animate();
 
