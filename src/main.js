@@ -3258,7 +3258,8 @@ const songMap = {
   '/bean-sabine.mp3': 'bean sabine ost - howard goodall',
   '/imagination.mp3': 'pure imagination - walter scharf',
   '/dreamers.mp3': 'sea dreamers - shankar, sting',
-  '/fly.mp3': 'fly by day - anri'
+  '/fly.mp3': 'fly by day - anri',
+  '/fillmore.mp3': 'fillmore county - vansire, floor cry'
 };
 
 if (audio) {
