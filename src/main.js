@@ -411,21 +411,42 @@ function getSnappedData(cache, raycastFn, angle) {
 
   if (idx_low === idx_high) {
     if (!cache.has(idx_low)) {
-      cache.set(idx_low, raycastFn(idx_low * STEP));
+      const res = raycastFn(idx_low * STEP);
+      if (res.valid) {
+        cache.set(idx_low, res);
+      } else {
+        return { posRadius: res.posRadius, localHitNormal: res.localHitNormal ? res.localHitNormal.clone() : null };
+      }
     }
     const cached = cache.get(idx_low);
     return { posRadius: cached.posRadius, localHitNormal: cached.localHitNormal ? cached.localHitNormal.clone() : null };
   }
 
+  let data_low;
   if (!cache.has(idx_low)) {
-    cache.set(idx_low, raycastFn(idx_low * STEP));
-  }
-  if (!cache.has(idx_high)) {
-    cache.set(idx_high, raycastFn(idx_high * STEP));
+    const res = raycastFn(idx_low * STEP);
+    if (res.valid) {
+      cache.set(idx_low, res);
+      data_low = res;
+    } else {
+      data_low = res;
+    }
+  } else {
+    data_low = cache.get(idx_low);
   }
 
-  const data_low = cache.get(idx_low);
-  const data_high = cache.get(idx_high);
+  let data_high;
+  if (!cache.has(idx_high)) {
+    const res = raycastFn(idx_high * STEP);
+    if (res.valid) {
+      cache.set(idx_high, res);
+      data_high = res;
+    } else {
+      data_high = res;
+    }
+  } else {
+    data_high = cache.get(idx_high);
+  }
 
   const posRadius = THREE.MathUtils.lerp(data_low.posRadius, data_high.posRadius, t);
   let localHitNormal = null;
@@ -581,6 +602,108 @@ function updateVehicleTextbox(group, params) {
 
   const s = (1.0 / Math.max(params.scale, 0.0001)) * params.textboxScale;
   textbox.scale.set(s, s, s);
+}
+
+// --- Static Multi-Textbox Registry and Configurations ---
+const sceneTextboxes = {
+  'City': [],
+  'School': [],
+  'Landscape': [],
+  'Beach': [],
+  'Desert': [],
+  'Cafe': []
+};
+
+const staticTextboxConfigs = {
+  'City': [
+    { angleOffset: 10, data: { title: "backend systems", subtitle: "scalable apis & databases", badges: ["Go", "Python", "gRPC", "SQL"] } },
+    { angleOffset: -15, data: { title: "frontend engineering", subtitle: "modern & responsive web apps", badges: ["React", "TypeScript", "Three.js", "Vite"] } }
+  ],
+  'School': [
+    { angleOffset: 10, data: { title: "cloud & infrastructure", subtitle: "distributed systems & cloud deployments", badges: ["AWS", "Docker", "Kubernetes", "Linux"] } },
+    { angleOffset: -7.5, data: { title: "computer science", subtitle: "algorithms, data structures & networks", badges: ["Java", "C", "Python", "Git"] } }
+  ],
+  'Landscape': [
+    { angleOffset: 0, data: { title: "full stack development", subtitle: "crafting high-performance web apps", badges: ["React", "Three.js", "Vite", "CSS"] } }
+  ],
+  'Beach': [
+    { angleOffset: 8, data: { title: "data pipelines", subtitle: "real-time streaming & analytics", badges: ["Kafka", "Flink", "PostgreSQL", "Python"] } },
+    { angleOffset: -8, data: { title: "software engineering", subtitle: "building robust & scalable services", badges: ["Go", "gRPC", "Redis", "Docker"] } }
+  ],
+  'Desert': [
+    { angleOffset: 7.5, data: { title: "devops engineering", subtitle: "resilient infrastructures & ci/cd", badges: ["Terraform", "GitHub Actions", "Docker", "AWS"] } },
+    { angleOffset: -12.5, data: { title: "globe-3js", subtitle: "interactive 3d portfolio engine", badges: ["Three.js", "Vite", "Vanilla JS", "CSS"] } },
+    { angleOffset: -30.0, data: { title: "api gateway", subtitle: "routing & auth proxy", badges: ["Go", "Redis", "Prometheus", "Docker"] } }
+  ],
+  'Cafe': [
+    { angleOffset: 10, data: { title: "systems optimization", subtitle: "low-latency & profiling", badges: ["C++", "Rust", "WebAssembly", "Go"] } },
+    { angleOffset: -15, data: { title: "3d graphics", subtitle: "shaders & interactive webgl", badges: ["Three.js", "WebGL", "GLSL", "Blender"] } }
+  ]
+};
+
+const vehicleSceneMap = {
+  'Motorcycle': 'City',
+  'Airplane': 'School',
+  'Car V2': 'Landscape',
+  'Boat': 'Beach',
+  'Bronco': 'Desert',
+  'Racecar': 'Cafe'
+};
+
+function initStaticTextboxes() {
+  for (const name in staticTextboxConfigs) {
+    const configs = staticTextboxConfigs[name];
+    configs.forEach((cfg) => {
+      const mesh = createTextBox(cfg.data);
+      mesh.visible = false;
+      scene.add(mesh);
+      sceneTextboxes[name].push({
+        mesh: mesh,
+        angleOffset: cfg.angleOffset
+      });
+    });
+  }
+}
+
+function updateSceneTextboxes(sceneName, refAngle, height, cache, raycastFn, hoverOffset, params) {
+  const textboxes = sceneTextboxes[sceneName];
+  if (!textboxes) return;
+
+  textboxes.forEach((tb) => {
+    const angle = refAngle + THREE.MathUtils.degToRad(tb.angleOffset);
+    let snappedRadius = 0.0;
+    if (cache && raycastFn) {
+      const snapped = getSnappedData(cache, raycastFn, angle);
+      snappedRadius = snapped.posRadius;
+    } else {
+      snappedRadius = cylinderParams.radius;
+    }
+
+    const radialDir = new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0).normalize();
+    const tangentDir = new THREE.Vector3(-Math.sin(angle), Math.cos(angle), 0).normalize();
+    const heightDir = new THREE.Vector3(0, 0, 1);
+
+    // Default radial height is snapped radius + hoverOffset
+    const baseRadius = snappedRadius + hoverOffset;
+    const basePos = radialDir.clone().multiplyScalar(baseRadius);
+    basePos.z = height;
+
+    const finalPos = basePos.clone()
+      .addScaledVector(tangentDir, params.textboxOffsetX)
+      .addScaledVector(radialDir, params.textboxOffsetY + 0.85)
+      .addScaledVector(heightDir, params.textboxOffsetZ);
+
+    tb.mesh.position.copy(finalPos);
+
+    // Orientation: face Z axis, up is radial, right is tangent (negated for clockwise L-to-R layout)
+    const basisMatrix = new THREE.Matrix4();
+    const negTangent = tangentDir.clone().negate();
+    basisMatrix.makeBasis(negTangent, radialDir, new THREE.Vector3(0, 0, 1));
+    tb.mesh.quaternion.setFromRotationMatrix(basisMatrix);
+
+    const s = params.textboxScale;
+    tb.mesh.scale.set(s, s, s);
+  });
 }
 
 function addTextboxGUI(folder, params, updateFn, minOffset = -10.0, maxOffset = 10.0) {
@@ -865,9 +988,11 @@ function runBoatRaycast(angle, skipUpdateMatrix = false) {
   let posRadius = boatParams.distance;
   const posZ = boatParams.height;
   let localHitNormal = null;
+  let valid = false;
 
   try {
     if (beachGroundMeshes.length > 0) {
+      valid = true;
       const radialDir = new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0);
       // Cast from outside using the parameterized distance offset
       const rayOrigin = radialDir.clone().multiplyScalar(boatParams.distance + 5.0);
@@ -902,7 +1027,7 @@ function runBoatRaycast(angle, skipUpdateMatrix = false) {
     posRadius = minRadius;
   }
 
-  return { posRadius, localHitNormal: localHitNormal ? localHitNormal.clone() : null };
+  return { posRadius, localHitNormal: localHitNormal ? localHitNormal.clone() : null, valid };
 }
 
 function updateBoat() {
@@ -931,7 +1056,9 @@ function updateBoat() {
   boatObject.quaternion.copy(finalQuat);
   boatObject.scale.setScalar(boatParams.scale);
 
-  updateVehicleTextbox(boatObject, boatParams);
+  const hoverData = hoverScenes['Beach'];
+  const hoverOffset = hoverData ? (hoverData.current * hoverData.maxProtrusion) : 0.0;
+  updateSceneTextboxes('Beach', boatParams.angle, boatParams.height, boatCache, runBoatRaycast, hoverOffset, boatParams);
 }
 
 // Caches are declared at the top of the file
@@ -1244,9 +1371,11 @@ function onWindowResize() {
 function runMotorcycleRaycast(angle, skipUpdateMatrix = false) {
   let posRadius = motorcycleParams.distance;
   const posZ = motorcycleParams.height;
+  let valid = false;
 
   try {
     if (cityRoadMeshes.length > 0) {
+      valid = true;
       const radialDir = new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0);
       const rayOrigin = radialDir.clone().multiplyScalar(motorcycleParams.distance + 3.0);
       rayOrigin.z = posZ;
@@ -1278,7 +1407,7 @@ function runMotorcycleRaycast(angle, skipUpdateMatrix = false) {
     posRadius = minRadius;
   }
 
-  return { posRadius, localHitNormal: null };
+  return { posRadius, localHitNormal: null, valid };
 }
 
 function updateMotorcycle() {
@@ -1312,7 +1441,9 @@ function updateMotorcycle() {
   if (motorcycleWheelBL) motorcycleWheelBL.rotation.x += motorcycleParams.wheelSpeed * activeWheelSpeedFactor;
   if (motorcycleWheelFL) motorcycleWheelFL.rotation.x += motorcycleParams.wheelSpeed * activeWheelSpeedFactor;
 
-  updateVehicleTextbox(motorcycleGroup, motorcycleParams);
+  const hoverData = hoverScenes['City'];
+  const hoverOffset = hoverData ? (hoverData.current * hoverData.maxProtrusion) : 0.0;
+  updateSceneTextboxes('City', motorcycleParams.angle, motorcycleParams.height, motorcycleCache, runMotorcycleRaycast, hoverOffset, motorcycleParams);
 }
 
 // --- Load Standalone Motorcycle ---
@@ -1340,12 +1471,6 @@ rawLoader.load(new URL('../assets/models/motorcycle.glb', import.meta.url).href,
   });
 
   motorcycleGroup = model;
-  const textbox = createTextBox({
-    title: "backend systems",
-    subtitle: "scalable apis & databases",
-    badges: ["Go", "Python", "gRPC", "SQL"]
-  });
-  model.add(textbox);
   if (typeof introActive !== 'undefined' && introActive) {
     model.visible = false;
   }
@@ -1377,8 +1502,8 @@ const airplaneParams = {
   speed: 8,            // orbit speed
   textboxScale: 0.5,
   textboxOffsetX: 0.0,
-  textboxOffsetY: 2.5,
-  textboxOffsetZ: 0.0,
+  textboxOffsetY: 2.0,
+  textboxOffsetZ: -0.5,
   textboxRotX: 0.0,
   textboxRotY: 0.0,
   textboxRotZ: 0.0
@@ -1430,7 +1555,9 @@ function updateAirplane() {
   // Spin propeller
   if (propellerObject) propellerObject.rotation.z += airplaneParams.propellerSpeed;
 
-  updateVehicleTextbox(airplaneGroup, airplaneParams);
+  const hoverData = hoverScenes['School'];
+  const hoverOffset = hoverData ? (hoverData.current * hoverData.maxProtrusion) : 0.0;
+  updateSceneTextboxes('School', airplaneParams.angle, airplaneParams.height, null, null, hoverOffset, airplaneParams);
 }
 
 // --- Load Standalone Airplane ---
@@ -1455,12 +1582,6 @@ rawLoader.load(new URL('../assets/models/airplane.glb', import.meta.url).href, (
   });
 
   airplaneGroup = model;
-  const textbox = createTextBox({
-    title: "cloud & infrastructure",
-    subtitle: "distributed systems & cloud deployments",
-    badges: ["AWS", "Docker", "Kubernetes", "Linux"]
-  });
-  model.add(textbox);
   if (typeof introActive !== 'undefined' && introActive) {
     model.visible = false;
   }
@@ -1495,7 +1616,7 @@ const broncoParams = {
   speed: 7,             // orbit speed
   textboxScale: 0.5,
   textboxOffsetX: 0.0,
-  textboxOffsetY: 2.5,
+  textboxOffsetY: 0.0,
   textboxOffsetZ: 0.0,
   textboxRotX: 0.0,
   textboxRotY: Math.PI,
@@ -1537,9 +1658,11 @@ function runBroncoRaycast(angle, skipUpdateMatrix = false) {
   let posRadius = broncoParams.distance;
   const posZ = broncoParams.height;
   let localHitNormal = null;
+  let valid = false;
 
   try {
     if (desertGroundMeshes.length > 0) {
+      valid = true;
       const radialDir = new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0);
       const rayOrigin = radialDir.clone().multiplyScalar(broncoParams.distance + 5.0);
       rayOrigin.z = posZ;
@@ -1573,7 +1696,7 @@ function runBroncoRaycast(angle, skipUpdateMatrix = false) {
     posRadius = minRadius;
   }
 
-  return { posRadius, localHitNormal: localHitNormal ? localHitNormal.clone() : null };
+  return { posRadius, localHitNormal: localHitNormal ? localHitNormal.clone() : null, valid };
 }
 
 function updateBronco() {
@@ -1620,7 +1743,9 @@ function updateBronco() {
   if (broncoWheelsFront) broncoWheelsFront.rotation.x += broncoParams.wheelSpeed * activeWheelSpeedFactor;
   if (broncoWheelsRear) broncoWheelsRear.rotation.x += broncoParams.wheelSpeed * activeWheelSpeedFactor;
 
-  updateVehicleTextbox(broncoGroup, broncoParams);
+  const hoverData = hoverScenes['Desert'];
+  const hoverOffset = hoverData ? (hoverData.current * hoverData.maxProtrusion) : 0.0;
+  updateSceneTextboxes('Desert', broncoParams.angle, broncoParams.height, broncoCache, runBroncoRaycast, hoverOffset, broncoParams);
 }
 
 // --- Load Standalone Bronco ---
@@ -1650,12 +1775,6 @@ rawLoader.load(new URL('../assets/models/bronco.glb', import.meta.url).href, (gl
   });
 
   broncoGroup = model;
-  const textbox = createTextBox({
-    title: "devops engineering",
-    subtitle: "resilient infrastructures & ci/cd",
-    badges: ["Terraform", "GitHub Actions", "Docker", "AWS"]
-  });
-  model.add(textbox);
   if (typeof introActive !== 'undefined' && introActive) {
     model.visible = false;
   }
@@ -1688,12 +1807,6 @@ rawLoader.load(new URL('../assets/models/boat.glb', import.meta.url).href, (gltf
   });
 
   boatObject = model;
-  const textbox = createTextBox({
-    title: "data pipelines",
-    subtitle: "real-time streaming & analytics",
-    badges: ["Kafka", "Flink", "PostgreSQL", "Python"]
-  });
-  model.add(textbox);
   if (typeof introActive !== 'undefined' && introActive) {
     model.visible = false;
   }
@@ -1756,7 +1869,7 @@ const car2Params = {
   speed: 7,             // orbit speed
   textboxScale: 0.5,
   textboxOffsetX: 0.0,
-  textboxOffsetY: 2.5,
+  textboxOffsetY: 0.0,
   textboxOffsetZ: 0.0,
   textboxRotX: 0.0,
   textboxRotY: 0.0,
@@ -1766,9 +1879,11 @@ const car2Params = {
 function runCar2Raycast(angle, skipUpdateMatrix = false) {
   let posRadius = car2Params.distance;
   const pathZ = car2Params.height;
+  let valid = false;
 
   try {
     if (landscapeMeshes.length > 0) {
+      valid = true;
       const radialDir = new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0);
       const rayOrigin = new THREE.Vector3(0, 0, pathZ);
       const rayDir = radialDir.clone().normalize();
@@ -1795,7 +1910,7 @@ function runCar2Raycast(angle, skipUpdateMatrix = false) {
     posRadius = minRadius;
   }
 
-  return { posRadius, localHitNormal: null };
+  return { posRadius, localHitNormal: null, valid };
 }
 
 function updateCar2() {
@@ -1859,7 +1974,7 @@ function updateCar2() {
   if (car2WheelBL) car2WheelBL.rotation.x += car2Params.wheelSpeed * activeWheelSpeedFactor;
   if (car2WheelBR) car2WheelBR.rotation.x += car2Params.wheelSpeed * activeWheelSpeedFactor;
 
-  updateVehicleTextbox(car2Object, car2Params);
+  updateSceneTextboxes('Landscape', car2Params.angle, car2Params.height, car2Cache, runCar2Raycast, hoverOffset, car2Params);
 }
 
 // --- Racecar state ---
@@ -1892,9 +2007,11 @@ const racecarParams = {
 function runRacecarRaycast(angle, skipUpdateMatrix = false) {
   let posRadius = racecarParams.distance;
   const pathZ = racecarParams.height;
+  let valid = false;
 
   try {
     if (cafeMeshes.length > 0) {
+      valid = true;
       const radialDir = new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0);
       // Ray origin at the center of the cylinder, shooting outwards
       const rayOrigin = new THREE.Vector3(0, 0, pathZ);
@@ -1923,7 +2040,7 @@ function runRacecarRaycast(angle, skipUpdateMatrix = false) {
     posRadius = minRadius;
   }
 
-  return { posRadius, localHitNormal: null };
+  return { posRadius, localHitNormal: null, valid };
 }
 
 function updateRacecar() {
@@ -1988,7 +2105,7 @@ function updateRacecar() {
   if (racecarWheelBL) racecarWheelBL.rotation.x += racecarParams.wheelSpeed * activeWheelSpeedFactor;
   if (racecarWheelBR) racecarWheelBR.rotation.x += racecarParams.wheelSpeed * activeWheelSpeedFactor;
 
-  updateVehicleTextbox(racecarObject, racecarParams);
+  updateSceneTextboxes('Cafe', racecarParams.angle, racecarParams.height, racecarCache, runRacecarRaycast, hoverOffset, racecarParams);
 }
 
 // --- Load Standalone Racecar ---
@@ -2028,12 +2145,6 @@ rawLoader.load(new URL('../assets/models/sls_amg_63_black_series.glb', import.me
   });
 
   racecarObject = model;
-  const textbox = createTextBox({
-    title: "systems optimization",
-    subtitle: "low-latency and performance profiling",
-    badges: ["C++", "WebAssembly", "Rust", "Go"]
-  });
-  model.add(textbox);
   if (typeof introActive !== 'undefined' && introActive) {
     model.visible = false;
   }
@@ -2099,12 +2210,6 @@ rawLoader.load(new URL('../assets/models/car_v2.glb', import.meta.url).href, (gl
   });
 
   car2Object = model;
-  const textbox = createTextBox({
-    title: "full stack development",
-    subtitle: "crafting high-performance web apps",
-    badges: ["React", "Three.js", "Vite", "CSS"]
-  });
-  model.add(textbox);
   if (typeof introActive !== 'undefined' && introActive) {
     model.visible = false;
   }
@@ -2352,6 +2457,14 @@ function updateBackgroundVisibility() {
       });
 
       model.visible = isClose;
+
+      // Update static textboxes visibility
+      const textboxes = sceneTextboxes[name];
+      if (textboxes) {
+        textboxes.forEach((tb) => {
+          tb.mesh.visible = isClose && !introActive;
+        });
+      }
     }
   });
 }
@@ -2942,11 +3055,34 @@ function animate() {
       setOpacity(prevObj, 1.0 - t);
       setOpacity(nextObj, t);
 
+      // Fade static scene textboxes
+      if (prevSeq) {
+        const prevScene = vehicleSceneMap[prevSeq.name];
+        const prevTBs = sceneTextboxes[prevScene];
+        if (prevTBs) prevTBs.forEach(tb => setOpacity(tb.mesh, 1.0 - t));
+      }
+      if (nextSeq) {
+        const nextScene = vehicleSceneMap[nextSeq.name];
+        const nextTBs = sceneTextboxes[nextScene];
+        if (nextTBs) nextTBs.forEach(tb => setOpacity(tb.mesh, t));
+      }
+
       if (transitionProgress >= 1.0) {
         isTransitioning = false;
         // Ensure perfect cleanup values at completion
         setOpacity(prevObj, 0.0);
         setOpacity(nextObj, 1.0);
+
+        if (prevSeq) {
+          const prevScene = vehicleSceneMap[prevSeq.name];
+          const prevTBs = sceneTextboxes[prevScene];
+          if (prevTBs) prevTBs.forEach(tb => setOpacity(tb.mesh, 0.0));
+        }
+        if (nextSeq) {
+          const nextScene = vehicleSceneMap[nextSeq.name];
+          const nextTBs = sceneTextboxes[nextScene];
+          if (nextTBs) nextTBs.forEach(tb => setOpacity(tb.mesh, 1.0));
+        }
       }
     } else if (isOrbitAnimating) {
       // Directly follow the current vehicle
@@ -2956,8 +3092,8 @@ function animate() {
       // When not transitioning, ensure the active vehicle is visible and has original opacity restored
       orbitSequence.forEach((seq, idx) => {
         const obj = seq.getObject();
+        const shouldBeVisible = (idx === currentSeqIndex);
         if (obj) {
-          const shouldBeVisible = (idx === currentSeqIndex);
           if (obj.visible !== shouldBeVisible) {
             obj.visible = shouldBeVisible;
             if (shouldBeVisible) {
@@ -2973,6 +3109,15 @@ function animate() {
               });
             }
           }
+        }
+
+        // Apply same visibility/opacity cleanup for static textboxes of each scene
+        const sceneName = vehicleSceneMap[seq.name];
+        const textboxes = sceneTextboxes[sceneName];
+        if (textboxes) {
+          textboxes.forEach((tb) => {
+            setOpacity(tb.mesh, shouldBeVisible ? 1.0 : 0.0);
+          });
         }
       });
 
@@ -3056,6 +3201,7 @@ function animate() {
   renderer.render(scene, camera);
 }
 
+initStaticTextboxes();
 initNavLabels();
 animate();
 
