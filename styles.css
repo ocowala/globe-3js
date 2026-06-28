@@ -266,6 +266,60 @@ canvas {
   opacity: 1.0;
 }
 
+/* ── Movie Button ── */
+.movie-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid #24333f;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.75;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  padding: 0;
+}
+
+.movie-btn:hover {
+  opacity: 1.0;
+  transform: scale(1.1);
+}
+
+.movie-btn img {
+  width: 12px;
+  height: 12px;
+  object-fit: contain;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+/* ── Video Overlay ── */
+#video-overlay {
+  position: fixed;
+  inset: 0;
+  background: #000000;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#video-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#movie-video {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+}
+
 
 
 

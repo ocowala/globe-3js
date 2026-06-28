@@ -461,8 +461,8 @@ function getSnappedData(cache, raycastFn, angle) {
   return { posRadius, localHitNormal };
 }
 
-// --- Textbox Helpers ---
-function createTextBox(data) {
+// --- Textbox Helper s ---
+function createTextBox(data, pastelColor = '#ffffff') {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 256;
@@ -481,7 +481,14 @@ function createTextBox(data) {
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 6;
 
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+  let fillStyle = 'rgba(255, 255, 255, 0.85)';
+  if (pastelColor.startsWith('#')) {
+    const r = parseInt(pastelColor.slice(1, 3), 16);
+    const g = parseInt(pastelColor.slice(3, 5), 16);
+    const b = parseInt(pastelColor.slice(5, 7), 16);
+    fillStyle = `rgba(${r}, ${g}, ${b}, 0.85)`;
+  }
+  ctx.fillStyle = fillStyle;
   ctx.beginPath();
   ctx.moveTo(x + radius, y);
   ctx.lineTo(x + width - radius, y);
@@ -653,8 +660,10 @@ const vehicleSceneMap = {
 function initStaticTextboxes() {
   for (const name in staticTextboxConfigs) {
     const configs = staticTextboxConfigs[name];
+    const labelCfg = navLabelConfig.find(item => item.scene === name);
+    const pastelColor = labelCfg ? labelCfg.color : '#ffffff';
     configs.forEach((cfg) => {
-      const mesh = createTextBox(cfg.data);
+      const mesh = createTextBox(cfg.data, pastelColor);
       mesh.visible = false;
       scene.add(mesh);
       sceneTextboxes[name].push({
@@ -664,7 +673,6 @@ function initStaticTextboxes() {
     });
   }
 }
-initStaticTextboxes();
 
 function updateSceneTextboxes(sceneName, refAngle, height, cache, raycastFn, hoverOffset, params) {
   const textboxes = sceneTextboxes[sceneName];
@@ -735,6 +743,8 @@ const navLabelConfig = [
   { key: 'projects', label: 'Projects', scene: 'Desert', angle: -1.86, color: '#ffd8b1', vehicleIdx: 4 },
   { key: 'hobbies', label: 'Hobbies', scene: 'Cafe', angle: 3.1, color: '#a8d8ea', vehicleIdx: 5 },
 ];
+
+initStaticTextboxes();
 
 // --- Nav Label GUI params (Projects label only) ---
 const navLabelParams = {
@@ -2284,6 +2294,15 @@ const defaultCamTarget = new THREE.Vector3(0, 0, 0);
 
 // Transition state
 let isTransitioning = false;
+let isMovieTransitionActive = false;
+let movieTransitionState = 'idle'; // 'idle', 'lerping_camera_to_p1', 'waiting_one_second', 'fading_in_video', 'playing_video_lerping_to_p2', 'waiting_for_video_end', 'fading_out_to_3js', 'holding_before_exit', 'exiting_fade_out'
+let movieTransitionTimer = 0;
+const movieTransitionStartPos = new THREE.Vector3();
+const movieTransitionStartTarget = new THREE.Vector3();
+const movieTransitionStartUp = new THREE.Vector3();
+const movieTransitionStartQuat = new THREE.Quaternion();
+const movieTransitionEndQuat = new THREE.Quaternion();
+
 let transitionProgress = 0;
 const transitionDuration = 1.2; // seconds for the smooth camera transition
 let transitionStartPos = new THREE.Vector3();
@@ -2291,6 +2310,7 @@ let transitionEndPos = new THREE.Vector3();
 let transitionStartTarget = new THREE.Vector3();
 let transitionEndTarget = new THREE.Vector3();
 let transitionStartUp = new THREE.Vector3();
+let transitionStartFOV = 38;
 
 // Current camera tracking targets (smoothed)
 let currentCamPos = new THREE.Vector3().copy(defaultCamPos);
@@ -2322,6 +2342,18 @@ function applyCamGuiToSequence() {
   seq.camOffset.set(camGuiState.camOffsetX, camGuiState.camOffsetY, camGuiState.camOffsetZ);
   seq.lookOffset.set(camGuiState.lookOffsetX, camGuiState.lookOffsetY, camGuiState.lookOffsetZ);
   seq.params.speed = camGuiState.velocity;
+}
+
+function updateGUIDisplays(folder) {
+  if (!folder) return;
+  if (folder.__controllers) {
+    folder.__controllers.forEach(c => c.updateDisplay());
+  }
+  if (folder.__folders) {
+    for (const folderName in folder.__folders) {
+      updateGUIDisplays(folder.__folders[folderName]);
+    }
+  }
 }
 
 syncCamGuiFromSequence();
@@ -2365,6 +2397,72 @@ camFolder.add(camGuiState, 'lookOffsetX', -10, 10).step(0.1).name('Look Radial')
 camFolder.add(camGuiState, 'lookOffsetY', -10, 10).step(0.1).name('Look Height').onChange(applyCamGuiToSequence).listen();
 camFolder.add(camGuiState, 'lookOffsetZ', -10, 10).step(0.1).name('Look Forward').onChange(applyCamGuiToSequence).listen();
 camFolder.open();
+
+// --- Camera Coordinates Synced Folder ---
+const cameraRecordedState = {
+  posX: 0, posY: 0, posZ: 0,
+  rotX: 0, rotY: 0, rotZ: 0,
+  lookX: 0, lookY: 0, lookZ: 0
+};
+
+const recordedFolder = camFolder.addFolder('Recorded Transform');
+
+let isUpdatingFromGUI = false;
+function updateCameraFromGUI() {
+  isUpdatingFromGUI = true;
+  camera.position.set(cameraRecordedState.posX, cameraRecordedState.posY, cameraRecordedState.posZ);
+  camera.rotation.set(cameraRecordedState.rotX, cameraRecordedState.rotY, cameraRecordedState.rotZ);
+  controls.target.set(cameraRecordedState.lookX, cameraRecordedState.lookY, cameraRecordedState.lookZ);
+  controls.update();
+  isUpdatingFromGUI = false;
+}
+
+const posXCtrl = recordedFolder.add(cameraRecordedState, 'posX').step(0.01).name('Pos X').onChange(updateCameraFromGUI).listen();
+const posYCtrl = recordedFolder.add(cameraRecordedState, 'posY').step(0.01).name('Pos Y').onChange(updateCameraFromGUI).listen();
+const posZCtrl = recordedFolder.add(cameraRecordedState, 'posZ').step(0.01).name('Pos Z').onChange(updateCameraFromGUI).listen();
+
+const rotXCtrl = recordedFolder.add(cameraRecordedState, 'rotX').step(0.01).name('Rot X').onChange(updateCameraFromGUI).listen();
+const rotYCtrl = recordedFolder.add(cameraRecordedState, 'rotY').step(0.01).name('Rot Y').onChange(updateCameraFromGUI).listen();
+const rotZCtrl = recordedFolder.add(cameraRecordedState, 'rotZ').step(0.01).name('Rot Z').onChange(updateCameraFromGUI).listen();
+
+const lookXCtrl = recordedFolder.add(cameraRecordedState, 'lookX').step(0.01).name('Look At X').onChange(updateCameraFromGUI).listen();
+const lookYCtrl = recordedFolder.add(cameraRecordedState, 'lookY').step(0.01).name('Look At Y').onChange(updateCameraFromGUI).listen();
+const lookZCtrl = recordedFolder.add(cameraRecordedState, 'lookZ').step(0.01).name('Look At Z').onChange(updateCameraFromGUI).listen();
+
+recordedFolder.open();
+
+function syncGUIFromCamera() {
+  if (isUpdatingFromGUI) return;
+  cameraRecordedState.posX = camera.position.x;
+  cameraRecordedState.posY = camera.position.y;
+  cameraRecordedState.posZ = camera.position.z;
+
+  cameraRecordedState.rotX = camera.rotation.x;
+  cameraRecordedState.rotY = camera.rotation.y;
+  cameraRecordedState.rotZ = camera.rotation.z;
+
+  cameraRecordedState.lookX = controls.target.x;
+  cameraRecordedState.lookY = controls.target.y;
+  cameraRecordedState.lookZ = controls.target.z;
+
+  posXCtrl.updateDisplay();
+  posYCtrl.updateDisplay();
+  posZCtrl.updateDisplay();
+
+  rotXCtrl.updateDisplay();
+  rotYCtrl.updateDisplay();
+  rotZCtrl.updateDisplay();
+
+  lookXCtrl.updateDisplay();
+  lookYCtrl.updateDisplay();
+  lookZCtrl.updateDisplay();
+}
+
+controls.addEventListener('change', () => {
+  if (!isUpdatingFromGUI) {
+    syncGUIFromCamera();
+  }
+});
 
 const introFolder = gui.addFolder('Intro Animation');
 introFolder.add(introParams, 'writeDuration', 0.5, 10.0).step(0.1).name('Write Time (s)');
@@ -2471,7 +2569,7 @@ function updateBackgroundVisibility() {
       const textboxes = sceneTextboxes[name];
       if (textboxes) {
         textboxes.forEach((tb) => {
-          tb.mesh.visible = isClose && !introActive;
+          tb.mesh.visible = isClose && !introActive && isOrbitAnimating;
         });
       }
     }
@@ -2942,28 +3040,291 @@ function animate() {
       console.log("Intro transition complete. Cursive plane preserved for post-sequence.");
     }
     controls.enabled = false;
+  } else if (isMovieTransitionActive) {
+    movieTransitionTimer += realDeltaTime;
+
+    if (movieTransitionState === 'lerping_camera_to_p1') {
+      const duration = 1.5; // 1.5s camera glide to P1
+      const t = smoothstep(Math.min(movieTransitionTimer / duration, 1.0));
+
+      const targetPos = new THREE.Vector3(0.17, -28.06, 3.36);
+      const targetLookAt = new THREE.Vector3(-0.26, -3.33, 3.2);
+
+      camera.position.lerpVectors(movieTransitionStartPos, targetPos, t);
+      const currentTarget = new THREE.Vector3().lerpVectors(movieTransitionStartTarget, targetLookAt, t);
+      controls.target.copy(currentTarget);
+
+      // Smoothly slerp rotation using quaternions
+      camera.quaternion.slerpQuaternions(movieTransitionStartQuat, movieTransitionEndQuat, t);
+
+      if (movieTransitionTimer >= duration) {
+        camera.position.copy(targetPos);
+        camera.quaternion.copy(movieTransitionEndQuat);
+        controls.target.copy(targetLookAt);
+        controls.update();
+
+        movieTransitionState = 'waiting_one_second';
+        movieTransitionTimer = 0.0;
+        console.log("Camera transition to P1 complete. Holding for 1 second...");
+      }
+    } else if (movieTransitionState === 'waiting_one_second') {
+      // Hold camera static at P1
+      camera.position.set(0.17, -28.06, 3.36);
+      camera.quaternion.copy(movieTransitionEndQuat);
+      controls.target.set(-0.26, -3.33, 3.2);
+
+      if (movieTransitionTimer >= 1.0) {
+        movieTransitionState = 'fading_in_video';
+        movieTransitionTimer = 0.0;
+        console.log("1 second wait complete. Fading in video overlay...");
+      }
+    } else if (movieTransitionState === 'fading_in_video') {
+      // Hold camera static at P1
+      camera.position.set(0.17, -28.06, 3.36);
+      camera.quaternion.copy(movieTransitionEndQuat);
+      controls.target.set(-0.26, -3.33, 3.2);
+
+      const fadeDuration = 2.0; // 2 seconds fade in
+      const progress = Math.min(movieTransitionTimer / fadeDuration, 1.0);
+
+      const overlay = document.getElementById('video-overlay');
+      if (overlay) {
+        overlay.classList.add('active');
+        overlay.style.opacity = progress;
+      }
+
+      if (movieTransitionTimer >= fadeDuration) {
+        movieTransitionState = 'playing_video_lerping_to_p2';
+        movieTransitionTimer = 0.0;
+        console.log("Fade in complete. Playing video and starting parallel lerp to P2...");
+
+        // Start media play
+        const movieVideo = document.getElementById('movie-video');
+
+        if (movieVideo) {
+          movieVideo.currentTime = 0;
+          movieVideo.play()
+            .then(() => console.log("Video playing successfully."))
+            .catch(err => console.error("Movie video play failed:", err));
+        }
+        if (audio) {
+          audio.currentTime = 0;
+          audio.play()
+            .then(() => {
+              if (songNameEl) {
+                songNameEl.textContent = "howl's moving castle - hisaishi";
+                songNameEl.classList.add('playing');
+              }
+              console.log("Castle audio playing successfully on bg-audio.");
+            })
+            .catch(err => console.error("Movie audio play failed:", err));
+        }
+
+        // Cache P1 positions as starting points for parallel lerp
+        movieTransitionStartPos.set(0.17, -28.06, 3.36);
+        movieTransitionStartTarget.set(-0.26, -3.33, 3.2);
+        movieTransitionStartQuat.copy(movieTransitionEndQuat);
+
+        // Target P2 orientation (quaternion) from new screenshot settings
+        const targetEulerP2 = new THREE.Euler(-1.17, 0.14, 0.31, 'XYZ');
+        movieTransitionEndQuat.setFromEuler(targetEulerP2);
+      }
+    } else if (movieTransitionState === 'playing_video_lerping_to_p2') {
+      const duration = 3.5; // 3.5s camera glide to P2 behind opaque video
+      const t = smoothstep(Math.min(movieTransitionTimer / duration, 1.0));
+
+      const targetPos = new THREE.Vector3(6.12, 22.97, 9.17);
+      const targetLookAt = new THREE.Vector3(2.77, 0.45, -0.49);
+
+      camera.position.lerpVectors(movieTransitionStartPos, targetPos, t);
+      const currentTarget = new THREE.Vector3().lerpVectors(movieTransitionStartTarget, targetLookAt, t);
+      controls.target.copy(currentTarget);
+
+      // Slerp rotation
+      camera.quaternion.slerpQuaternions(movieTransitionStartQuat, movieTransitionEndQuat, t);
+
+      // Lerp FOV from 30 to 61
+      camera.fov = THREE.MathUtils.lerp(30, 61, t);
+      camera.updateProjectionMatrix();
+
+      // Ensure overlay stays fully opaque
+      const overlay = document.getElementById('video-overlay');
+      if (overlay) {
+        overlay.classList.add('active');
+        overlay.style.opacity = 1.0;
+      }
+
+      if (movieTransitionTimer >= duration) {
+        camera.position.copy(targetPos);
+        camera.quaternion.copy(movieTransitionEndQuat);
+        controls.target.copy(targetLookAt);
+        camera.fov = 61;
+        camera.updateProjectionMatrix();
+        controls.update();
+
+        // Update dat.gui parameters for P2
+        camGuiState.fov = 61;
+        if (typeof updateGUIDisplays === 'function') {
+          updateGUIDisplays(gui);
+        }
+
+        movieTransitionState = 'waiting_for_video_end';
+        console.log("Parallel glide to P2 complete. Holding at P2 and waiting for video to play completely...");
+      }
+    } else if (movieTransitionState === 'waiting_for_video_end') {
+      // Hold camera static at P2
+      camera.position.set(6.12, 22.97, 9.17);
+      camera.quaternion.copy(movieTransitionEndQuat);
+      controls.target.set(2.77, 0.45, -0.49);
+      camera.fov = 61;
+
+      // Ensure overlay stays fully opaque
+      const overlay = document.getElementById('video-overlay');
+      if (overlay) {
+        overlay.classList.add('active');
+        overlay.style.opacity = 1.0;
+      }
+
+      const movieVideo = document.getElementById('movie-video');
+      if (movieVideo && movieVideo.ended) {
+        movieTransitionState = 'fading_out_to_3js';
+        movieTransitionTimer = 0.0;
+        console.log("Video playback complete. Starting fade-out to 3D scene...");
+      }
+    } else if (movieTransitionState === 'fading_out_to_3js') {
+      // Hold camera static at P2
+      camera.position.set(6.12, 22.97, 9.17);
+      camera.quaternion.copy(movieTransitionEndQuat);
+      controls.target.set(2.77, 0.45, -0.49);
+      camera.fov = 61;
+
+      const fadeDuration = 2.0; // 2 seconds fade out
+      const progress = Math.min(movieTransitionTimer / fadeDuration, 1.0);
+
+      const overlay = document.getElementById('video-overlay');
+      if (overlay) {
+        overlay.style.opacity = 1.0 - progress;
+      }
+
+      if (movieTransitionTimer >= fadeDuration) {
+        if (overlay) {
+          overlay.classList.remove('active');
+          overlay.style.opacity = '';
+        }
+
+        // Stop video playback only (bg-audio keeps playing castle.mp3 continuously)
+        const movieVideo = document.getElementById('movie-video');
+        if (movieVideo) movieVideo.pause();
+
+        // Move to holding state (0.5 seconds static view before auto-exit)
+        movieTransitionState = 'holding_before_exit';
+        movieTransitionTimer = 0.0;
+        console.log("Video fade-out complete. Holding static view at P2 for 0.5s before exit...");
+      }
+    } else if (movieTransitionState === 'holding_before_exit') {
+      // Hold camera static at P2
+      camera.position.set(6.12, 22.97, 9.17);
+      camera.quaternion.copy(movieTransitionEndQuat);
+      controls.target.set(2.77, 0.45, -0.49);
+      camera.fov = 61;
+
+      if (movieTransitionTimer >= 0.5) {
+        // Complete custom movie transitions
+        isMovieTransitionActive = false;
+        movieTransitionState = 'idle';
+
+        // Unpause the animations & keep them rolling
+        camGuiState.paused = false;
+        if (typeof updateGUIDisplays === 'function') {
+          updateGUIDisplays(gui);
+        }
+
+        // Glide camera back to finale perspective smoothly
+        isPostSequence = false;
+        returnToFinale();
+      }
+    } else if (movieTransitionState === 'exiting_fade_out') {
+      // Hold camera static at cached exit frame position
+      camera.position.copy(movieTransitionStartPos);
+      camera.quaternion.copy(movieTransitionStartQuat);
+      controls.target.copy(movieTransitionStartTarget);
+
+      const fadeDuration = 2.0; // 2 seconds fade out
+      const progress = Math.min(movieTransitionTimer / fadeDuration, 1.0);
+
+      const overlay = document.getElementById('video-overlay');
+      if (overlay) {
+        overlay.style.opacity = 1.0 - progress;
+      }
+
+      if (movieTransitionTimer >= fadeDuration) {
+        if (overlay) {
+          overlay.classList.remove('active');
+          overlay.style.opacity = '';
+        }
+
+        isMovieTransitionActive = false;
+        movieTransitionState = 'idle';
+
+        // Unpause animations & keep them rolling
+        camGuiState.paused = false;
+        if (typeof updateGUIDisplays === 'function') {
+          updateGUIDisplays(gui);
+        }
+
+        isPostSequence = false;
+        returnToFinale();
+
+        if (wasBgAudioPlaying && audio) {
+          audio.play().then(() => {
+            if (songNameEl) songNameEl.classList.add('playing');
+          }).catch(err => console.error("Failed to resume background audio:", err));
+        }
+      }
+    }
   } else if (isPostSequence) {
-    // Post-sequence: smoothly lerp camera to (0, 0, 30) looking at (0, 0, 0)
-    if (!isPaused) {
+    if (isPaused) {
+      controls.enabled = true;
+      controls.update();
+    } else {
       postSeqTimer += realDeltaTime;
       const accelTime = 3.0; // 3 seconds acceleration
       const omegaMax = 0.4;  // max angular velocity (in rad/s)
       const currentOmega = omegaMax * Math.min(postSeqTimer / accelTime, 1.0);
       postSeqAngle += currentOmega * realDeltaTime;
+
+      const postSeqDuration = 3.0; // 3 seconds for the final camera sweep
+      const t = smoothstep(Math.min(postSeqTimer / postSeqDuration, 1.0));
+
+      const finalCamPos = new THREE.Vector3(0, 0, 15);
+      const finalCamTarget = new THREE.Vector3(0, 0, 0);
+      const finalUp = new THREE.Vector3(-Math.sin(postSeqAngle), Math.cos(postSeqAngle), 0).normalize();
+
+      // Lerp camera position and target
+      currentCamPos.lerpVectors(transitionStartPos, finalCamPos, t);
+      currentCamTarget.lerpVectors(transitionStartTarget, finalCamTarget, t);
+      camera.up.lerpVectors(transitionStartUp, finalUp, t).normalize();
+      camera.position.copy(currentCamPos);
+      camera.lookAt(currentCamTarget);
+
+      // Lerp camera FOV back to 38
+      camera.fov = THREE.MathUtils.lerp(transitionStartFOV, 38, t);
+      camera.updateProjectionMatrix();
+      camGuiState.fov = camera.fov;
+
+      if (postSeqTimer >= postSeqDuration && camera.fov !== 38) {
+        camera.fov = 38;
+        camera.updateProjectionMatrix();
+        camGuiState.fov = 38;
+        if (typeof updateGUIDisplays === 'function') {
+          updateGUIDisplays(gui);
+        }
+      }
+
+      // Disable orbit controls to prevent overriding camera.up rotation
+      controls.enabled = false;
+      controls.autoRotate = false;
     }
-    const postSeqDuration = 3.0; // 3 seconds for the final camera sweep
-    const t = smoothstep(Math.min(postSeqTimer / postSeqDuration, 1.0));
-
-    const finalCamPos = new THREE.Vector3(0, 0, 15);
-    const finalCamTarget = new THREE.Vector3(0, 0, 0);
-    const finalUp = new THREE.Vector3(-Math.sin(postSeqAngle), Math.cos(postSeqAngle), 0).normalize();
-
-    // Lerp camera position and target
-    currentCamPos.lerpVectors(transitionStartPos, finalCamPos, t);
-    currentCamTarget.lerpVectors(transitionStartTarget, finalCamTarget, t);
-    camera.up.lerpVectors(transitionStartUp, finalUp, t).normalize();
-    camera.position.copy(currentCamPos);
-    camera.lookAt(currentCamTarget);
 
     // Fade in cursive text and cylinder
     globeMaterial.opacity = THREE.MathUtils.lerp(globeMaterial.opacity, 0.35, 0.02);
@@ -2990,10 +3351,6 @@ function animate() {
       const model = scene.getObjectByName(name);
       if (model) model.visible = true;
     });
-
-    // Disable orbit controls to prevent overriding camera.up rotation
-    controls.enabled = false;
-    controls.autoRotate = false;
 
     if (introFinaleActive && !isPaused) {
       introFinaleTimer += realDeltaTime;
@@ -3207,6 +3564,10 @@ function animate() {
     }
   }
 
+  if (typeof syncGUIFromCamera === 'function') {
+    syncGUIFromCamera();
+  }
+
   renderer.render(scene, camera);
 }
 
@@ -3257,6 +3618,7 @@ function returnToFinale() {
   transitionStartPos.copy(camera.position);
   transitionStartTarget.copy(currentCamTarget);
   transitionStartUp.copy(camera.up);
+  transitionStartFOV = camera.fov;
 
   // Prepare cursive plane
   if (cursivePlane) {
@@ -3351,6 +3713,9 @@ function triggerNavigation(navIdx) {
 window.addEventListener('keydown', (e) => {
   // Escape — return to post-sequence finale from any state
   if (e.key === 'Escape') {
+    if (exitMovieView()) {
+      return;
+    }
     returnToFinale();
     return;
   }
@@ -3442,6 +3807,102 @@ if (audio && audioToggle) {
   });
 }
 
+// --- Movie Player Overlay Handling ---
+let wasBgAudioPlaying = false;
+
+function exitMovieView() {
+  const overlay = document.getElementById('video-overlay');
+  if (isMovieTransitionActive && movieTransitionState !== 'idle' && movieTransitionState !== 'exiting_fade_out') {
+    const movieVideo = document.getElementById('movie-video');
+
+    if (movieVideo) {
+      movieVideo.pause();
+    }
+
+    // Cache current camera state to hold it static during the exit fade-out
+    movieTransitionStartPos.copy(camera.position);
+    movieTransitionStartTarget.copy(controls.target);
+    movieTransitionStartQuat.copy(camera.quaternion);
+
+    // Begin fade-out overlay phase
+    movieTransitionState = 'exiting_fade_out';
+    movieTransitionTimer = 0.0;
+    return true; // handled
+  }
+  return false; // not handled
+}
+
+const movieBtn = document.getElementById('movie-btn');
+if (movieBtn) {
+  movieBtn.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    console.log("Movie button clicked! Initiating camera transition...");
+
+    // Save background audio state and pause it
+    if (audio) {
+      wasBgAudioPlaying = !audio.paused;
+      const currentSrc = audio.getAttribute('src') || '';
+      if (!currentSrc.includes('/castle.mp3')) {
+        audio.src = '/castle.mp3';
+      }
+      audio.pause();
+      if (songNameEl) {
+        songNameEl.textContent = "howl's moving castle - hisaishi";
+        songNameEl.classList.remove('playing');
+      }
+    }
+
+    // Capture initial camera state
+    movieTransitionStartPos.copy(camera.position);
+    movieTransitionStartTarget.copy(controls.target);
+    movieTransitionStartUp.copy(camera.up);
+    movieTransitionStartQuat.copy(camera.quaternion);
+
+    // Compute target rotation quaternion
+    const targetEuler = new THREE.Euler(1.56, 0.02, -1.21, 'XYZ');
+    movieTransitionEndQuat.setFromEuler(targetEuler);
+
+    // Apply settings from screenshot
+    camGuiState.paused = true;
+    isOrbitAnimating = false;
+    camGuiState.followCam = true;
+    cameraFollowEnabled = true;
+    camGuiState.fov = 30;
+    camera.fov = 30;
+    camera.updateProjectionMatrix();
+    camGuiState.speed = 5;
+    orbitDegreesPerSecond = 5;
+    camGuiState.velocity = 8;
+    camGuiState.activeVehicle = 'Motorcycle';
+    camGuiState.camOffsetX = 2.5;
+    camGuiState.camOffsetY = 3.1;
+    camGuiState.camOffsetZ = -1.8;
+    camGuiState.lookOffsetX = 0;
+    camGuiState.lookOffsetY = 0;
+    camGuiState.lookOffsetZ = 0;
+
+    // Apply sequence updates for Motorcycle
+    const motorcycleSeq = orbitSequence.find(s => s.name === 'Motorcycle');
+    if (motorcycleSeq) {
+      motorcycleSeq.camOffset.set(2.5, 3.1, -1.8);
+      motorcycleSeq.lookOffset.set(0, 0, 0);
+      motorcycleSeq.params.speed = 8;
+    }
+
+    // Sync all dat.gui component displays
+    if (typeof updateGUIDisplays === 'function') {
+      updateGUIDisplays(gui);
+    }
+
+    // Start movie transition state machine
+    isMovieTransitionActive = true;
+    movieTransitionState = 'lerping_camera_to_p1';
+    movieTransitionTimer = 0.0;
+    controls.enabled = false;
+  });
+}
+
 // --- Raycast Click on Cylinder (Globe) ---
 const _globeRaycaster = new THREE.Raycaster();
 const _mouse = new THREE.Vector2();
@@ -3451,9 +3912,12 @@ const _hoverMouse = new THREE.Vector2();
 window.addEventListener('click', (event) => {
   // Ignore clicks on HTML UI elements (tabs, buttons, text, dat.GUI etc.)
   if (event.target.tagName === 'BUTTON' ||
+    event.target.closest('button') ||
     event.target.closest('.dg') ||
     event.target.id === 'audio-toggle' ||
-    event.target.closest('#audio-toggle')) {
+    event.target.closest('#audio-toggle') ||
+    event.target.id === 'movie-btn' ||
+    event.target.closest('#movie-btn')) {
     return;
   }
 

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -28,7 +29,14 @@
   <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/cafe_meshopt.glb">
   <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/sls_amg_63_black_series.glb">
 </head>
+
 <body>
+  <!-- Video/Audio Overlay -->
+  <div id="video-overlay">
+    <video id="movie-video" src="/capcut_video_v1.mp4" playsinline muted></video>
+    <audio id="movie-audio" src="/castle.mp3" preload="auto"></audio>
+  </div>
+
   <!-- Loading Overlay -->
   <div id="loading-overlay">
     <div class="loader-container">
@@ -56,6 +64,9 @@
       </div>
       <div id="info-hint" class="info-hint">← click me</div>
     </div>
+    <button id="movie-btn" class="movie-btn" aria-label="Play movie">
+      <img src="/camera.png" alt="Play Movie">
+    </button>
   </div>
 
   <div id="app">
@@ -71,4 +82,5 @@
 
   <script type="module" src="./src/main.js"></script>
 </body>
+
 </html>
