@@ -1057,7 +1057,9 @@ function updateBoat() {
   const posZ = boatParams.height;
 
   const snapped = getSnappedData(boatCache, runBoatRaycast, currentAngle);
-  const posRadius = snapped.posRadius;
+  const hoverData = hoverScenes['Beach'];
+  const hoverOffset = hoverData ? (hoverData.current * hoverData.maxProtrusion) : 0.0;
+  const posRadius = snapped.posRadius + hoverOffset;
 
   const x = posRadius * Math.cos(currentAngle);
   const y = posRadius * Math.sin(currentAngle);
@@ -1075,8 +1077,6 @@ function updateBoat() {
   boatObject.quaternion.copy(finalQuat);
   boatObject.scale.setScalar(boatParams.scale);
 
-  const hoverData = hoverScenes['Beach'];
-  const hoverOffset = hoverData ? (hoverData.current * hoverData.maxProtrusion) : 0.0;
   updateSceneTextboxes('Beach', boatParams.angle, boatParams.height, boatCache, runBoatRaycast, hoverOffset, boatParams);
 }
 
@@ -1438,7 +1438,9 @@ function updateMotorcycle() {
   const posZ = motorcycleParams.height;
 
   const snapped = getSnappedData(motorcycleCache, runMotorcycleRaycast, currentAngle);
-  const posRadius = snapped.posRadius;
+  const hoverData = hoverScenes['City'];
+  const hoverOffset = hoverData ? (hoverData.current * hoverData.maxProtrusion) : 0.0;
+  const posRadius = snapped.posRadius + hoverOffset;
 
   // Apply final position
   const x = posRadius * Math.cos(currentAngle);
@@ -1460,8 +1462,6 @@ function updateMotorcycle() {
   if (motorcycleWheelBL) motorcycleWheelBL.rotation.x += motorcycleParams.wheelSpeed * activeWheelSpeedFactor;
   if (motorcycleWheelFL) motorcycleWheelFL.rotation.x += motorcycleParams.wheelSpeed * activeWheelSpeedFactor;
 
-  const hoverData = hoverScenes['City'];
-  const hoverOffset = hoverData ? (hoverData.current * hoverData.maxProtrusion) : 0.0;
   updateSceneTextboxes('City', motorcycleParams.angle, motorcycleParams.height, motorcycleCache, runMotorcycleRaycast, hoverOffset, motorcycleParams);
 }
 
@@ -1552,7 +1552,9 @@ function updateAirplane() {
   const currentAngle = airplaneParams.angle + orbitRad;
 
   // Airplanes fly at a constant radial distance relative to the cylinder axis, so we don't snap to terrain.
-  const posRadius = airplaneParams.distance;
+  const hoverData = hoverScenes['School'];
+  const hoverOffset = hoverData ? (hoverData.current * hoverData.maxProtrusion) : 0.0;
+  const posRadius = airplaneParams.distance + hoverOffset;
   const posZ = airplaneParams.height;
 
   // Apply final position
@@ -1574,8 +1576,6 @@ function updateAirplane() {
   // Spin propeller
   if (propellerObject) propellerObject.rotation.z += airplaneParams.propellerSpeed;
 
-  const hoverData = hoverScenes['School'];
-  const hoverOffset = hoverData ? (hoverData.current * hoverData.maxProtrusion) : 0.0;
   updateSceneTextboxes('School', airplaneParams.angle, airplaneParams.height, null, null, hoverOffset, airplaneParams);
 }
 
@@ -1727,7 +1727,9 @@ function updateBronco() {
   const posZ = broncoParams.height;
 
   const snapped = getSnappedData(broncoCache, runBroncoRaycast, currentAngle);
-  const posRadius = snapped.posRadius;
+  const hoverData = hoverScenes['Desert'];
+  const hoverOffset = hoverData ? (hoverData.current * hoverData.maxProtrusion) : 0.0;
+  const posRadius = snapped.posRadius + hoverOffset;
   const localHitNormal = snapped.localHitNormal;
 
   // Apply final position
@@ -1762,8 +1764,6 @@ function updateBronco() {
   if (broncoWheelsFront) broncoWheelsFront.rotation.x += broncoParams.wheelSpeed * activeWheelSpeedFactor;
   if (broncoWheelsRear) broncoWheelsRear.rotation.x += broncoParams.wheelSpeed * activeWheelSpeedFactor;
 
-  const hoverData = hoverScenes['Desert'];
-  const hoverOffset = hoverData ? (hoverData.current * hoverData.maxProtrusion) : 0.0;
   updateSceneTextboxes('Desert', broncoParams.angle, broncoParams.height, broncoCache, runBroncoRaycast, hoverOffset, broncoParams);
 }
 
@@ -3214,7 +3214,10 @@ function animate() {
 
         // Stop video playback only (bg-audio keeps playing castle.mp3 continuously)
         const movieVideo = document.getElementById('movie-video');
-        if (movieVideo) movieVideo.pause();
+        if (movieVideo) {
+          movieVideo.pause();
+          movieVideo.currentTime = 0;
+        }
 
         // Move to holding state (0.5 seconds static view before auto-exit)
         movieTransitionState = 'holding_before_exit';
@@ -3779,7 +3782,7 @@ const songMap = {
   '/imagination.mp3': 'pure imagination - walter scharf',
   '/dreamers.mp3': 'sea dreamers - shankar, sting',
   '/fly.mp3': 'fly by day - anri',
-  '/fillmore.mp3': 'fillmore county - vansire, floor cry'
+  '/fillmore.mp3': 'fillmore county - vansire, floor cry',
 };
 
 if (audio) {
@@ -3817,6 +3820,7 @@ function exitMovieView() {
 
     if (movieVideo) {
       movieVideo.pause();
+      movieVideo.currentTime = 0;
     }
 
     // Cache current camera state to hold it static during the exit fade-out
