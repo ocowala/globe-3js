@@ -139,6 +139,32 @@ let transitionStartGlobeOpacity = 1.0;
 let transitionStartOrbitOpacity = 0.45;
 let transitionStartCursiveOpacity = 0.0;
 
+// --- Textbox Focus State ---
+let selectedTextbox = null; // the textbox entry object that is currently focused
+let textboxFocusState = 'idle'; // 'idle' | 'entering' | 'focused' | 'exiting'
+let textboxFocusTimer = 0.0;
+
+// Saved camera state from BEFORE entering focus (restored on exit)
+const textboxFocusPrePos    = new THREE.Vector3();
+const textboxFocusPreTarget = new THREE.Vector3();
+const textboxFocusPreUp     = new THREE.Vector3();
+let   textboxFocusPreFOV    = 38;
+
+// Start state of the current lerp segment (enter or exit)
+const textboxFocusLerpStartPos    = new THREE.Vector3();
+const textboxFocusLerpStartTarget = new THREE.Vector3();
+const textboxFocusLerpStartUp     = new THREE.Vector3();
+let   textboxFocusLerpStartFOV    = 38;
+
+// Target camera state when entering focus
+const textboxFocusTargetPos    = new THREE.Vector3();
+const textboxFocusTargetLookAt = new THREE.Vector3();
+const textboxFocusTargetUp     = new THREE.Vector3();
+
+const TEXTBOX_FOCUS_FOV      = 22;  // tight zoom-in
+const TEXTBOX_FOCUS_DURATION = 0.85; // seconds
+const TEXTBOX_FOCUS_DISTANCE = 3.8; // units above the textbox face
+
 function getCylinderMiddleZ() {
   return 4 - cylinderParams.height / 2;
 }
@@ -668,7 +694,11 @@ function initStaticTextboxes() {
       scene.add(mesh);
       sceneTextboxes[name].push({
         mesh: mesh,
-        angleOffset: cfg.angleOffset
+        angleOffset: cfg.angleOffset,
+        baseScale: 1.0,      // updated each frame by updateSceneTextboxes
+        currentScale: 1.0,   // animated per-frame toward targetScale
+        targetScale: 1.0,    // 1.22× base when selected
+        targetOpacity: 0.85  // 1.0 when selected
       });
     });
   }
@@ -710,8 +740,12 @@ function updateSceneTextboxes(sceneName, refAngle, height, cache, raycastFn, hov
     basisMatrix.makeBasis(negTangent, radialDir, new THREE.Vector3(0, 0, 1));
     tb.mesh.quaternion.setFromRotationMatrix(basisMatrix);
 
-    const s = params.textboxScale;
-    tb.mesh.scale.set(s, s, s);
+    // Store base scale for the selection animation system; do NOT directly set mesh.scale here —
+    // the per-frame lerp pass in animate() owns the mesh scale.
+    tb.baseScale = params.textboxScale;
+    if (tb.currentScale === undefined) tb.currentScale = params.textboxScale;
+    if (tb.targetScale === undefined) tb.targetScale  = params.textboxScale;
+    if (tb.targetOpacity === undefined) tb.targetOpacity = 0.85;
   });
 }
 
@@ -2565,11 +2599,12 @@ function updateBackgroundVisibility() {
 
       model.visible = isClose;
 
-      // Update static textboxes visibility
+      // Update static textboxes visibility — keep selected textbox visible even when orbit is paused
       const textboxes = sceneTextboxes[name];
       if (textboxes) {
         textboxes.forEach((tb) => {
-          tb.mesh.visible = isClose && !introActive && isOrbitAnimating;
+          const isSelected = (tb === selectedTextbox);
+          tb.mesh.visible = (isClose && !introActive && (isOrbitAnimating || isSelected));
         });
       }
     }
@@ -3571,7 +3606,67 @@ function animate() {
     syncGUIFromCamera();
   }
 
+  // --- Per-frame Textbox Scale & Opacity Lerp ---
+  for (const name in sceneTextboxes) {
+    sceneTextboxes[name].forEach(tb => {
+      if (!tb.mesh.visible) return;
+
+      // Sync targetScale with baseScale for unselected boxes (baseScale may change each frame via GUI)
+      if (tb !== selectedTextbox) {
+        tb.targetScale   = tb.baseScale;
+        tb.targetOpacity = 0.85;
+      }
+
+      tb.currentScale = THREE.MathUtils.lerp(tb.currentScale, tb.targetScale, 0.12);
+      tb.mesh.scale.setScalar(tb.currentScale);
+      tb.mesh.material.opacity = THREE.MathUtils.lerp(
+        tb.mesh.material.opacity,
+        tb.targetOpacity,
+        0.12
+      );
+    });
+  }
+
+  // --- Textbox Focus Camera State Machine ---
+  if (textboxFocusState !== 'idle') {
+    textboxFocusTimer += realDeltaTime;
+    const t = smoothstep(Math.min(textboxFocusTimer / TEXTBOX_FOCUS_DURATION, 1.0));
+
+    if (textboxFocusState === 'entering') {
+      camera.position.lerpVectors(textboxFocusLerpStartPos, textboxFocusTargetPos, t);
+      controls.target.lerpVectors(textboxFocusLerpStartTarget, textboxFocusTargetLookAt, t);
+      camera.up.lerpVectors(textboxFocusLerpStartUp, textboxFocusTargetUp, t).normalize();
+      camera.fov = THREE.MathUtils.lerp(textboxFocusLerpStartFOV, TEXTBOX_FOCUS_FOV, t);
+      camera.updateProjectionMatrix();
+      camera.lookAt(controls.target);
+      controls.enabled = false;
+
+      if (t >= 1.0) {
+        textboxFocusState = 'focused';
+        controls.enabled  = true; // allow free-look once settled
+      }
+
+    } else if (textboxFocusState === 'exiting') {
+      camera.position.lerpVectors(textboxFocusLerpStartPos, textboxFocusPrePos, t);
+      controls.target.lerpVectors(textboxFocusLerpStartTarget, textboxFocusPreTarget, t);
+      camera.up.lerpVectors(textboxFocusLerpStartUp, textboxFocusPreUp, t).normalize();
+      camera.fov = THREE.MathUtils.lerp(textboxFocusLerpStartFOV, textboxFocusPreFOV, t);
+      camera.updateProjectionMatrix();
+      camera.lookAt(controls.target);
+      controls.enabled = false;
+
+      if (t >= 1.0) {
+        textboxFocusState  = 'idle';
+        camGuiState.paused = false; // orbit was paused on select; always resume on deselect
+        isOrbitAnimating   = true;
+        controls.enabled   = true;
+      }
+    }
+    // 'focused' state: camera is free, user may orbit; highlight stays active
+  }
+
   renderer.render(scene, camera);
+
 }
 
 // initStaticTextboxes call moved earlier to setup phase
@@ -3586,6 +3681,77 @@ animate();
 function getSectorIndexFromVehicleIndex(vehicleIdx) {
   if (vehicleIdx >= 0 && vehicleIdx <= 5) return vehicleIdx;
   return -1;
+}
+
+// --- Textbox Focus Helpers ---
+
+function applyTextboxHighlight(tb, selected) {
+  tb.targetScale   = selected ? tb.baseScale * 1.22 : tb.baseScale;
+  tb.targetOpacity = selected ? 1.0 : 0.85;
+}
+
+function selectTextbox(tb) {
+  // Deselect previous silently
+  if (selectedTextbox && selectedTextbox !== tb) {
+    applyTextboxHighlight(selectedTextbox, false);
+  }
+
+  selectedTextbox = tb;
+  applyTextboxHighlight(tb, true);
+
+  // Save current camera state so we can return to exactly here on deselect
+  textboxFocusPrePos.copy(camera.position);
+  textboxFocusPreTarget.copy(controls.target);
+  textboxFocusPreUp.copy(camera.up);
+  textboxFocusPreFOV = camera.fov;
+
+  // Pause orbit while focused
+  camGuiState.paused = true;
+  isOrbitAnimating   = false;
+
+  // Compute focus camera position:
+  // The textbox face normal is world (0,0,1) (local Z = world Z per the basis matrix in updateSceneTextboxes).
+  // So we position the camera directly above the card, looking straight down at it.
+  const tbPos = tb.mesh.position.clone();
+  textboxFocusTargetLookAt.copy(tbPos);
+  textboxFocusTargetPos.set(tbPos.x, tbPos.y, tbPos.z + TEXTBOX_FOCUS_DISTANCE);
+
+  // Camera up: the card's local Y is radialDir = (cos(angle), sin(angle), 0).
+  // Derive it from the card's world position (horizontal component = radial direction).
+  const radialXY = new THREE.Vector2(tbPos.x, tbPos.y);
+  if (radialXY.length() > 0.001) {
+    radialXY.normalize();
+    textboxFocusTargetUp.set(radialXY.x, radialXY.y, 0);
+  } else {
+    textboxFocusTargetUp.set(1, 0, 0);
+  }
+
+  // Begin enter lerp
+  textboxFocusLerpStartPos.copy(camera.position);
+  textboxFocusLerpStartTarget.copy(controls.target);
+  textboxFocusLerpStartUp.copy(camera.up);
+  textboxFocusLerpStartFOV = camera.fov;
+
+  textboxFocusState = 'entering';
+  textboxFocusTimer = 0.0;
+  controls.enabled  = false;
+}
+
+function deselectTextbox() {
+  if (!selectedTextbox) return;
+
+  applyTextboxHighlight(selectedTextbox, false);
+  selectedTextbox = null;
+
+  // Begin exit lerp from wherever the camera currently is back to the pre-focus state
+  textboxFocusLerpStartPos.copy(camera.position);
+  textboxFocusLerpStartTarget.copy(controls.target);
+  textboxFocusLerpStartUp.copy(camera.up);
+  textboxFocusLerpStartFOV = camera.fov;
+
+  textboxFocusState = 'exiting';
+  textboxFocusTimer = 0.0;
+  controls.enabled  = false;
 }
 
 function returnToFinale() {
@@ -3736,8 +3902,12 @@ window.addEventListener('keydown', (e) => {
     }
   }
 
-  // Escape — return to post-sequence finale from any state
+  // Escape — dismiss focused textbox first, then movie, then finale
   if (e.key === 'Escape') {
+    if (selectedTextbox) {
+      deselectTextbox();
+      return;
+    }
     if (exitMovieView()) {
       return;
     }
@@ -3954,7 +4124,38 @@ window.addEventListener('click', (event) => {
   // Set the raycaster from the camera
   _globeRaycaster.setFromCamera(_mouse, camera);
 
+  // 0. Raycast against visible textboxes (takes priority over globe/nav-label clicks)
+  if (!isMovieTransitionActive && !introActive && !isIntroTransitioning) {
+    const allTextboxMeshes = Object.values(sceneTextboxes)
+      .flat()
+      .filter(tb => tb.mesh.visible)
+      .map(tb => tb.mesh);
+
+    if (allTextboxMeshes.length > 0) {
+      const tbIntersects = _globeRaycaster.intersectObjects(allTextboxMeshes);
+      if (tbIntersects.length > 0) {
+        const clickedMesh = tbIntersects[0].object;
+        const clickedTb = Object.values(sceneTextboxes).flat().find(tb => tb.mesh === clickedMesh);
+        if (clickedTb) {
+          if (selectedTextbox === clickedTb) {
+            deselectTextbox(); // second click = dismiss
+          } else {
+            selectTextbox(clickedTb);
+          }
+          return; // don't fall through to globe/nav-label logic
+        }
+      }
+    }
+
+    // Clicking anywhere else while a textbox is focused deselects it
+    if (selectedTextbox && textboxFocusState === 'focused') {
+      deselectTextbox();
+      return;
+    }
+  }
+
   // 1. Raycast against 3D navigation labels if in the post-sequence finale view
+
   if (isPostSequence) {
     const labelMeshes = navLabels.map(entry => entry.mesh);
     const intersectsLabels = _globeRaycaster.intersectObjects(labelMeshes);
@@ -4050,27 +4251,48 @@ window.addEventListener('pointerup', releaseVehicleHold);
 window.addEventListener('pointercancel', releaseVehicleHold);
 window.addEventListener('mouseleave', releaseVehicleHold);
 
-let isResumeHovered = false;
+let isResumeHovered  = false;
+let isTextboxHovered = false;
 
 window.addEventListener('pointermove', (event) => {
-  // Only handle hover logic in the post-sequence finale view
+  // Calculate mouse position in normalized device coordinates (-1 to +1)
+  _mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  _mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  _globeRaycaster.setFromCamera(_mouse, camera);
+
+  // --- Textbox hover cursor (works during orbit and post-sequence) ---
+  if (!isMovieTransitionActive && !introActive && !isIntroTransitioning) {
+    const allTextboxMeshes = Object.values(sceneTextboxes)
+      .flat()
+      .filter(tb => tb.mesh.visible)
+      .map(tb => tb.mesh);
+
+    const tbHit = allTextboxMeshes.length > 0
+      ? _globeRaycaster.intersectObjects(allTextboxMeshes).length > 0
+      : false;
+
+    if (tbHit && !isTextboxHovered) {
+      document.body.style.cursor = 'pointer';
+      isTextboxHovered = true;
+    } else if (!tbHit && isTextboxHovered) {
+      document.body.style.cursor = 'default';
+      isTextboxHovered = false;
+    }
+
+    if (tbHit) return; // don't also run resume hover when over a card
+  }
+
+  // --- Resume label hover (post-sequence only) ---
   if (!isPostSequence) {
     if (isResumeHovered) {
       document.body.style.cursor = 'default';
       const resumeEntry = navLabels.find(entry => entry.config.label === 'Resume');
-      if (resumeEntry) {
-        updateNavLabelCanvas(resumeEntry, false);
-      }
+      if (resumeEntry) updateNavLabelCanvas(resumeEntry, false);
       isResumeHovered = false;
     }
+    if (!isTextboxHovered) document.body.style.cursor = 'default';
     return;
   }
-
-  // Calculate mouse position in normalized device coordinates (-1 to +1)
-  _mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  _mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-  _globeRaycaster.setFromCamera(_mouse, camera);
 
   const resumeEntry = navLabels.find(entry => entry.config.label === 'Resume');
   if (resumeEntry) {
