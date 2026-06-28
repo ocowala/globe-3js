@@ -320,6 +320,54 @@ canvas {
   height: auto;
 }
 
+/* ── Theme Transition ── */
+body {
+  transition: background 0.4s ease, color 0.4s ease;
+}
+
+/* ── Dark Mode Overrides ── */
+body.dark {
+  background: radial-gradient(circle at top, #141c24 0%, #0d131a 45%, #05080c 100%);
+  color: #e2e8f0;
+}
+
+body.dark .social-icon {
+  filter: invert(0.9) brightness(1.2);
+}
+
+body.dark .info-btn {
+  border-color: #e2e8f0;
+  color: #e2e8f0;
+}
+
+body.dark .info-tooltip {
+  background: rgba(20, 28, 36, 0.9);
+  border-color: rgba(226, 232, 240, 0.15);
+  color: #e2e8f0;
+}
+
+body.dark .info-row {
+  color: #e2e8f0;
+}
+
+body.dark .info-row .key {
+  background: rgba(226, 232, 240, 0.12);
+  color: #e2e8f0;
+}
+
+body.dark #song-name,
+body.dark #audio-toggle {
+  color: #ffffff;
+}
+
+body.dark #song-name.playing {
+  -webkit-text-stroke: 0.35px #000000;
+}
+
+
+
+
+
 
 
 

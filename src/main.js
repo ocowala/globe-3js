@@ -21,7 +21,8 @@ function updateCanvasRect() {
   }
 }
 updateCanvasRect();
-
+document.body.classList.remove('dark');
+document.body.style.background = '';
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -488,24 +489,22 @@ function getSnappedData(cache, raycastFn, angle) {
 }
 
 // --- Textbox Helper s ---
-function createTextBox(data, pastelColor = '#ffffff') {
-  const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 256;
-  const ctx = canvas.getContext('2d');
 
+function drawTextBoxCanvas(canvas, data, pastelColor, isFocused, textureToUpdate) {
+  const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const radius = 24;
-  const x = 12;
-  const y = 12;
-  const width = canvas.width - 24;
-  const height = canvas.height - 24;
+  // 1. Draw rounded background card
+  const radius = 96;
+  const x = 48;
+  const y = 48;
+  const width = canvas.width - 96;
+  const height = canvas.height - 96;
 
   ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
-  ctx.shadowBlur = 12;
+  ctx.shadowBlur = 48;
   ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 6;
+  ctx.shadowOffsetY = 24;
 
   let fillStyle = 'rgba(255, 255, 255, 0.85)';
   if (pastelColor.startsWith('#')) {
@@ -534,35 +533,266 @@ function createTextBox(data, pastelColor = '#ffffff') {
   ctx.shadowOffsetY = 0;
 
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 16;
   ctx.stroke();
 
   ctx.fillStyle = '#000000';
-  ctx.textAlign = 'center';
 
+  // 2. Specialized rendering based on data layout
   if (typeof data === 'string') {
-    ctx.font = '44px "Instrument Serif", Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.font = '176px "Instrument Serif", Georgia, serif';
     ctx.textBaseline = 'middle';
     ctx.fillText(data, canvas.width / 2, canvas.height / 2);
-  } else {
-    // 1. Draw Title
-    ctx.font = 'bold 36px "Instrument Serif", Georgia, serif';
+  }
+  else if (data.isSkills) {
+    // ALWAYS Stacked horizontal row grid layout (intuitive & extremely easy to read)
+    const categories = [
+      { title: "languages", badges: ["Python", "Java", "C", "C++", "SQL", "JavaScript", "TypeScript", "R", "HTML", "CSS"], barColor: '#e11d48' },
+      { title: "libraries", badges: ["React", "Flask", "Node.js", "NumPy", "Pandas", "Scikit-Learn", "PyTorch", "LangChain"], barColor: '#2563eb' },
+      { title: "tools", badges: ["Git", "AWS", "Firebase", "LaTeX"], barColor: '#64748b' }
+    ];
+
+    const startY = 100;
+    const sectionHeight = 280;
+
+    categories.forEach((cat, sIdx) => {
+      const currentY = startY + sIdx * sectionHeight;
+
+      // Draw elegant category heading block on the left
+      const labelW = 340;
+      const labelH = 140;
+      const labelX = 100;
+      const labelY = currentY + 30;
+
+      ctx.fillStyle = 'rgba(36, 51, 63, 0.05)';
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(labelX, labelY, labelW, labelH, 20);
+      } else {
+        ctx.rect(labelX, labelY, labelW, labelH);
+      }
+      ctx.closePath();
+      ctx.fill();
+
+      // Heading Text
+      ctx.fillStyle = '#24333f';
+      ctx.font = 'bold 50px "Instrument Serif", Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(cat.title, labelX + labelW / 2, labelY + labelH / 2);
+
+      // Draw accent divider line
+      ctx.fillStyle = cat.barColor;
+      ctx.fillRect(labelX + labelW + 40, labelY, 8, labelH);
+
+      // Draw Badges/Tags grid on the right
+      const badgeFontSize = 46;
+      ctx.font = `bold ${badgeFontSize}px "Instrument Serif", Georgia, serif`;
+      ctx.textAlign = 'left';
+
+      const spacing = 20;
+      const paddingX = 32;
+      const paddingY = 14;
+      const startX = labelX + labelW + 88;
+      const maxRowWidth = canvas.width - startX - 80;
+
+      const rows = [];
+      let currentRow = [];
+      let currentRowWidth = 0;
+
+      cat.badges.forEach((badge) => {
+        const textWidth = ctx.measureText(badge).width;
+        const w = textWidth + paddingX * 2;
+        if (currentRowWidth + w + (currentRow.length * spacing) > maxRowWidth) {
+          rows.push({ badges: currentRow, width: currentRowWidth });
+          currentRow = [badge];
+          currentRowWidth = w;
+        } else {
+          currentRow.push(badge);
+          currentRowWidth += w;
+        }
+      });
+      if (currentRow.length > 0) {
+        rows.push({ badges: currentRow, width: currentRowWidth });
+      }
+
+      // Draw each badge row
+      let rowY = labelY + 12;
+      if (rows.length === 1) {
+        rowY = labelY + 36; // vertically center if only 1 row
+      }
+      rows.forEach((row) => {
+        let badgeX = startX;
+
+        row.badges.forEach((badge) => {
+          const textWidth = ctx.measureText(badge).width;
+          const w = textWidth + paddingX * 2;
+          const h = badgeFontSize + paddingY * 2;
+
+          // Draw badge background
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+          ctx.beginPath();
+          const r = 16;
+          ctx.moveTo(badgeX + r, rowY);
+          ctx.lineTo(badgeX + w - r, rowY);
+          ctx.quadraticCurveTo(badgeX + w, rowY, badgeX + w, rowY + r);
+          ctx.lineTo(badgeX + w, rowY + h - r);
+          ctx.quadraticCurveTo(badgeX + w, rowY + h, badgeX + w - r, rowY + h);
+          ctx.lineTo(badgeX + r, rowY + h);
+          ctx.quadraticCurveTo(badgeX, rowY + h, badgeX, rowY + h - r);
+          ctx.lineTo(badgeX, rowY + r);
+          ctx.quadraticCurveTo(badgeX, rowY, badgeX + r, rowY);
+          ctx.closePath();
+          ctx.fill();
+
+          // Draw badge text
+          ctx.fillStyle = '#222222';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(badge, badgeX + paddingX, rowY + h / 2);
+
+          badgeX += w + spacing;
+        });
+        rowY += badgeFontSize + paddingY * 2 + spacing;
+      });
+    });
+  }
+  else if (isFocused && data.title && textboxDetails[data.title]) {
+    // FOCUS Presentation Slide layout (minimalist & highly readable)
+    const details = textboxDetails[data.title];
+
+    // 1. Draw illustrative graphic on the left
+    const imgX = 100;
+    const imgY = 120;
+    const imgW = 600;
+    const imgH = 784;
+
+    const img = new Image();
+    img.src = "data:image/svg+xml;utf8," + encodeURIComponent(details.svg);
+    img.onload = () => {
+      // Re-draw once loaded so texture mapping refreshes on GPU
+      ctx.drawImage(img, imgX, imgY, imgW, imgH);
+      if (textureToUpdate) {
+        textureToUpdate.needsUpdate = true;
+      }
+    };
+    // Draw initial bounding box
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(imgX, imgY, imgW, imgH);
+
+    // 2. Draw description text on the right
+    const startX = 760;
+    const contentW = canvas.width - startX - 100;
+
+    // Title
+    ctx.fillStyle = '#000000';
+    ctx.font = 'bold 72px "Instrument Serif", Georgia, serif';
+    ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText(data.title || '', canvas.width / 2, 42);
+    ctx.fillText(data.title, startX, 130);
+
+    // Subtitle
+    ctx.fillStyle = '#5d677d';
+    ctx.font = 'italic 44px "Instrument Serif", Georgia, serif';
+    ctx.fillText(details.subtitle || '', startX, 220);
+
+    // Bullets list
+    ctx.fillStyle = '#222222';
+    ctx.font = '38px "Instrument Serif", Georgia, serif';
+    
+    let bulletY = 300;
+    details.bullets.forEach((bullet) => {
+      // Draw bullet character
+      ctx.fillText("•", startX, bulletY);
+
+      // Auto-wrap bullet text
+      const bulletTextX = startX + 36;
+      const words = bullet.split(' ');
+      let line = '';
+      let lines = [];
+      for (let n = 0; n < words.length; n++) {
+        let testLine = line + words[n] + ' ';
+        let metrics = ctx.measureText(testLine);
+        if (metrics.width > contentW - 40 && n > 0) {
+          lines.push(line);
+          line = words[n] + ' ';
+        } else {
+          line = testLine;
+        }
+      }
+      lines.push(line);
+
+      // Render lines
+      lines.forEach((l) => {
+        ctx.fillText(l.trim(), bulletTextX, bulletY);
+        bulletY += 56;
+      });
+      bulletY += 24; // spacer between bullets
+    });
+
+    // Draw Technologies pills at the bottom
+    const techY = 820;
+    ctx.fillStyle = '#5d677d';
+    ctx.font = 'bold 28px "Instrument Serif", Georgia, serif';
+    ctx.fillText("technologies:", startX, techY);
+
+    const techFontSize = 36;
+    ctx.font = `bold ${techFontSize}px "Instrument Serif", Georgia, serif`;
+    let badgeX = startX + 200;
+    const spacing = 16;
+    const paddingX = 24;
+    const paddingY = 10;
+
+    details.tech.forEach((tech) => {
+      const textWidth = ctx.measureText(tech).width;
+      const w = textWidth + paddingX * 2;
+      const h = techFontSize + paddingY * 2;
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+      ctx.beginPath();
+      const r = 12;
+      ctx.moveTo(badgeX + r, techY - 6);
+      ctx.lineTo(badgeX + w - r, techY - 6);
+      ctx.quadraticCurveTo(badgeX + w, techY - 6, badgeX + w, techY - 6 + r);
+      ctx.lineTo(badgeX + w, techY - 6 + h - r);
+      ctx.quadraticCurveTo(badgeX + w, techY - 6 + h, badgeX + w - r, techY - 6 + h);
+      ctx.lineTo(badgeX + r, techY - 6 + h);
+      ctx.quadraticCurveTo(badgeX, techY - 6 + h, badgeX, techY - 6 + h - r);
+      ctx.lineTo(badgeX, techY - 6 + r);
+      ctx.quadraticCurveTo(badgeX, techY - 6, badgeX + r, techY - 6);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#222222';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(tech, badgeX + paddingX, techY - 6 + h / 2);
+
+      badgeX += w + spacing;
+    });
+  }
+  else {
+    // DEFAULT Unfocused/Clean header card (spacious & content-focused)
+    ctx.textAlign = 'center';
+
+    // 1. Draw Title
+    ctx.font = 'bold 144px "Instrument Serif", Georgia, serif';
+    ctx.textBaseline = 'top';
+    ctx.fillText(data.title || '', canvas.width / 2, 168);
 
     // 2. Draw Subtitle
     ctx.fillStyle = '#3c3c3c';
-    ctx.font = 'italic 25px "Instrument Serif", Georgia, serif';
-    ctx.fillText(data.subtitle || '', canvas.width / 2, 94);
+    ctx.font = 'italic 100px "Instrument Serif", Georgia, serif';
+    ctx.fillText(data.subtitle || '', canvas.width / 2, 376);
 
     // 3. Draw Badges/Tags at the bottom
     if (data.badges && data.badges.length > 0) {
-      const badgeFontSize = 21;
+      const badgeFontSize = 84;
       ctx.font = `bold ${badgeFontSize}px "Instrument Serif", Georgia, serif`;
 
-      const spacing = 12;
-      const paddingX = 14;
-      const paddingY = 6;
+      const spacing = 48;
+      const paddingX = 56;
+      const paddingY = 24;
       let totalWidth = 0;
       const badgeWidths = [];
 
@@ -575,7 +805,7 @@ function createTextBox(data, pastelColor = '#ffffff') {
       totalWidth += spacing * (data.badges.length - 1);
 
       let currentX = (canvas.width - totalWidth) / 2;
-      const badgeY = 158;
+      const badgeY = 632;
 
       data.badges.forEach((badge, idx) => {
         const w = badgeWidths[idx];
@@ -584,7 +814,7 @@ function createTextBox(data, pastelColor = '#ffffff') {
         // Draw badge background
         ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
         ctx.beginPath();
-        const r = 8;
+        const r = 32;
         ctx.moveTo(currentX + r, badgeY);
         ctx.lineTo(currentX + w - r, badgeY);
         ctx.quadraticCurveTo(currentX + w, badgeY, currentX + w, badgeY + r);
@@ -606,9 +836,21 @@ function createTextBox(data, pastelColor = '#ffffff') {
       });
     }
   }
+}
+
+function createTextBox(data, pastelColor = '#ffffff') {
+  const canvas = document.createElement('canvas');
+  canvas.width = 2048;
+  canvas.height = 1024;
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
+
+  // Save canvas context reference so we can redraw it dynamically
+  canvas.setAttribute('data-color', pastelColor);
+
+  // Render initial unfocused view
+  drawTextBoxCanvas(canvas, data, pastelColor, false, texture);
 
   const material = new THREE.MeshBasicMaterial({
     map: texture,
@@ -621,6 +863,9 @@ function createTextBox(data, pastelColor = '#ffffff') {
   const geometry = new THREE.PlaneGeometry(2.0, 1.0);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = 'textbox';
+  
+  // Attach canvas to mesh userData for easy redraw updates
+  mesh.userData = { canvas, data, pastelColor };
 
   return mesh;
 }
@@ -649,15 +894,15 @@ const sceneTextboxes = {
 
 const staticTextboxConfigs = {
   'City': [
-    { angleOffset: 1.0, data: { title: "backend systems", subtitle: "scalable apis & databases", badges: ["Go", "Python", "gRPC", "SQL"] } },
-    { angleOffset: -21.0, data: { title: "frontend engineering", subtitle: "modern & responsive web apps", badges: ["React", "TypeScript", "Three.js", "Vite"] } }
+    { angleOffset: 12.0, data: { title: "hello & welcome", subtitle: "software engineer specializing in systems & graphics", badges: ["full stack", "creative dev", "problem solver"] } },
+    { angleOffset: -16.0, data: { title: "contact info", subtitle: "email: developer@example.com | phone: (123) 456-7890", badges: ["github", "linkedin", "email"] } }
   ],
   'School': [
-    { angleOffset: 7.5, data: { title: "cloud & infrastructure", subtitle: "distributed systems & cloud deployments", badges: ["AWS", "Docker", "Kubernetes", "Linux"] } },
-    { angleOffset: -12.5, data: { title: "computer science", subtitle: "algorithms, data structures & networks", badges: ["Java", "C", "Python", "Git"] } }
+    { angleOffset: 6.0, data: { title: "computer science", subtitle: "bs in computer science | graduation: may 2026", badges: ["gpa: 3.9", "dean's list", "undergrad"] } },
+    { angleOffset: -8.0, data: { title: "relevant coursework", subtitle: "focus on programming, systems & mathematics", badges: ["algorithms", "databases", "networks", "compilers", "os"] } }
   ],
   'Landscape': [
-    { angleOffset: 7.2, data: { title: "full stack development", subtitle: "crafting high-performance web apps", badges: ["React", "Three.js", "Vite", "CSS"] } }
+    { angleOffset: 0.0, data: { isSkills: true } }
   ],
   'Beach': [
     { angleOffset: 4.5, data: { title: "data pipelines", subtitle: "real-time streaming & analytics", badges: ["Kafka", "Flink", "PostgreSQL", "Python"] } },
@@ -698,7 +943,8 @@ function initStaticTextboxes() {
         baseScale: 1.0,      // updated each frame by updateSceneTextboxes
         currentScale: 1.0,   // animated per-frame toward targetScale
         targetScale: 1.0,    // 1.22× base when selected
-        targetOpacity: 0.85  // 1.0 when selected
+        targetOpacity: 0.85, // 1.0 when selected
+        data: cfg.data
       });
     });
   }
@@ -3536,8 +3782,8 @@ function animate() {
       }
     }
 
-    // Disable orbit controls during camera follow so they don't fight, but allow them when paused
-    if (isOrbitAnimating || isTransitioning) {
+    // Disable orbit controls during camera follow so they don't fight, but allow them when paused (except during textbox focus transition)
+    if (isOrbitAnimating || isTransitioning || textboxFocusState === 'entering' || textboxFocusState === 'exiting') {
       controls.enabled = false;
     } else {
       controls.enabled = true;
@@ -3643,6 +3889,9 @@ function animate() {
 
       if (t >= 1.0) {
         textboxFocusState = 'focused';
+        controls.enableDamping = false;
+        controls.update(); // instantly update internal angles
+        controls.enableDamping = true;
         controls.enabled  = true; // allow free-look once settled
       }
 
@@ -3659,6 +3908,9 @@ function animate() {
         textboxFocusState  = 'idle';
         camGuiState.paused = false; // orbit was paused on select; always resume on deselect
         isOrbitAnimating   = true;
+        controls.enableDamping = false;
+        controls.update(); // instantly update internal angles to pre-focus state
+        controls.enableDamping = true;
         controls.enabled   = true;
       }
     }
@@ -3683,10 +3935,101 @@ function getSectorIndexFromVehicleIndex(vehicleIdx) {
   return -1;
 }
 
+// --- Textbox Focus Details Overlay System ---
+
+const textboxDetails = {
+  "data pipelines": {
+    subtitle: "real-time ingestion & processing | beach scene",
+    bullets: [
+      "Engineered high-throughput real-time Kafka streaming ingestion pipelines processing millions of daily event payloads.",
+      "Integrated Apache Flink to perform sliding-window aggregation analytics, reducing business KPI latency by 40%.",
+      "Designed highly optimized timeseries table partitioning in PostgreSQL to support rapid historical audits."
+    ],
+    tech: ["Kafka", "Flink", "PostgreSQL", "Python", "Go", "Docker"],
+    svg: `<svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="200" height="150" rx="12" fill="rgba(36,51,63,0.06)"/>
+      <path d="M40 75 h40 M120 75 h40" stroke="#24333f" stroke-width="3" stroke-dasharray="4 4"/>
+      <circle cx="40" cy="75" r="12" fill="#24333f"/>
+      <circle cx="100" cy="45" r="16" fill="#5d677d"/>
+      <circle cx="100" cy="105" r="16" fill="#5d677d"/>
+      <circle cx="160" cy="75" r="12" fill="#24333f"/>
+      <path d="M40 75 L84 45 M40 75 L84 105 M116 45 L160 75 M116 105 L160 75" stroke="#24333f" stroke-width="2.5"/>
+    </svg>`
+  },
+  "software engineering": {
+    subtitle: "robust & scalable services | beach scene",
+    bullets: [
+      "Developed modular gRPC microservices in Go, increasing server throughput and improving inter-service communication efficiency.",
+      "Implemented cache-aside session layers using Redis, decreasing primary relational database read load by 35%.",
+      "Wrote comprehensive unit and integration test suites, securing 90% codebase logic coverage.",
+    ],
+    tech: ["Go", "gRPC", "Redis", "Docker", "PostgreSQL", "Git"],
+    svg: `<svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="200" height="150" rx="12" fill="rgba(36,51,63,0.06)"/>
+      <rect x="35" y="35" width="130" height="80" rx="6" stroke="#24333f" stroke-width="3"/>
+      <path d="M35 47 h130 M45 41 h4 M53 41 h4" stroke="#24333f" stroke-width="2"/>
+      <path d="M65 65 l-10 10 l10 10 M135 65 l10 10 l-10 10 M90 85 l20 -20" stroke="#5d677d" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>`
+  },
+  "devops engineering": {
+    subtitle: "infrastructure as code & pipelines | desert scene",
+    bullets: [
+      "Provisioned highly available AWS resources (VPCs, ECS clusters, RDS instances) strictly using modular Terraform configurations.",
+      "Configured automated multi-stage CI/CD pipelines in GitHub Actions to run linters, tests, and build Docker containers.",
+      "Containerized microservices using optimized Docker base distributions to minimize size and package vulnerabilities."
+    ],
+    tech: ["Terraform", "GitHub Actions", "Docker", "AWS", "Linux"],
+    svg: `<svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="200" height="150" rx="12" fill="rgba(36,51,63,0.06)"/>
+      <path d="M60 105 h80 M100 105 v-25" stroke="#24333f" stroke-width="3"/>
+      <rect x="40" y="45" width="40" height="35" rx="4" fill="#5d677d"/>
+      <rect x="120" y="45" width="40" height="35" rx="4" fill="#5d677d"/>
+      <path d="M60 62.5 h15 M140 62.5 h15" stroke="#fff" stroke-width="2"/>
+    </svg>`
+  },
+  "globe-3js": {
+    subtitle: "interactive 3d web experience | desert scene",
+    bullets: [
+      "Engineered custom WebGL interactive rendering experiences using Three.js and custom math transforms.",
+      "Applied Draco and Meshopt decoders to optimize low-poly GLTF geometry transmission times.",
+      "Programmed linear easing, look-at target interpolation, and custom OrbitControls damping loops for cinematic camera work."
+    ],
+    tech: ["Three.js", "WebGL", "Vite", "Vanilla JS", "CSS", "Blender"],
+    svg: `<svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="200" height="150" rx="12" fill="rgba(36,51,63,0.06)"/>
+      <circle cx="100" cy="75" r="45" stroke="#24333f" stroke-width="2"/>
+      <ellipse cx="100" cy="75" rx="45" ry="18" stroke="#5d677d" stroke-width="2"/>
+      <ellipse cx="100" cy="75" rx="18" ry="45" stroke="#5d677d" stroke-width="2"/>
+      <line x1="100" y1="30" x2="100" y2="120" stroke="#24333f" stroke-width="2"/>
+      <line x1="55" y1="75" x2="145" y2="75" stroke="#24333f" stroke-width="2"/>
+    </svg>`
+  },
+  "api gateway": {
+    subtitle: "traffic routing & validation proxy | desert scene",
+    bullets: [
+      "Developed a low-latency API reverse-proxy service in Go to route public client calls to localized microservices.",
+      "Built customizable rate-limiting middleware using Redis token buckets to protect background clusters from spikes.",
+      "Configured Prometheus logging metrics and Grafana dashboards to monitor latency statistics in real time."
+    ],
+    tech: ["Go", "Redis", "Prometheus", "Docker", "Linux"],
+    svg: `<svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="200" height="150" rx="12" fill="rgba(36,51,63,0.06)"/>
+      <circle cx="45" cy="75" r="14" fill="#24333f"/>
+      <circle cx="155" cy="45" r="14" fill="#5d677d"/>
+      <circle cx="155" cy="105" r="14" fill="#5d677d"/>
+      <path d="M59 75 L141 45 M59 75 L141 105" stroke="#24333f" stroke-width="3"/>
+      <rect x="88" y="55" width="24" height="24" rx="4" fill="#24333f"/>
+      <path d="M100 62 v10 M97 67 h6" stroke="#fff" stroke-width="2"/>
+    </svg>`
+  }
+};
+
+
+
 // --- Textbox Focus Helpers ---
 
 function applyTextboxHighlight(tb, selected) {
-  tb.targetScale   = selected ? tb.baseScale * 1.22 : tb.baseScale;
+  tb.targetScale   = selected ? tb.baseScale * 1.55 : tb.baseScale;
   tb.targetOpacity = selected ? 1.0 : 0.85;
 }
 
@@ -3694,14 +4037,28 @@ function selectTextbox(tb) {
   // Deselect previous silently
   if (selectedTextbox && selectedTextbox !== tb) {
     applyTextboxHighlight(selectedTextbox, false);
+    // Restore previous's simple texture
+    if (selectedTextbox.mesh && selectedTextbox.mesh.userData && selectedTextbox.mesh.material.map) {
+      const { canvas, data, pastelColor } = selectedTextbox.mesh.userData;
+      drawTextBoxCanvas(canvas, data, pastelColor, false, selectedTextbox.mesh.material.map);
+      selectedTextbox.mesh.material.map.needsUpdate = true;
+    }
   }
 
   selectedTextbox = tb;
   applyTextboxHighlight(tb, true);
 
+  // Capture the actual current camera look target (pre-focus)
+  const currentTarget = new THREE.Vector3();
+  if (cameraFollowEnabled && !isPostSequence) {
+    currentTarget.copy(currentCamTarget);
+  } else {
+    currentTarget.copy(controls.target);
+  }
+
   // Save current camera state so we can return to exactly here on deselect
   textboxFocusPrePos.copy(camera.position);
-  textboxFocusPreTarget.copy(controls.target);
+  textboxFocusPreTarget.copy(currentTarget);
   textboxFocusPreUp.copy(camera.up);
   textboxFocusPreFOV = camera.fov;
 
@@ -3728,17 +4085,31 @@ function selectTextbox(tb) {
 
   // Begin enter lerp
   textboxFocusLerpStartPos.copy(camera.position);
-  textboxFocusLerpStartTarget.copy(controls.target);
+  textboxFocusLerpStartTarget.copy(currentTarget);
   textboxFocusLerpStartUp.copy(camera.up);
   textboxFocusLerpStartFOV = camera.fov;
 
   textboxFocusState = 'entering';
   textboxFocusTimer = 0.0;
   controls.enabled  = false;
+
+  // Redraw this textbox canvas to show detailed presentation slide
+  if (tb.mesh && tb.mesh.userData && tb.mesh.material.map) {
+    const { canvas, data, pastelColor } = tb.mesh.userData;
+    drawTextBoxCanvas(canvas, data, pastelColor, true, tb.mesh.material.map);
+    tb.mesh.material.map.needsUpdate = true;
+  }
 }
 
 function deselectTextbox() {
   if (!selectedTextbox) return;
+
+  // Redraw textbox canvas back to simple headers
+  if (selectedTextbox.mesh && selectedTextbox.mesh.userData && selectedTextbox.mesh.material.map) {
+    const { canvas, data, pastelColor } = selectedTextbox.mesh.userData;
+    drawTextBoxCanvas(canvas, data, pastelColor, false, selectedTextbox.mesh.material.map);
+    selectedTextbox.mesh.material.map.needsUpdate = true;
+  }
 
   applyTextboxHighlight(selectedTextbox, false);
   selectedTextbox = null;
@@ -3765,6 +4136,10 @@ function returnToFinale() {
   isTransitioning = false;
   sequenceEverCompleted = true;
   postSeqTimer = 0;
+
+  // Restore cylinder and orbit ring visibility
+  if (globe) globe.visible = true;
+  if (orbitRing) orbitRing.visible = true;
 
   // Sync active nav sector highlighting to the vehicle we just exited
   let sectorIdx = getSectorIndexFromVehicleIndex(currentSeqIndex);
@@ -4186,6 +4561,10 @@ window.addEventListener('click', (event) => {
         sequenceEverCompleted = true;
         postSeqTimer = 0;
 
+        // Restore cylinder and orbit ring visibility
+        if (globe) globe.visible = true;
+        if (orbitRing) orbitRing.visible = true;
+
         // Capture current camera state for smooth transition start
         transitionStartPos.copy(camera.position);
         transitionStartTarget.copy(currentCamTarget);
@@ -4312,4 +4691,8 @@ window.addEventListener('pointermove', (event) => {
     }
   }
 });
+
+
+
+
 
