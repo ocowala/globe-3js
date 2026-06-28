@@ -3712,8 +3712,30 @@ function triggerNavigation(navIdx) {
   console.log(`Navigating to ${config.label} (vehicle index ${targetIndex}) via keyboard.`);
 }
 
+// --- Easter Egg: movie trigger via arrow-key sequence ↑ ↑ ↓ ↓ ← → ---
+const MOVIE_SEQUENCE = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+let movieKeyBuffer = [];
+
 // Keyboard event handlers
 window.addEventListener('keydown', (e) => {
+  // Track arrow keys for the easter-egg sequence
+  if (e.key.startsWith('Arrow')) {
+    movieKeyBuffer.push(e.key);
+    // Keep only the last N keys (same length as the sequence)
+    if (movieKeyBuffer.length > MOVIE_SEQUENCE.length) {
+      movieKeyBuffer.shift();
+    }
+    // Check for a match
+    if (movieKeyBuffer.join(',') === MOVIE_SEQUENCE.join(',')) {
+      movieKeyBuffer = []; // reset so it can't fire twice
+      const movieBtn = document.getElementById('movie-btn');
+      if (movieBtn && !isMovieTransitionActive) {
+        movieBtn.click();
+      }
+      return;
+    }
+  }
+
   // Escape — return to post-sequence finale from any state
   if (e.key === 'Escape') {
     if (exitMovieView()) {
