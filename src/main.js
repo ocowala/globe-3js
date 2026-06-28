@@ -162,7 +162,10 @@ const textboxFocusTargetPos    = new THREE.Vector3();
 const textboxFocusTargetLookAt = new THREE.Vector3();
 const textboxFocusTargetUp     = new THREE.Vector3();
 
-const TEXTBOX_FOCUS_FOV      = 22;  // tight zoom-in
+function getFocusFOV() {
+  const aspect = window.innerWidth / window.innerHeight;
+  return aspect < 1.0 ? 46 : 22;
+}
 const TEXTBOX_FOCUS_DURATION = 0.85; // seconds
 const TEXTBOX_FOCUS_DISTANCE = 3.8; // units above the textbox face
 
@@ -545,8 +548,8 @@ function drawTextBoxCanvas(canvas, data, pastelColor, isFocused, textureToUpdate
     ctx.textBaseline = 'middle';
     ctx.fillText(data, canvas.width / 2, canvas.height / 2);
   }
-  else if (data.isSkills) {
-    // ALWAYS Stacked horizontal row grid layout (intuitive & extremely easy to read)
+  else if (isFocused && data.isSkills) {
+    // Stacked horizontal row grid layout (shows only when focused!)
     const categories = [
       { title: "languages", badges: ["Python", "Java", "C", "C++", "SQL", "JavaScript", "TypeScript", "R", "HTML", "CSS"], barColor: '#e11d48' },
       { title: "libraries", badges: ["React", "Flask", "Node.js", "NumPy", "Pandas", "Scikit-Learn", "PyTorch", "LangChain"], barColor: '#2563eb' },
@@ -902,7 +905,7 @@ const staticTextboxConfigs = {
     { angleOffset: -8.0, data: { title: "relevant coursework", subtitle: "focus on programming, systems & mathematics", badges: ["algorithms", "databases", "networks", "compilers", "os"] } }
   ],
   'Landscape': [
-    { angleOffset: 0.0, data: { isSkills: true } }
+    { angleOffset: 0.0, data: { title: "technical skills", subtitle: "languages, libraries & tools", badges: ["Python", "React", "AWS", "Git"], isSkills: true } }
   ],
   'Beach': [
     { angleOffset: 4.5, data: { title: "data pipelines", subtitle: "real-time streaming & analytics", badges: ["Kafka", "Flink", "PostgreSQL", "Python"] } },
@@ -1660,7 +1663,16 @@ loadModelWithGUI('Cafe', new URL('../assets/models/cafe_meshopt.glb', import.met
 window.addEventListener('resize', onWindowResize, false);
 
 function onWindowResize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  const aspect = window.innerWidth / window.innerHeight;
+  camera.aspect = aspect;
+
+  // Dynamically open camera FOV on narrow/portrait screens to fit the cylinder without clipping
+  if (aspect < 1.0) {
+    camera.fov = 38 + (1.0 - aspect) * 22;
+  } else {
+    camera.fov = 38;
+  }
+
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
   updateCanvasRect();
@@ -3882,7 +3894,7 @@ function animate() {
       camera.position.lerpVectors(textboxFocusLerpStartPos, textboxFocusTargetPos, t);
       controls.target.lerpVectors(textboxFocusLerpStartTarget, textboxFocusTargetLookAt, t);
       camera.up.lerpVectors(textboxFocusLerpStartUp, textboxFocusTargetUp, t).normalize();
-      camera.fov = THREE.MathUtils.lerp(textboxFocusLerpStartFOV, TEXTBOX_FOCUS_FOV, t);
+      camera.fov = THREE.MathUtils.lerp(textboxFocusLerpStartFOV, getFocusFOV(), t);
       camera.updateProjectionMatrix();
       camera.lookAt(controls.target);
       controls.enabled = false;
@@ -4177,6 +4189,10 @@ function returnToFinale() {
 
 function triggerNavigation(navIdx) {
   if (navIdx < 0 || navIdx >= navLabelConfig.length) return;
+
+  if (selectedTextbox) {
+    deselectTextbox();
+  }
 
   const config = navLabelConfig[navIdx];
   const targetIndex = config.vehicleIdx;
@@ -4536,10 +4552,16 @@ window.addEventListener('click', (event) => {
     const intersectsLabels = _globeRaycaster.intersectObjects(labelMeshes);
     if (intersectsLabels.length > 0) {
       const clickedMesh = intersectsLabels[0].object;
-      const clickedEntry = navLabels.find(entry => entry.mesh === clickedMesh);
-      if (clickedEntry && clickedEntry.config.label === 'Resume') {
-        console.log("3D Resume Nav Label clicked. Opening /resume_v1.pdf");
-        window.open('/resume_v1.pdf', '_blank');
+      const clickedEntryIdx = navLabels.findIndex(entry => entry.mesh === clickedMesh);
+      if (clickedEntryIdx !== -1) {
+        const clickedEntry = navLabels[clickedEntryIdx];
+        if (clickedEntry.config.label === 'Resume') {
+          console.log("3D Resume Nav Label clicked. Opening /resume_v1.pdf");
+          window.open('/resume_v1.pdf', '_blank');
+        } else {
+          console.log(`3D Nav Label ${clickedEntry.config.label} clicked. Navigating to index ${clickedEntryIdx}.`);
+          triggerNavigation(clickedEntryIdx);
+        }
         return;
       }
     }

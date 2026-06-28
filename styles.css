@@ -33,6 +33,7 @@ body {
 
 canvas {
   display: block;
+  touch-action: none;
 }
 
 #audio-toggle {
@@ -363,6 +364,45 @@ body.dark #audio-toggle {
 body.dark #song-name.playing {
   -webkit-text-stroke: 0.35px #000000;
 }
+
+/* ── Responsive Mobile & Tablet Scaling Overrides ── */
+@media (max-width: 600px) {
+  .social-links {
+    top: 12px;
+    left: 16px;
+    gap: 8px;
+  }
+  
+  .social-icon {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .info-btn {
+    width: 18px;
+    height: 18px;
+    font-size: 11px;
+  }
+
+  .info-tooltip {
+    top: auto;
+    bottom: calc(100% + 8px);
+    left: -10px;
+    width: 125px;
+    padding: 8px 10px;
+  }
+  
+  #audio-toggle {
+    bottom: 16px;
+    right: 16px;
+    font-size: 11px;
+  }
+
+  #audio-toggle .music-emoji {
+    font-size: 13px;
+  }
+}
+
 
 
 
