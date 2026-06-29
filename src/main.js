@@ -164,7 +164,11 @@ const textboxFocusTargetUp     = new THREE.Vector3();
 
 function getFocusFOV() {
   const aspect = window.innerWidth / window.innerHeight;
-  return aspect < 1.0 ? 46 : 22;
+  if (aspect < 1.0) {
+    // Dynamically expand FOV on narrow screens to prevent text slide clipping (up to ~65 degrees on mobile)
+    return 22 + (1.0 - aspect) * 80;
+  }
+  return 22;
 }
 const TEXTBOX_FOCUS_DURATION = 0.85; // seconds
 const TEXTBOX_FOCUS_DISTANCE = 3.8; // units above the textbox face
@@ -1668,7 +1672,7 @@ function onWindowResize() {
 
   // Dynamically open camera FOV on narrow/portrait screens to fit the cylinder without clipping
   if (aspect < 1.0) {
-    camera.fov = 38 + (1.0 - aspect) * 22;
+    camera.fov = 38 + (1.0 - aspect) * 45;
   } else {
     camera.fov = 38;
   }
@@ -4714,7 +4718,14 @@ window.addEventListener('pointermove', (event) => {
   }
 });
 
-
-
-
-
+// --- Dynamic Environment-Based Video Source ---
+const movieVideo = document.getElementById('movie-video');
+if (movieVideo) {
+  if (import.meta.env.DEV) {
+    movieVideo.src = '/capcut_video_v1.mp4';
+    console.log("Environment: Local Development. Loading local video.");
+  } else {
+    movieVideo.src = 'https://pub-072874b429b14b129985f91cc0b6ecbc.r2.dev/capcut_video_v1.mp4';
+    console.log("Environment: Vercel Cloud (Staging/Production). Loading video from Cloudflare R2.");
+  }
+}
