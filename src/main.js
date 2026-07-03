@@ -165,8 +165,8 @@ const textboxFocusTargetUp     = new THREE.Vector3();
 function getFocusFOV() {
   const aspect = window.innerWidth / window.innerHeight;
   if (aspect < 1.0) {
-    // Dynamically expand FOV on narrow screens to prevent text slide clipping (up to ~65 degrees on mobile)
-    return 22 + (1.0 - aspect) * 80;
+    // Dynamically expand FOV on narrow screens to prevent text slide clipping (up to ~58 degrees on mobile)
+    return 22 + (1.0 - aspect) * 60;
   }
   return 22;
 }
@@ -548,235 +548,455 @@ function drawTextBoxCanvas(canvas, data, pastelColor, isFocused, textureToUpdate
   // 2. Specialized rendering based on data layout
   if (typeof data === 'string') {
     ctx.textAlign = 'center';
-    ctx.font = '176px "Instrument Serif", Georgia, serif';
+    if (canvas.width < canvas.height) {
+      ctx.font = '100px "Instrument Serif", Georgia, serif';
+    } else {
+      ctx.font = '176px "Instrument Serif", Georgia, serif';
+    }
     ctx.textBaseline = 'middle';
     ctx.fillText(data, canvas.width / 2, canvas.height / 2);
   }
   else if (isFocused && data.isSkills) {
-    // Stacked horizontal row grid layout (shows only when focused!)
-    const categories = [
-      { title: "languages", badges: ["Python", "Java", "C", "C++", "SQL", "JavaScript", "TypeScript", "R", "HTML", "CSS"], barColor: '#e11d48' },
-      { title: "libraries", badges: ["React", "Flask", "Node.js", "NumPy", "Pandas", "Scikit-Learn", "PyTorch", "LangChain"], barColor: '#2563eb' },
-      { title: "tools", badges: ["Git", "AWS", "Firebase", "LaTeX"], barColor: '#64748b' }
-    ];
+    if (canvas.width < canvas.height) {
+      // PORTRAIT (Mobile) Layout: Stacked vertical grids with centered heading capsules & centered wrapped badges
+      const categories = [
+        { title: "languages", badges: ["Python", "Java", "C", "C++", "SQL", "JavaScript", "TypeScript", "R", "HTML", "CSS"], barColor: '#e11d48' },
+        { title: "libraries", badges: ["React", "Flask", "Node.js", "NumPy", "Pandas", "Scikit-Learn", "PyTorch", "LangChain"], barColor: '#2563eb' },
+        { title: "tools", badges: ["Git", "AWS", "Firebase", "LaTeX"], barColor: '#64748b' }
+      ];
 
-    const startY = 100;
-    const sectionHeight = 280;
+      const startY = 120;
+      const sectionHeight = 440;
 
-    categories.forEach((cat, sIdx) => {
-      const currentY = startY + sIdx * sectionHeight;
+      categories.forEach((cat, sIdx) => {
+        const currentY = startY + sIdx * sectionHeight;
 
-      // Draw elegant category heading block on the left
-      const labelW = 340;
-      const labelH = 140;
-      const labelX = 100;
-      const labelY = currentY + 30;
+        // Draw centered category heading capsule
+        const labelW = 320;
+        const labelH = 80;
+        const labelX = (canvas.width - labelW) / 2;
+        const labelY = currentY;
 
-      ctx.fillStyle = 'rgba(36, 51, 63, 0.05)';
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(labelX, labelY, labelW, labelH, 20);
-      } else {
-        ctx.rect(labelX, labelY, labelW, labelH);
-      }
-      ctx.closePath();
-      ctx.fill();
-
-      // Heading Text
-      ctx.fillStyle = '#24333f';
-      ctx.font = 'bold 50px "Instrument Serif", Georgia, serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(cat.title, labelX + labelW / 2, labelY + labelH / 2);
-
-      // Draw accent divider line
-      ctx.fillStyle = cat.barColor;
-      ctx.fillRect(labelX + labelW + 40, labelY, 8, labelH);
-
-      // Draw Badges/Tags grid on the right
-      const badgeFontSize = 46;
-      ctx.font = `bold ${badgeFontSize}px "Instrument Serif", Georgia, serif`;
-      ctx.textAlign = 'left';
-
-      const spacing = 20;
-      const paddingX = 32;
-      const paddingY = 14;
-      const startX = labelX + labelW + 88;
-      const maxRowWidth = canvas.width - startX - 80;
-
-      const rows = [];
-      let currentRow = [];
-      let currentRowWidth = 0;
-
-      cat.badges.forEach((badge) => {
-        const textWidth = ctx.measureText(badge).width;
-        const w = textWidth + paddingX * 2;
-        if (currentRowWidth + w + (currentRow.length * spacing) > maxRowWidth) {
-          rows.push({ badges: currentRow, width: currentRowWidth });
-          currentRow = [badge];
-          currentRowWidth = w;
+        ctx.fillStyle = 'rgba(36, 51, 63, 0.05)';
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(labelX, labelY, labelW, labelH, 20);
         } else {
-          currentRow.push(badge);
-          currentRowWidth += w;
+          ctx.rect(labelX, labelY, labelW, labelH);
         }
-      });
-      if (currentRow.length > 0) {
-        rows.push({ badges: currentRow, width: currentRowWidth });
-      }
+        ctx.closePath();
+        ctx.fill();
 
-      // Draw each badge row
-      let rowY = labelY + 12;
-      if (rows.length === 1) {
-        rowY = labelY + 36; // vertically center if only 1 row
-      }
-      rows.forEach((row) => {
-        let badgeX = startX;
+        // Heading Text
+        ctx.fillStyle = '#24333f';
+        ctx.font = 'bold 36px "Instrument Serif", Georgia, serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(cat.title, labelX + labelW / 2, labelY + labelH / 2);
 
-        row.badges.forEach((badge) => {
+        // Draw accent divider line below heading
+        ctx.fillStyle = cat.barColor;
+        ctx.fillRect(labelX + labelW / 2 - 40, labelY + labelH + 12, 80, 6);
+
+        // Draw Badges/Tags grid centered underneath
+        const spacing = 16;
+        const paddingX = 24;
+        const paddingY = 12;
+        const badgeFontSize = 36;
+        ctx.font = `bold ${badgeFontSize}px "Instrument Serif", Georgia, serif`;
+        ctx.textAlign = 'left';
+
+        const rows = [];
+        let currentRow = [];
+        let currentRowWidth = 0;
+        const maxRowWidth = canvas.width - 160; // 864px content width
+
+        cat.badges.forEach((badge) => {
           const textWidth = ctx.measureText(badge).width;
           const w = textWidth + paddingX * 2;
-          const h = badgeFontSize + paddingY * 2;
-
-          // Draw badge background
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
-          ctx.beginPath();
-          const r = 16;
-          ctx.moveTo(badgeX + r, rowY);
-          ctx.lineTo(badgeX + w - r, rowY);
-          ctx.quadraticCurveTo(badgeX + w, rowY, badgeX + w, rowY + r);
-          ctx.lineTo(badgeX + w, rowY + h - r);
-          ctx.quadraticCurveTo(badgeX + w, rowY + h, badgeX + w - r, rowY + h);
-          ctx.lineTo(badgeX + r, rowY + h);
-          ctx.quadraticCurveTo(badgeX, rowY + h, badgeX, rowY + h - r);
-          ctx.lineTo(badgeX, rowY + r);
-          ctx.quadraticCurveTo(badgeX, rowY, badgeX + r, rowY);
-          ctx.closePath();
-          ctx.fill();
-
-          // Draw badge text
-          ctx.fillStyle = '#222222';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(badge, badgeX + paddingX, rowY + h / 2);
-
-          badgeX += w + spacing;
+          if (currentRowWidth + w + (currentRow.length > 0 ? spacing : 0) > maxRowWidth) {
+            rows.push({ badges: currentRow, width: currentRowWidth });
+            currentRow = [badge];
+            currentRowWidth = w;
+          } else {
+            if (currentRow.length > 0) currentRowWidth += spacing;
+            currentRow.push(badge);
+            currentRowWidth += w;
+          }
         });
-        rowY += badgeFontSize + paddingY * 2 + spacing;
+        if (currentRow.length > 0) {
+          rows.push({ badges: currentRow, width: currentRowWidth });
+        }
+
+        // Draw rows
+        let rowY = labelY + labelH + 36;
+        rows.forEach((row) => {
+          let badgeX = (canvas.width - row.width) / 2;
+          row.badges.forEach((badge) => {
+            const textWidth = ctx.measureText(badge).width;
+            const w = textWidth + paddingX * 2;
+            const h = badgeFontSize + paddingY * 2;
+
+            // Draw badge background
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+            ctx.beginPath();
+            const r = 12;
+            ctx.moveTo(badgeX + r, rowY);
+            ctx.lineTo(badgeX + w - r, rowY);
+            ctx.quadraticCurveTo(badgeX + w, rowY, badgeX + w, rowY + r);
+            ctx.lineTo(badgeX + w, rowY + h - r);
+            ctx.quadraticCurveTo(badgeX + w, rowY + h, badgeX + w - r, rowY + h);
+            ctx.lineTo(badgeX + r, rowY + h);
+            ctx.quadraticCurveTo(badgeX, rowY + h, badgeX, rowY + h - r);
+            ctx.lineTo(badgeX, rowY + r);
+            ctx.quadraticCurveTo(badgeX, rowY, badgeX + r, rowY);
+            ctx.closePath();
+            ctx.fill();
+
+            // Draw badge text
+            ctx.fillStyle = '#222222';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(badge, badgeX + paddingX, rowY + h / 2);
+
+            badgeX += w + spacing;
+          });
+          rowY += badgeFontSize + paddingY * 2 + spacing;
+        });
       });
-    });
+    } else {
+      // LANDSCAPE (Desktop) Layout: side-by-side category label and badges
+      const categories = [
+        { title: "languages", badges: ["Python", "Java", "C", "C++", "SQL", "JavaScript", "TypeScript", "R", "HTML", "CSS"], barColor: '#e11d48' },
+        { title: "libraries", badges: ["React", "Flask", "Node.js", "NumPy", "Pandas", "Scikit-Learn", "PyTorch", "LangChain"], barColor: '#2563eb' },
+        { title: "tools", badges: ["Git", "AWS", "Firebase", "LaTeX"], barColor: '#64748b' }
+      ];
+
+      const startY = 100;
+      const sectionHeight = 280;
+
+      categories.forEach((cat, sIdx) => {
+        const currentY = startY + sIdx * sectionHeight;
+
+        // Draw elegant category heading block on the left
+        const labelW = 340;
+        const labelH = 140;
+        const labelX = 100;
+        const labelY = currentY + 30;
+
+        ctx.fillStyle = 'rgba(36, 51, 63, 0.05)';
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(labelX, labelY, labelW, labelH, 20);
+        } else {
+          ctx.rect(labelX, labelY, labelW, labelH);
+        }
+        ctx.closePath();
+        ctx.fill();
+
+        // Heading Text
+        ctx.fillStyle = '#24333f';
+        ctx.font = 'bold 50px "Instrument Serif", Georgia, serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(cat.title, labelX + labelW / 2, labelY + labelH / 2);
+
+        // Draw accent divider line
+        ctx.fillStyle = cat.barColor;
+        ctx.fillRect(labelX + labelW + 40, labelY, 8, labelH);
+
+        // Draw Badges/Tags grid on the right
+        const badgeFontSize = 46;
+        ctx.font = `bold ${badgeFontSize}px "Instrument Serif", Georgia, serif`;
+        ctx.textAlign = 'left';
+
+        const spacing = 20;
+        const paddingX = 32;
+        const paddingY = 14;
+        const startX = labelX + labelW + 88;
+        const maxRowWidth = canvas.width - startX - 80;
+
+        const rows = [];
+        let currentRow = [];
+        let currentRowWidth = 0;
+
+        cat.badges.forEach((badge) => {
+          const textWidth = ctx.measureText(badge).width;
+          const w = textWidth + paddingX * 2;
+          if (currentRowWidth + w + (currentRow.length * spacing) > maxRowWidth) {
+            rows.push({ badges: currentRow, width: currentRowWidth });
+            currentRow = [badge];
+            currentRowWidth = w;
+          } else {
+            currentRow.push(badge);
+            currentRowWidth += w;
+          }
+        });
+        if (currentRow.length > 0) {
+          rows.push({ badges: currentRow, width: currentRowWidth });
+        }
+
+        // Draw each badge row
+        let rowY = labelY + 12;
+        if (rows.length === 1) {
+          rowY = labelY + 36; // vertically center if only 1 row
+        }
+        rows.forEach((row) => {
+          let badgeX = startX;
+
+          row.badges.forEach((badge) => {
+            const textWidth = ctx.measureText(badge).width;
+            const w = textWidth + paddingX * 2;
+            const h = badgeFontSize + paddingY * 2;
+
+            // Draw badge background
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+            ctx.beginPath();
+            const r = 16;
+            ctx.moveTo(badgeX + r, rowY);
+            ctx.lineTo(badgeX + w - r, rowY);
+            ctx.quadraticCurveTo(badgeX + w, rowY, badgeX + w, rowY + r);
+            ctx.lineTo(badgeX + w, rowY + h - r);
+            ctx.quadraticCurveTo(badgeX + w, rowY + h, badgeX + w - r, rowY + h);
+            ctx.lineTo(badgeX + r, rowY + h);
+            ctx.quadraticCurveTo(badgeX, rowY + h, badgeX, rowY + h - r);
+            ctx.lineTo(badgeX, rowY + r);
+            ctx.quadraticCurveTo(badgeX, rowY, badgeX + r, rowY);
+            ctx.closePath();
+            ctx.fill();
+
+            // Draw badge text
+            ctx.fillStyle = '#222222';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(badge, badgeX + paddingX, rowY + h / 2);
+
+            badgeX += w + spacing;
+          });
+          rowY += badgeFontSize + paddingY * 2 + spacing;
+        });
+      });
+    }
   }
   else if (isFocused && data.title && textboxDetails[data.title]) {
-    // FOCUS Presentation Slide layout (minimalist & highly readable)
     const details = textboxDetails[data.title];
 
-    // 1. Draw illustrative graphic on the left
-    const imgX = 100;
-    const imgY = 120;
-    const imgW = 600;
-    const imgH = 784;
+    if (canvas.width < canvas.height) {
+      // PORTRAIT (Mobile) Presentation Layout: Stacked vertically
+      // 1. Draw illustrative graphic centered at top
+      const imgW = 550;
+      const imgH = 400;
+      const imgX = (canvas.width - imgW) / 2;
+      const imgY = 110;
 
-    const img = new Image();
-    img.src = "data:image/svg+xml;utf8," + encodeURIComponent(details.svg);
-    img.onload = () => {
-      // Re-draw once loaded so texture mapping refreshes on GPU
-      ctx.drawImage(img, imgX, imgY, imgW, imgH);
-      if (textureToUpdate) {
-        textureToUpdate.needsUpdate = true;
-      }
-    };
-    // Draw initial bounding box
-    ctx.strokeStyle = 'rgba(0,0,0,0.1)';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(imgX, imgY, imgW, imgH);
-
-    // 2. Draw description text on the right
-    const startX = 760;
-    const contentW = canvas.width - startX - 100;
-
-    // Title
-    ctx.fillStyle = '#000000';
-    ctx.font = 'bold 72px "Instrument Serif", Georgia, serif';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillText(data.title, startX, 130);
-
-    // Subtitle
-    ctx.fillStyle = '#5d677d';
-    ctx.font = 'italic 44px "Instrument Serif", Georgia, serif';
-    ctx.fillText(details.subtitle || '', startX, 220);
-
-    // Bullets list
-    ctx.fillStyle = '#222222';
-    ctx.font = '38px "Instrument Serif", Georgia, serif';
-    
-    let bulletY = 300;
-    details.bullets.forEach((bullet) => {
-      // Draw bullet character
-      ctx.fillText("•", startX, bulletY);
-
-      // Auto-wrap bullet text
-      const bulletTextX = startX + 36;
-      const words = bullet.split(' ');
-      let line = '';
-      let lines = [];
-      for (let n = 0; n < words.length; n++) {
-        let testLine = line + words[n] + ' ';
-        let metrics = ctx.measureText(testLine);
-        if (metrics.width > contentW - 40 && n > 0) {
-          lines.push(line);
-          line = words[n] + ' ';
-        } else {
-          line = testLine;
+      const img = new Image();
+      img.src = "data:image/svg+xml;utf8," + encodeURIComponent(details.svg);
+      img.onload = () => {
+        ctx.drawImage(img, imgX, imgY, imgW, imgH);
+        if (textureToUpdate) {
+          textureToUpdate.needsUpdate = true;
         }
-      }
-      lines.push(line);
+      };
+      ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(imgX, imgY, imgW, imgH);
 
-      // Render lines
-      lines.forEach((l) => {
-        ctx.fillText(l.trim(), bulletTextX, bulletY);
-        bulletY += 56;
-      });
-      bulletY += 24; // spacer between bullets
-    });
+      // 2. Draw description text below
+      const startX = 80;
+      const contentW = canvas.width - startX - 80; // 864px content width
 
-    // Draw Technologies pills at the bottom
-    const techY = 820;
-    ctx.fillStyle = '#5d677d';
-    ctx.font = 'bold 28px "Instrument Serif", Georgia, serif';
-    ctx.fillText("technologies:", startX, techY);
+      // Title
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 64px "Instrument Serif", Georgia, serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(data.title, startX, 570);
 
-    const techFontSize = 36;
-    ctx.font = `bold ${techFontSize}px "Instrument Serif", Georgia, serif`;
-    let badgeX = startX + 200;
-    const spacing = 16;
-    const paddingX = 24;
-    const paddingY = 10;
+      // Subtitle
+      ctx.fillStyle = '#5d677d';
+      ctx.font = 'italic 36px "Instrument Serif", Georgia, serif';
+      ctx.fillText(details.subtitle || '', startX, 650);
 
-    details.tech.forEach((tech) => {
-      const textWidth = ctx.measureText(tech).width;
-      const w = textWidth + paddingX * 2;
-      const h = techFontSize + paddingY * 2;
-
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
-      ctx.beginPath();
-      const r = 12;
-      ctx.moveTo(badgeX + r, techY - 6);
-      ctx.lineTo(badgeX + w - r, techY - 6);
-      ctx.quadraticCurveTo(badgeX + w, techY - 6, badgeX + w, techY - 6 + r);
-      ctx.lineTo(badgeX + w, techY - 6 + h - r);
-      ctx.quadraticCurveTo(badgeX + w, techY - 6 + h, badgeX + w - r, techY - 6 + h);
-      ctx.lineTo(badgeX + r, techY - 6 + h);
-      ctx.quadraticCurveTo(badgeX, techY - 6 + h, badgeX, techY - 6 + h - r);
-      ctx.lineTo(badgeX, techY - 6 + r);
-      ctx.quadraticCurveTo(badgeX, techY - 6, badgeX + r, techY - 6);
-      ctx.closePath();
-      ctx.fill();
-
+      // Bullets list
       ctx.fillStyle = '#222222';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(tech, badgeX + paddingX, techY - 6 + h / 2);
+      ctx.font = '32px "Instrument Serif", Georgia, serif';
+      
+      let bulletY = 730;
+      details.bullets.forEach((bullet) => {
+        ctx.fillText("•", startX, bulletY);
 
-      badgeX += w + spacing;
-    });
+        const bulletTextX = startX + 30;
+        const words = bullet.split(' ');
+        let line = '';
+        let lines = [];
+        for (let n = 0; n < words.length; n++) {
+          let testLine = line + words[n] + ' ';
+          let metrics = ctx.measureText(testLine);
+          if (metrics.width > contentW - 40 && n > 0) {
+            lines.push(line);
+            line = words[n] + ' ';
+          } else {
+            line = testLine;
+          }
+        }
+        lines.push(line);
+
+        lines.forEach((l) => {
+          ctx.fillText(l.trim(), bulletTextX, bulletY);
+          bulletY += 46;
+        });
+        bulletY += 20; // spacer between bullets
+      });
+
+      // Draw Technologies pills at the bottom, dynamic height positioning
+      let techY = bulletY + 20;
+      ctx.fillStyle = '#5d677d';
+      ctx.font = 'bold 26px "Instrument Serif", Georgia, serif';
+      ctx.fillText("technologies:", startX, techY);
+
+      const techFontSize = 32;
+      ctx.font = `bold ${techFontSize}px "Instrument Serif", Georgia, serif`;
+      let badgeX = startX + 180;
+      const spacing = 12;
+      const paddingX = 20;
+      const paddingY = 8;
+
+      details.tech.forEach((tech) => {
+        const textWidth = ctx.measureText(tech).width;
+        const w = textWidth + paddingX * 2;
+        const h = techFontSize + paddingY * 2;
+
+        if (badgeX + w > canvas.width - 80) {
+          badgeX = startX + 180;
+          techY += h + spacing;
+        }
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+        ctx.beginPath();
+        const r = 10;
+        ctx.moveTo(badgeX + r, techY - 6);
+        ctx.lineTo(badgeX + w - r, techY - 6);
+        ctx.quadraticCurveTo(badgeX + w, techY - 6, badgeX + w, techY - 6 + r);
+        ctx.lineTo(badgeX + w, techY - 6 + h - r);
+        ctx.quadraticCurveTo(badgeX + w, techY - 6 + h, badgeX + w - r, techY - 6 + h);
+        ctx.lineTo(badgeX + r, techY - 6 + h);
+        ctx.quadraticCurveTo(badgeX, techY - 6 + h, badgeX, techY - 6 + h - r);
+        ctx.lineTo(badgeX, techY - 6 + r);
+        ctx.quadraticCurveTo(badgeX, techY - 6, badgeX + r, techY - 6);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = '#222222';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(tech, badgeX + paddingX, techY - 6 + h / 2);
+
+        badgeX += w + spacing;
+      });
+    } else {
+      // LANDSCAPE (Desktop) Presentation Layout: side-by-side graphic & text
+      // 1. Draw illustrative graphic on the left
+      const imgX = 100;
+      const imgY = 120;
+      const imgW = 600;
+      const imgH = 784;
+
+      const img = new Image();
+      img.src = "data:image/svg+xml;utf8," + encodeURIComponent(details.svg);
+      img.onload = () => {
+        ctx.drawImage(img, imgX, imgY, imgW, imgH);
+        if (textureToUpdate) {
+          textureToUpdate.needsUpdate = true;
+        }
+      };
+      ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(imgX, imgY, imgW, imgH);
+
+      // 2. Draw description text on the right
+      const startX = 760;
+      const contentW = canvas.width - startX - 100;
+
+      // Title
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 72px "Instrument Serif", Georgia, serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(data.title, startX, 130);
+
+      // Subtitle
+      ctx.fillStyle = '#5d677d';
+      ctx.font = 'italic 44px "Instrument Serif", Georgia, serif';
+      ctx.fillText(details.subtitle || '', startX, 220);
+
+      // Bullets list
+      ctx.fillStyle = '#222222';
+      ctx.font = '38px "Instrument Serif", Georgia, serif';
+      
+      let bulletY = 300;
+      details.bullets.forEach((bullet) => {
+        ctx.fillText("•", startX, bulletY);
+
+        const bulletTextX = startX + 36;
+        const words = bullet.split(' ');
+        let line = '';
+        let lines = [];
+        for (let n = 0; n < words.length; n++) {
+          let testLine = line + words[n] + ' ';
+          let metrics = ctx.measureText(testLine);
+          if (metrics.width > contentW - 40 && n > 0) {
+            lines.push(line);
+            line = words[n] + ' ';
+          } else {
+            line = testLine;
+          }
+        }
+        lines.push(line);
+
+        lines.forEach((l) => {
+          ctx.fillText(l.trim(), bulletTextX, bulletY);
+          bulletY += 56;
+        });
+        bulletY += 24; // spacer between bullets
+      });
+
+      // Draw Technologies pills at the bottom
+      const techY = 820;
+      ctx.fillStyle = '#5d677d';
+      ctx.font = 'bold 28px "Instrument Serif", Georgia, serif';
+      ctx.fillText("technologies:", startX, techY);
+
+      const techFontSize = 36;
+      ctx.font = `bold ${techFontSize}px "Instrument Serif", Georgia, serif`;
+      let badgeX = startX + 200;
+      const spacing = 16;
+      const paddingX = 24;
+      const paddingY = 10;
+
+      details.tech.forEach((tech) => {
+        const textWidth = ctx.measureText(tech).width;
+        const w = textWidth + paddingX * 2;
+        const h = techFontSize + paddingY * 2;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+        ctx.beginPath();
+        const r = 12;
+        ctx.moveTo(badgeX + r, techY - 6);
+        ctx.lineTo(badgeX + w - r, techY - 6);
+        ctx.quadraticCurveTo(badgeX + w, techY - 6, badgeX + w, techY - 6 + r);
+        ctx.lineTo(badgeX + w, techY - 6 + h - r);
+        ctx.quadraticCurveTo(badgeX + w, techY - 6 + h, badgeX + w - r, techY - 6 + h);
+        ctx.lineTo(badgeX + r, techY - 6 + h);
+        ctx.quadraticCurveTo(badgeX, techY - 6 + h, badgeX, techY - 6 + h - r);
+        ctx.lineTo(badgeX, techY - 6 + r);
+        ctx.quadraticCurveTo(badgeX, techY - 6, badgeX + r, techY - 6);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = '#222222';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(tech, badgeX + paddingX, techY - 6 + h / 2);
+
+        badgeX += w + spacing;
+      });
+    }
   }
   else {
     // DEFAULT Unfocused/Clean header card (spacious & content-focused)
@@ -4056,6 +4276,17 @@ function selectTextbox(tb) {
     // Restore previous's simple texture
     if (selectedTextbox.mesh && selectedTextbox.mesh.userData && selectedTextbox.mesh.material.map) {
       const { canvas, data, pastelColor } = selectedTextbox.mesh.userData;
+      
+      // Restore landscape geometry and canvas if it was mobile portrait
+      if (selectedTextbox.mesh.userData.portraitGeometry) {
+        selectedTextbox.mesh.geometry = selectedTextbox.mesh.userData.originalGeometry;
+        selectedTextbox.mesh.userData.portraitGeometry.dispose();
+        selectedTextbox.mesh.userData.portraitGeometry = null;
+        
+        canvas.width = 2048;
+        canvas.height = 1024;
+      }
+
       drawTextBoxCanvas(canvas, data, pastelColor, false, selectedTextbox.mesh.material.map);
       selectedTextbox.mesh.material.map.needsUpdate = true;
     }
@@ -4082,12 +4313,18 @@ function selectTextbox(tb) {
   camGuiState.paused = true;
   isOrbitAnimating   = false;
 
+  // Check aspect ratio to determine mobile/portrait
+  const aspect = window.innerWidth / window.innerHeight;
+  const isMobile = aspect < 1.0;
+
   // Compute focus camera position:
   // The textbox face normal is world (0,0,1) (local Z = world Z per the basis matrix in updateSceneTextboxes).
   // So we position the camera directly above the card, looking straight down at it.
   const tbPos = tb.mesh.position.clone();
   textboxFocusTargetLookAt.copy(tbPos);
-  textboxFocusTargetPos.set(tbPos.x, tbPos.y, tbPos.z + TEXTBOX_FOCUS_DISTANCE);
+
+  const focusDistance = isMobile ? 2.4 : TEXTBOX_FOCUS_DISTANCE;
+  textboxFocusTargetPos.set(tbPos.x, tbPos.y, tbPos.z + focusDistance);
 
   // Camera up: the card's local Y is radialDir = (cos(angle), sin(angle), 0).
   // Derive it from the card's world position (horizontal component = radial direction).
@@ -4112,6 +4349,22 @@ function selectTextbox(tb) {
   // Redraw this textbox canvas to show detailed presentation slide
   if (tb.mesh && tb.mesh.userData && tb.mesh.material.map) {
     const { canvas, data, pastelColor } = tb.mesh.userData;
+
+    if (isMobile) {
+      // Save original geometry if not already saved
+      if (!tb.mesh.userData.originalGeometry) {
+        tb.mesh.userData.originalGeometry = tb.mesh.geometry;
+      }
+      // Create and assign portrait geometry
+      const portraitGeometry = new THREE.PlaneGeometry(1.2, 1.8);
+      tb.mesh.geometry = portraitGeometry;
+      tb.mesh.userData.portraitGeometry = portraitGeometry;
+      
+      // Resize canvas to portrait
+      canvas.width = 1024;
+      canvas.height = 1536;
+    }
+
     drawTextBoxCanvas(canvas, data, pastelColor, true, tb.mesh.material.map);
     tb.mesh.material.map.needsUpdate = true;
   }
@@ -4123,6 +4376,17 @@ function deselectTextbox() {
   // Redraw textbox canvas back to simple headers
   if (selectedTextbox.mesh && selectedTextbox.mesh.userData && selectedTextbox.mesh.material.map) {
     const { canvas, data, pastelColor } = selectedTextbox.mesh.userData;
+
+    // Restore landscape geometry and canvas if it was mobile portrait
+    if (selectedTextbox.mesh.userData.portraitGeometry) {
+      selectedTextbox.mesh.geometry = selectedTextbox.mesh.userData.originalGeometry;
+      selectedTextbox.mesh.userData.portraitGeometry.dispose();
+      selectedTextbox.mesh.userData.portraitGeometry = null;
+      
+      canvas.width = 2048;
+      canvas.height = 1024;
+    }
+
     drawTextBoxCanvas(canvas, data, pastelColor, false, selectedTextbox.mesh.material.map);
     selectedTextbox.mesh.material.map.needsUpdate = true;
   }

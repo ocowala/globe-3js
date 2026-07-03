@@ -366,7 +366,12 @@ body.dark #song-name.playing {
 }
 
 /* ── Responsive Mobile & Tablet Scaling Overrides ── */
-@media (max-width: 600px) {
+@media (max-width: 768px) {
+  /* Hide dat.GUI controls on mobile for a clean portfolio look */
+  .dg.ac, .dg {
+    display: none !important;
+  }
+
   .social-links {
     top: 12px;
     left: 16px;
