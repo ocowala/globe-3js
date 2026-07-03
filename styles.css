@@ -96,7 +96,7 @@ canvas {
   align-items: center;
   justify-content: center;
   background: transparent;
-  transition: opacity 0.6s ease;
+  transition: opacity 0.3s ease;
 }
 
 #loading-overlay.fade-out {

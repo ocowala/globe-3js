@@ -3256,7 +3256,7 @@ function animate() {
 
   // --- Cursive Intro Animation ---
   const now = performance.now();
-  const showWriting = allAssetsLoaded && (now - loaderFinishedTime >= 200);
+  const showWriting = allAssetsLoaded && (now - loaderFinishedTime >= 50);
 
   if (showWriting && !loaderOverlayHidden) {
     loaderOverlayHidden = true;
@@ -3267,7 +3267,7 @@ function animate() {
   }
 
   if (introActive) {
-    if (!isPaused && fullyOptimized && showWriting) {
+    if (!isPaused && showWriting) {
       const targetWriteTime = Math.max(introParams.writeDuration, 0.1);
       if (introTimer < targetWriteTime) {
         introTimer += realDeltaTime;
@@ -3332,8 +3332,8 @@ function animate() {
       }
     }
 
-    const writeProgress = (fullyOptimized && showWriting) ? Math.min(introTimer / Math.max(introParams.writeDuration, 0.1), 1.0) : 0.0;
-    const unwriteProgress = (fullyOptimized && showWriting) ? Math.min(unwriteTimer / Math.max(introParams.unwriteDuration, 0.1), 1.0) : 0.0;
+    const writeProgress = showWriting ? Math.min(introTimer / Math.max(introParams.writeDuration, 0.1), 1.0) : 0.0;
+    const unwriteProgress = showWriting ? Math.min(unwriteTimer / Math.max(introParams.unwriteDuration, 0.1), 1.0) : 0.0;
 
     // Only redraw the cursive canvas when progress actually changes (avoids GPU texture upload every frame)
     if (writeProgress !== lastWriteProgress || unwriteProgress !== lastUnwriteProgress) {
