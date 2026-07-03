@@ -162,6 +162,14 @@ const textboxFocusTargetPos    = new THREE.Vector3();
 const textboxFocusTargetLookAt = new THREE.Vector3();
 const textboxFocusTargetUp     = new THREE.Vector3();
 
+function getResponsiveFOV() {
+  const aspect = window.innerWidth / window.innerHeight;
+  if (aspect < 1.0) {
+    return 38 + (1.0 - aspect) * 45;
+  }
+  return 38;
+}
+
 function getFocusFOV() {
   const aspect = window.innerWidth / window.innerHeight;
   if (aspect < 1.0) {
@@ -1891,11 +1899,7 @@ function onWindowResize() {
   camera.aspect = aspect;
 
   // Dynamically open camera FOV on narrow/portrait screens to fit the cylinder without clipping
-  if (aspect < 1.0) {
-    camera.fov = 38 + (1.0 - aspect) * 45;
-  } else {
-    camera.fov = 38;
-  }
+  camera.fov = getResponsiveFOV();
 
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -3499,7 +3503,10 @@ function animate() {
 
   // --- Camera Follow Logic ---
   if (introActive) {
-    camera.position.set(0, -1.8, 2.275);
+    const aspect = window.innerWidth / window.innerHeight;
+    const targetFOV = getResponsiveFOV();
+    const introDist = aspect < 1.0 ? (1.8 / (aspect * Math.tan(THREE.MathUtils.degToRad(targetFOV / 2)))) : 1.8;
+    camera.position.set(0, -introDist, 2.275);
     camera.lookAt(0, 0, 2.275);
     camera.up.set(0, 0, 1);
     controls.enabled = false;
@@ -3827,15 +3834,16 @@ function animate() {
       camera.position.copy(currentCamPos);
       camera.lookAt(currentCamTarget);
 
-      // Lerp camera FOV back to 38
-      camera.fov = THREE.MathUtils.lerp(transitionStartFOV, 38, t);
+      // Lerp camera FOV back to responsive FOV
+      const targetFOV = getResponsiveFOV();
+      camera.fov = THREE.MathUtils.lerp(transitionStartFOV, targetFOV, t);
       camera.updateProjectionMatrix();
       camGuiState.fov = camera.fov;
 
-      if (postSeqTimer >= postSeqDuration && camera.fov !== 38) {
-        camera.fov = 38;
+      if (postSeqTimer >= postSeqDuration && camera.fov !== targetFOV) {
+        camera.fov = targetFOV;
         camera.updateProjectionMatrix();
-        camGuiState.fov = 38;
+        camGuiState.fov = targetFOV;
         if (typeof updateGUIDisplays === 'function') {
           updateGUIDisplays(gui);
         }
