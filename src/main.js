@@ -3256,7 +3256,7 @@ function animate() {
 
   // --- Cursive Intro Animation ---
   const now = performance.now();
-  const showWriting = allAssetsLoaded && (now - loaderFinishedTime >= 50);
+  const showWriting = allAssetsLoaded && (now - loaderFinishedTime >= 200);
 
   if (showWriting && !loaderOverlayHidden) {
     loaderOverlayHidden = true;
@@ -3266,80 +3266,48 @@ function animate() {
     }
   }
 
-  if (introActive) {
-    if (!isPaused && showWriting) {
-      const targetWriteTime = Math.max(introParams.writeDuration, 0.1);
-      if (introTimer < targetWriteTime) {
-        introTimer += realDeltaTime;
-      } else {
-        introTimer = targetWriteTime;
-        if (writePauseTimer < 0.3) {
-          writePauseTimer += realDeltaTime;
-        } else {
-          const targetUnwriteTime = Math.max(introParams.unwriteDuration, 0.1);
-          if (unwriteTimer < targetUnwriteTime) {
-            unwriteTimer += realDeltaTime;
-          } else {
-            unwriteTimer = targetUnwriteTime;
-            if (unwritePauseTimer < 0.3) {
-              unwritePauseTimer += realDeltaTime;
-            } else {
-              // Trigger first finale (10s sequence complete transition)
-              introActive = false;
-              isPostSequence = true;
-              introFinaleActive = true;
-              introFinaleTimer = 0.0;
-              postSeqTimer = 0.0;
-              isOrbitAnimating = false;
+  if (introActive && showWriting) {
+    // Skip writing entirely and transition straight to the post-sequence reveal
+    introActive = false;
+    isPostSequence = true;
+    introFinaleActive = true;
+    introFinaleTimer = 0.0;
+    postSeqTimer = 0.0;
+    isOrbitAnimating = false;
 
-              // Show the info hint pointing to the (i) icon for 2 seconds
-              const infoHint = document.getElementById('info-hint');
-              if (infoHint) {
-                infoHint.classList.add('show');
-                setTimeout(() => {
-                  infoHint.classList.remove('show');
-                }, 2000);
-              }
-
-              // Capture current camera state for smooth transition start (from intro cam position)
-              transitionStartPos.copy(camera.position);
-              transitionStartTarget.set(0, 0, getCylinderMiddleZ());
-              transitionStartUp.copy(camera.up);
-              // Restore cylinder/background visibilities
-              globe.visible = true;
-              orbitRing.visible = true;
-
-              // Make sure all vehicles are visible (but with 0 opacity so they fade out/remain invisible)
-              orbitSequence.forEach(seq => {
-                const obj = seq.getObject();
-                if (obj) {
-                  obj.visible = true;
-                  setOpacity(obj, 0.0);
-                }
-              });
-
-              // Prepare cursive plane for post-sequence finale
-              if (cursivePlane) {
-                cursivePlane.visible = true;
-                cursivePlane.rotation.set(0, 0, 0);
-                cursivePlane.position.set(0, 0, getCylinderMiddleZ());
-                cursivePlane.material.opacity = 0.0;
-                drawCursiveName(1.0, 0.0);
-              }
-            }
-          }
-        }
-      }
+    // Show the info hint pointing to the (i) icon for 2 seconds
+    const infoHint = document.getElementById('info-hint');
+    if (infoHint) {
+      infoHint.classList.add('show');
+      setTimeout(() => {
+        infoHint.classList.remove('show');
+      }, 2000);
     }
 
-    const writeProgress = showWriting ? Math.min(introTimer / Math.max(introParams.writeDuration, 0.1), 1.0) : 0.0;
-    const unwriteProgress = showWriting ? Math.min(unwriteTimer / Math.max(introParams.unwriteDuration, 0.1), 1.0) : 0.0;
+    // Capture current camera state for smooth transition start (from intro cam position)
+    transitionStartPos.copy(camera.position);
+    transitionStartTarget.set(0, 0, getCylinderMiddleZ());
+    transitionStartUp.copy(camera.up);
+    // Restore cylinder/background visibilities
+    globe.visible = true;
+    orbitRing.visible = true;
 
-    // Only redraw the cursive canvas when progress actually changes (avoids GPU texture upload every frame)
-    if (writeProgress !== lastWriteProgress || unwriteProgress !== lastUnwriteProgress) {
-      drawCursiveName(writeProgress, unwriteProgress);
-      lastWriteProgress = writeProgress;
-      lastUnwriteProgress = unwriteProgress;
+    // Make sure all vehicles are visible (but with 0 opacity so they fade in)
+    orbitSequence.forEach(seq => {
+      const obj = seq.getObject();
+      if (obj) {
+        obj.visible = true;
+        setOpacity(obj, 0.0);
+      }
+    });
+
+    // Prepare cursive plane for post-sequence finale
+    if (cursivePlane) {
+      cursivePlane.visible = true;
+      cursivePlane.rotation.set(0, 0, 0);
+      cursivePlane.position.set(0, 0, getCylinderMiddleZ());
+      cursivePlane.material.opacity = 0.0;
+      drawCursiveName(1.0, 0.0);
     }
   }
 
