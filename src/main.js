@@ -4694,6 +4694,16 @@ if (audio) {
     songNameEl.textContent = songMap[randomSong];
   }
   console.log("Selected background music:", randomSong);
+
+  // Automatically sync playing class with audio element state
+  audio.addEventListener('play', () => {
+    if (songNameEl) songNameEl.classList.add('playing');
+    if (audioToggle) audioToggle.classList.add('playing');
+  });
+  audio.addEventListener('pause', () => {
+    if (songNameEl) songNameEl.classList.remove('playing');
+    if (audioToggle) audioToggle.classList.remove('playing');
+  });
 }
 
 if (audio && audioToggle) {
