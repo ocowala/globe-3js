@@ -4973,42 +4973,6 @@ window.addEventListener('click', (event) => {
         return;
       }
     }
-
-    // --- Click / Tap Navigation on Background Scenes ---
-    const backgroundModels = [];
-    const bgNames = ['City', 'School', 'Landscape', 'Beach', 'Desert', 'Cafe'];
-    bgNames.forEach(name => {
-      const model = scene.getObjectByName(name);
-      if (model) backgroundModels.push(model);
-    });
-
-    const intersectsBgs = _globeRaycaster.intersectObjects(backgroundModels, true);
-    if (intersectsBgs.length > 0) {
-      let current = intersectsBgs[0].object;
-      let clickedBgName = null;
-      while (current) {
-        if (bgNames.includes(current.name)) {
-          clickedBgName = current.name;
-          break;
-        }
-        current = current.parent;
-      }
-
-      if (clickedBgName) {
-        const clickedEntryIdx = navLabelConfig.findIndex(cfg => cfg.scene === clickedBgName);
-        if (clickedEntryIdx !== -1) {
-          const clickedEntry = navLabels[clickedEntryIdx];
-          if (clickedEntry.config.label === 'Resume') {
-            console.log("3D Resume Background clicked. Opening /resume_v1.pdf");
-            window.open('/resume_v1.pdf', '_blank');
-          } else {
-            console.log(`3D Background Scene ${clickedBgName} clicked. Navigating to index ${clickedEntryIdx}.`);
-            triggerNavigation(clickedEntryIdx);
-          }
-          return;
-        }
-      }
-    }
   }
 
   // 2. Raycast against the globe cylinder to transition to the finale view
