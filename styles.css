@@ -684,6 +684,85 @@ body.dark .audio-visualizer .bar {
   }
 }
 
+/* ── Theme Panel Selector ── */
+.theme-selector {
+  position: fixed;
+  top: 28px;
+  right: 28px;
+  z-index: 30;
+  display: flex;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 6px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 4px 16px rgba(32, 48, 63, 0.06);
+}
+
+.theme-btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  outline: none;
+  box-sizing: border-box;
+  transition: transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.2s ease;
+}
+
+.theme-btn:hover {
+  transform: scale(1.25);
+}
+
+.theme-btn.active {
+  transform: scale(1.15);
+  border-color: #24333f !important;
+}
+
+/* ── Theme Gradients & Layout Rules ── */
+body.theme-clay {
+  background: radial-gradient(circle at top, #fdf8e7 0%, #f4e9d0 45%, #e1d3b3 100%);
+  color: #24333f;
+}
+
+body.theme-cobalt {
+  background: radial-gradient(circle at top, #141c24 0%, #0d131a 45%, #05080c 100%) !important;
+  color: #e2e8f0;
+}
+
+body.theme-emerald {
+  background: radial-gradient(circle at top, #f2f7f2 0%, #e1ebe1 45%, #ccdcca 100%) !important;
+  color: #1f3424;
+}
+
+body.theme-crimson {
+  background: radial-gradient(circle at top, #fdf2ee 0%, #f5dfd5 45%, #e5c4b6 100%) !important;
+  color: #4a2c20;
+}
+
+/* Active outlines based on text colors of the themes */
+body.theme-cobalt .theme-btn.active { border-color: #e2e8f0 !important; }
+body.theme-emerald .theme-btn.active { border-color: #1f3424 !important; }
+body.theme-crimson .theme-btn.active { border-color: #4a2c20 !important; }
+
+/* Responsive adjustments for mobile viewport */
+@media (max-width: 768px) {
+  .theme-selector {
+    top: auto;
+    bottom: calc(20px + env(safe-area-inset-bottom));
+    right: 50%;
+    transform: translateX(50%);
+    z-index: 30;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: 24px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  }
+}
+
 
 
 

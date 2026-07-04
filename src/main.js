@@ -20,10 +20,6 @@ if (!isHandheldDevice && radialNavOnLoad) {
   radialNavOnLoad.style.display = 'none';
 }
 
-const foliageMeshes = [];
-const waterShaders = [];
-let waterShaderTime = 0.0;
-
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2.0));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;
@@ -1625,15 +1621,9 @@ function updateBoat() {
   const hoverOffset = hoverData ? (hoverData.current * hoverData.maxProtrusion) : 0.0;
   const posRadius = snapped.posRadius + hoverOffset;
 
-  const bobTime = performance.now() * 0.0015;
-  
-  // Bobbing radius (up/down relative to water plane) and height (Z axis)
-  const bobbingRadius = posRadius + Math.sin(bobTime * 2.0) * 0.025;
-  const bobbingZ = posZ + Math.cos(bobTime * 1.5) * 0.015;
-  
-  const x = bobbingRadius * Math.cos(currentAngle);
-  const y = bobbingRadius * Math.sin(currentAngle);
-  boatObject.position.set(x, y, bobbingZ);
+  const x = posRadius * Math.cos(currentAngle);
+  const y = posRadius * Math.sin(currentAngle);
+  boatObject.position.set(x, y, posZ);
 
   // Rotation: match the base alignment & orbit path orientation
   const BOAT_REF_ANGLE = -0.94;
@@ -1642,13 +1632,7 @@ function updateBoat() {
   _tempQuat1.setFromEuler(_tempEuler);
   _tempQuat2.setFromAxisAngle(_tempAxisZ, totalAngularDelta);
 
-  // Add subtle wave tilt (rolling and pitching) to the boat's rotation
-  const rollAngle = Math.sin(bobTime * 2.0) * 0.035; // rocking side-to-side
-  const pitchAngle = Math.cos(bobTime * 1.5) * 0.02;  // rocking front-to-back
-  _tempEuler.set(rollAngle, pitchAngle, 0);
-  _tempQuat3.setFromEuler(_tempEuler);
-
-  boatObject.quaternion.copy(_tempQuat2).multiply(_tempQuat1).multiply(_tempQuat3);
+  boatObject.quaternion.copy(_tempQuat2).multiply(_tempQuat1);
   boatObject.scale.setScalar(boatParams.scale);
 
   updateSceneTextboxes('Beach', boatParams.angle, boatParams.height, boatCache, runBoatRaycast, hoverOffset, boatParams);
@@ -1767,38 +1751,8 @@ function loadModelWithGUI(name, url, defaults) {
       }
       prepareMesh(child);
 
-      // Collect target meshes for optimized raycasting and visual upgrades
+      // Collect target meshes for optimized raycasting
       if (child.isMesh) {
-        // Collect trees/foliage for wind swaying (Idea 5)
-        const meshName = (child.name || '').toLowerCase();
-        let isFoliage = meshName.includes('tree') || 
-                        meshName.includes('foliage') || 
-                        meshName.includes('leaves') || 
-                        meshName.includes('pine') || 
-                        meshName.includes('canopy') || 
-                        meshName.includes('plant') || 
-                        meshName.includes('bush');
-                        
-        if (!isFoliage && child.material) {
-          const mats = Array.isArray(child.material) ? child.material : [child.material];
-          isFoliage = mats.some(mat => {
-            const matName = (mat && mat.name) ? mat.name.toLowerCase() : '';
-            return matName.includes('leaves') || 
-                   matName.includes('foliage') || 
-                   matName.includes('tree') || 
-                   matName.includes('pine') || 
-                   matName.includes('green') || 
-                   matName.includes('canopy') || 
-                   matName.includes('plant') || 
-                   matName.includes('bush');
-          });
-        }
-        
-        if (isFoliage) {
-          child.matrixAutoUpdate = true; // enable dynamic wind sway transforms
-          foliageMeshes.push(child);
-        }
-
         if (name === 'City') {
           const meshName = child.name || '';
           const isRoadMesh = meshName.includes('Curve') || meshName.includes('curve');
@@ -1819,28 +1773,6 @@ function loadModelWithGUI(name, url, defaults) {
             const mats = Array.isArray(child.material) ? child.material : [child.material];
             isGroundSurface = mats.some(mat => {
               const matName = (mat && mat.name) ? mat.name.toLowerCase() : '';
-              
-              // Wavy water shader compilation hook (Idea 3)
-              if (matName.includes('water')) {
-                mat.onBeforeCompile = (shader) => {
-                  shader.uniforms.time = { value: 0 };
-                  waterShaders.push(shader);
-                  
-                  shader.vertexShader = `
-                    uniform float time;
-                  ` + shader.vertexShader;
-                  
-                  shader.vertexShader = shader.vertexShader.replace(
-                    '#include <begin_vertex>',
-                    `
-                    #include <begin_vertex>
-                    // Dynamic wave displacement (sine wave mapping on Y-axis)
-                    transformed.y += sin(position.x * 2.5 + time * 1.5) * 0.04 + cos(position.z * 2.5 + time * 1.5) * 0.04;
-                    `
-                  );
-                };
-              }
-              
               return matName.includes('sand') || matName.includes('beach') || matName.includes('water') || matName.includes('ground') || matName.includes('terrain');
             });
           }
@@ -3253,24 +3185,6 @@ function animate() {
       radialNav.classList.remove('show');
     }
   }
-
-  // --- Update Wavy Water Shaders (Idea 3) ---
-  waterShaderTime += realDeltaTime;
-  waterShaders.forEach(shader => {
-    if (shader && shader.uniforms && shader.uniforms.time) {
-      shader.uniforms.time.value = waterShaderTime;
-    }
-  });
-
-  // --- Update Foliage Wind Sway (Idea 5) ---
-  const windTime = currentTime * 0.0015;
-  foliageMeshes.forEach((mesh, idx) => {
-    // Sway rotation back and forth slightly. We offset by idx to make them sway out of phase!
-    const swayX = Math.sin(windTime + idx * 0.3) * 0.025;
-    const swayZ = Math.cos(windTime * 0.8 + idx * 0.45) * 0.02;
-    mesh.rotation.x = swayX;
-    mesh.rotation.z = swayZ;
-  });
 
   // --- Update Hover Protrusion ---
   const hoverSpeed = 10.0;
@@ -5117,7 +5031,8 @@ window.addEventListener('pointerdown', (event) => {
     event.target.closest('.dg') ||
     event.target.id === 'audio-toggle' ||
     event.target.closest('#audio-toggle') ||
-    event.target.closest('.radial-nav')) {
+    event.target.closest('.radial-nav') ||
+    event.target.closest('.theme-selector')) {
     return;
   }
 
@@ -5251,6 +5166,45 @@ if (radialNavContainer) {
             triggerNavigation(idx);
           }
         }
+      }
+    });
+  });
+}
+
+// --- Customizable Themes Controller ---
+const themeHexMap = {
+  clay: 0xfff6ea,
+  cobalt: 0x3a4f66,
+  emerald: 0xeaf6ea,
+  crimson: 0xffefe8
+};
+
+const themeSelector = document.getElementById('theme-selector');
+if (themeSelector) {
+  const themeBtns = themeSelector.querySelectorAll('.theme-btn');
+  themeBtns.forEach(btn => {
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const selectedTheme = btn.getAttribute('data-theme');
+      
+      // Update active btn styling
+      themeBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      // Update body class list
+      document.body.classList.remove('theme-clay', 'theme-cobalt', 'theme-emerald', 'theme-crimson', 'dark');
+      document.body.classList.add(`theme-${selectedTheme}`);
+
+      // Map Cobalt theme to behave exactly like dark mode for info button/social icons
+      if (selectedTheme === 'cobalt') {
+        document.body.classList.add('dark');
+      }
+
+      // Dynamically update Three.js Ambient Light color
+      if (ambientLight && themeHexMap[selectedTheme] !== undefined) {
+        ambientLight.color.setHex(themeHexMap[selectedTheme]);
+        console.log(`WebGL Theme Light adjusted to: ${selectedTheme}`);
       }
     });
   });

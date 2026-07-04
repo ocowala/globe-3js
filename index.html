@@ -30,7 +30,7 @@
   <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/sls_amg_63_black_series.glb">
 </head>
 
-<body>
+<body class="theme-clay">
   <!-- Video/Audio Overlay -->
   <div id="video-overlay">
     <video id="movie-video" playsinline muted></video>
@@ -85,6 +85,14 @@
       </div>
       <span id="song-name"></span>
     </span>
+
+    <!-- Customizable Preset Themes Panel -->
+    <div id="theme-selector" class="theme-selector">
+      <button class="theme-btn active" data-theme="clay" title="Clay Beige" style="background: #e1d3b3; border-color: #fdf8e7;"></button>
+      <button class="theme-btn" data-theme="cobalt" title="Cobalt Midnight" style="background: #0d131a; border-color: #141c24;"></button>
+      <button class="theme-btn" data-theme="emerald" title="Emerald Sage" style="background: #ccdcca; border-color: #f2f7f2;"></button>
+      <button class="theme-btn" data-theme="crimson" title="Crimson Dusk" style="background: #e5c4b6; border-color: #fdf2ee;"></button>
+    </div>
 
     <!-- Radial Navigation Wheel (primarily for iPhone/iPad & desktop) -->
     <div id="radial-nav" class="radial-nav">
