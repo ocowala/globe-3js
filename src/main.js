@@ -35,6 +35,8 @@ const _tempQuat4 = new THREE.Quaternion();
 const _tempEuler = new THREE.Euler();
 const _tempAxisZ = new THREE.Vector3(0, 0, 1);
 const _tempAxisX = new THREE.Vector3(1, 0, 0);
+const _bgLerpColor1 = new THREE.Color();
+const _bgLerpColor2 = new THREE.Color();
 const _tempV3_1 = new THREE.Vector3();
 const _tempV3_2 = new THREE.Vector3();
 const _tempV3_3 = new THREE.Vector3();
@@ -429,6 +431,24 @@ loader.setKTX2Loader(ktx2Loader);
 
 // propellerObject is now set when the standalone airplane.glb is loaded (see below)
 
+// --- Day-Night Cycle Configuration ---
+const emissiveMaterials = [];
+let dayNightTime = 0.0; // Cycles from 0.0 to 1.0 (0.0 = Midday, 0.5 = Midnight, 1.0 = Midday)
+const DAY_NIGHT_DURATION = 60.0; // 60 seconds per full cycle
+
+// Day-Night pre-allocated Color constants to prevent GC allocations in render loop
+const colorDayAmbient = new THREE.Color(0xfff6ea);
+const colorNightAmbient = new THREE.Color(0x3a4f66);
+
+const colorDayDir = new THREE.Color(0xffffff);
+const colorNightDir = new THREE.Color(0xd4e3ff);
+
+const colorDayHemiSky = new THREE.Color(0xffffff);
+const colorNightHemiSky = new THREE.Color(0x18222f);
+
+const colorDayHemiGround = new THREE.Color(0x444444);
+const colorNightHemiGround = new THREE.Color(0x090e14);
+
 function prepareMesh(child, isVehicle = false) {
   if (child.isMesh) {
     if (!isVehicle) {
@@ -445,9 +465,21 @@ function prepareMesh(child, isVehicle = false) {
         child.material.roughness = 0.4;
       }
 
+      // Cache emissive materials for day-night cycle
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      materials.forEach((mat) => {
+        if (mat.emissive && (mat.emissive.r > 0 || mat.emissive.g > 0 || mat.emissive.b > 0)) {
+          if (mat.userData.defaultEmissiveIntensity === undefined) {
+            mat.userData.defaultEmissiveIntensity = mat.emissiveIntensity !== undefined ? mat.emissiveIntensity : 1.0;
+          }
+          if (!emissiveMaterials.includes(mat)) {
+            emissiveMaterials.push(mat);
+          }
+        }
+      });
+
       // Pre-initialize transparency for vehicles to prevent compilation lag during transitions
       if (isVehicle) {
-        const materials = Array.isArray(child.material) ? child.material : [child.material];
         materials.forEach((mat) => {
           mat.transparent = true;
           if (mat.userData.originalOpacity === undefined) {
@@ -3162,6 +3194,43 @@ function animate() {
   const realDeltaTime = Math.min((currentTime - lastTime) / 1000, 1.0); // cap at 1s to prevent total break
   const deltaTime = Math.min(realDeltaTime, 0.05); // cap for physics/orbit
   lastTime = currentTime;
+
+  // --- Day-Night Cycle Updates ---
+  dayNightTime = (currentTime / 1000.0 / DAY_NIGHT_DURATION) % 1.0;
+  const nightFactor = -Math.cos(dayNightTime * Math.PI * 2) * 0.5 + 0.5;
+
+  // Lerp ambient light
+  ambientLight.intensity = THREE.MathUtils.lerp(0.8, 0.45, nightFactor);
+  ambientLight.color.lerpColors(colorDayAmbient, colorNightAmbient, nightFactor);
+
+  // Lerp directional light
+  directionalLight.intensity = THREE.MathUtils.lerp(0.7, 0.28, nightFactor);
+  directionalLight.color.lerpColors(colorDayDir, colorNightDir, nightFactor);
+
+  // Lerp hemisphere light
+  hemiLight.intensity = THREE.MathUtils.lerp(0.6, 0.35, nightFactor);
+  hemiLight.color.lerpColors(colorDayHemiSky, colorNightHemiSky, nightFactor);
+  hemiLight.groundColor.lerpColors(colorDayHemiGround, colorNightHemiGround, nightFactor);
+
+  // Lerp emissive material intensity
+  emissiveMaterials.forEach((mat) => {
+    const baseVal = mat.userData.defaultEmissiveIntensity || 1.0;
+    mat.emissiveIntensity = THREE.MathUtils.lerp(0.0, baseVal * 1.5, nightFactor);
+  });
+
+  // Helper color lerper using pre-allocated THREE.Color instances
+  function lerpColorString(cString1, cString2, pct) {
+    _bgLerpColor1.set(cString1);
+    _bgLerpColor2.set(cString2);
+    _bgLerpColor1.lerp(_bgLerpColor2, pct);
+    return `#${_bgLerpColor1.getHexString()}`;
+  }
+
+  // Update HTML body radial background gradient
+  const topColor = lerpColorString('#fdf8e7', '#18222f', nightFactor);
+  const midColor = lerpColorString('#f4e9d0', '#0f1721', nightFactor);
+  const bottomColor = lerpColorString('#e1d3b3', '#090e14', nightFactor);
+  document.body.style.background = `radial-gradient(circle at top, ${topColor} 0%, ${midColor} 45%, ${bottomColor} 100%)`;
 
   // --- Sync Radial Nav Overlay ---
   const radialNav = document.getElementById('radial-nav');
