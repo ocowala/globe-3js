@@ -87,6 +87,48 @@ scene.add(directionalLight);
 const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
 scene.add(hemiLight);
 
+// --- Day-Night & Starry Night State ---
+let dayNightTime = 0.0; // Cycles from 0.0 to 1.0 (0.0 = Midday, 0.5 = Midnight)
+const DAY_NIGHT_DURATION = 45.0; // 45 seconds per full cycle
+
+let starsMaterial = null;
+let starsPoints = null;
+
+function initStarfield() {
+  const starCount = 80;
+  const positions = new Float32Array(starCount * 3);
+  const radius = 120; // sphere shell outside the globe
+
+  for (let i = 0; i < starCount; i++) {
+    // Generate random points on a sphere shell
+    const u = Math.random();
+    const v = Math.random();
+    const theta = u * 2.0 * Math.PI;
+    const phi = Math.acos(2.0 * v - 1.0);
+    
+    positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+    positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+    positions[i * 3 + 2] = radius * Math.cos(phi);
+  }
+
+  const starsGeometry = new THREE.BufferGeometry();
+  starsGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+  starsMaterial = new THREE.PointsMaterial({
+    color: 0xffffff,
+    size: 0.35,
+    transparent: true,
+    opacity: 0.0,
+    sizeAttenuation: true
+  });
+
+  starsPoints = new THREE.Points(starsGeometry, starsMaterial);
+  scene.add(starsPoints);
+  console.log("Twinkling starfield initialized (80 stars).");
+}
+
+initStarfield();
+
 
 const createThickCylinderGeometry = (innerRadius, outerRadius, height) => {
   const shape = new THREE.Shape();
@@ -3154,6 +3196,26 @@ function updateBackgroundVisibility() {
   });
 }
 
+// --- Theme Gradients Configuration for Day-Night Cycle ---
+const themeGradients = {
+  clay: {
+    day: { r1: 253, g1: 248, b1: 231, r2: 244, g2: 233, b2: 208, r3: 225, g3: 211, b3: 179, ambient: 0xfff6ea },
+    night: { r1: 20, g1: 28, b1: 36, r2: 13, g2: 19, b2: 26, r3: 5, g3: 8, b3: 12, ambient: 0x3a4f66 }
+  },
+  cobalt: {
+    day: { r1: 32, g1: 44, b1: 57, r2: 20, g2: 28, b2: 36, r3: 13, g3: 19, b3: 26, ambient: 0x5a7fa6 },
+    night: { r1: 20, g1: 28, b1: 36, r2: 13, g2: 19, b2: 26, r3: 5, g3: 8, b3: 12, ambient: 0x223344 }
+  },
+  emerald: {
+    day: { r1: 242, g1: 247, b1: 242, r2: 225, g2: 235, b2: 225, r3: 204, g3: 220, b3: 202, ambient: 0xeaf6ea },
+    night: { r1: 15, g1: 29, b1: 18, r2: 10, g2: 20, b2: 12, r3: 5, g3: 10, b3: 6, ambient: 0x2a4430 }
+  },
+  crimson: {
+    day: { r1: 253, g1: 242, b1: 238, r2: 245, g2: 223, b2: 213, r3: 229, g3: 196, b3: 182, ambient: 0xffefe8 },
+    night: { r1: 38, g1: 19, b1: 15, r2: 26, g2: 13, b2: 10, r3: 13, g3: 7, b3: 5, ambient: 0x4a2a20 }
+  }
+};
+
 // --- Animate ---
 function animate() {
   requestAnimationFrame(animate);
@@ -3162,6 +3224,65 @@ function animate() {
   const realDeltaTime = Math.min((currentTime - lastTime) / 1000, 1.0); // cap at 1s to prevent total break
   const deltaTime = Math.min(realDeltaTime, 0.05); // cap for physics/orbit
   lastTime = currentTime;
+
+  // --- Day-Night Cycle & Twinkling Starfield ---
+  dayNightTime = (currentTime / 1000.0 / DAY_NIGHT_DURATION) % 1.0;
+  
+  // Calculate nightFactor (0.0 at midday, 1.0 at midnight)
+  const nightFactor = Math.sin(dayNightTime * Math.PI * 2) * 0.5 + 0.5;
+
+  const currentThemeData = themeGradients[activeTheme] || themeGradients.clay;
+
+  // 1. Lerp Ambient Light Intensity and Color
+  if (ambientLight) {
+    ambientLight.intensity = THREE.MathUtils.lerp(0.8, 0.45, nightFactor);
+    ambientLight.color.lerpColors(
+      new THREE.Color(currentThemeData.day.ambient),
+      new THREE.Color(currentThemeData.night.ambient),
+      nightFactor
+    );
+  }
+
+  // 2. Lerp Directional Light (Sun ➔ Moon)
+  if (directionalLight) {
+    directionalLight.intensity = THREE.MathUtils.lerp(0.7, 0.28, nightFactor);
+    directionalLight.color.lerpColors(
+      new THREE.Color(0xffffff),
+      new THREE.Color(0xd4e3ff),
+      nightFactor
+    );
+  }
+
+  // 3. Lerp CSS Background Gradient
+  const r1 = Math.round(THREE.MathUtils.lerp(currentThemeData.day.r1, currentThemeData.night.r1, nightFactor));
+  const g1 = Math.round(THREE.MathUtils.lerp(currentThemeData.day.g1, currentThemeData.night.g1, nightFactor));
+  const b1 = Math.round(THREE.MathUtils.lerp(currentThemeData.day.b1, currentThemeData.night.b1, nightFactor));
+
+  const r2 = Math.round(THREE.MathUtils.lerp(currentThemeData.day.r2, currentThemeData.night.r2, nightFactor));
+  const g2 = Math.round(THREE.MathUtils.lerp(currentThemeData.day.g2, currentThemeData.night.g2, nightFactor));
+  const b2 = Math.round(THREE.MathUtils.lerp(currentThemeData.day.b2, currentThemeData.night.b2, nightFactor));
+
+  const r3 = Math.round(THREE.MathUtils.lerp(currentThemeData.day.r3, currentThemeData.night.r3, nightFactor));
+  const g3 = Math.round(THREE.MathUtils.lerp(currentThemeData.day.g3, currentThemeData.night.g3, nightFactor));
+  const b3 = Math.round(THREE.MathUtils.lerp(currentThemeData.day.b3, currentThemeData.night.b3, nightFactor));
+
+  document.body.style.background = `radial-gradient(circle at top, rgb(${r1},${g1},${b1}) 0%, rgb(${r2},${g2},${b2}) 45%, rgb(${r3},${g3},${b3}) 100%)`;
+
+  // 4. Update body theme classes dynamically (Cobalt or peak Night adds 'dark' mode UI)
+  const isDarkPhase = nightFactor > 0.5;
+  document.body.classList.remove('theme-clay', 'theme-cobalt', 'theme-emerald', 'theme-crimson');
+  document.body.classList.add(`theme-${activeTheme}`);
+  
+  if (isDarkPhase || activeTheme === 'cobalt') {
+    document.body.classList.add('dark');
+  } else {
+    document.body.classList.remove('dark');
+  }
+
+  // 5. Animate and Twinkle Starfield
+  if (starsMaterial) {
+    starsMaterial.opacity = nightFactor * (0.5 + 0.3 * Math.sin(currentTime * 0.003));
+  }
 
   // --- Sync Radial Nav Overlay ---
   const radialNav = document.getElementById('radial-nav');
@@ -5172,12 +5293,7 @@ if (radialNavContainer) {
 }
 
 // --- Customizable Themes Controller ---
-const themeHexMap = {
-  clay: 0xfff6ea,
-  cobalt: 0x3a4f66,
-  emerald: 0xeaf6ea,
-  crimson: 0xffefe8
-};
+let activeTheme = 'clay';
 
 const themeSelector = document.getElementById('theme-selector');
 if (themeSelector) {
@@ -5192,20 +5308,8 @@ if (themeSelector) {
       themeBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
 
-      // Update body class list
-      document.body.classList.remove('theme-clay', 'theme-cobalt', 'theme-emerald', 'theme-crimson', 'dark');
-      document.body.classList.add(`theme-${selectedTheme}`);
-
-      // Map Cobalt theme to behave exactly like dark mode for info button/social icons
-      if (selectedTheme === 'cobalt') {
-        document.body.classList.add('dark');
-      }
-
-      // Dynamically update Three.js Ambient Light color
-      if (ambientLight && themeHexMap[selectedTheme] !== undefined) {
-        ambientLight.color.setHex(themeHexMap[selectedTheme]);
-        console.log(`WebGL Theme Light adjusted to: ${selectedTheme}`);
-      }
+      activeTheme = selectedTheme;
+      console.log(`Active day-night theme preset: ${selectedTheme}`);
     });
   });
 }
