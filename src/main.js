@@ -5070,7 +5070,7 @@ const songMap = {
   '/windmills.mp3': 'windmills of your mind - sting',
   '/ciao.mp3': "l'amore dice ciao - armando trovajoli",
   '/bean-sabine.mp3': 'bean sabine ost - howard goodall',
-  '/imagination.mp3': 'pure imagination - walter scharf',
+  '/bygone-days.mp3': 'bygone days - hisaishi',
   '/dreamers.mp3': 'sea dreamers - shankar, sting',
   '/fly.mp3': 'fly by day - anri',
   '/fillmore.mp3': 'fillmore county - vansire, floor cry',
