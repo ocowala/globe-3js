@@ -9,12 +9,41 @@ import * as dat from 'dat.gui';
 
 const container = document.getElementById('canvas-container');
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2.0));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;
 container.appendChild(renderer.domElement);
 
 let canvasRect = null;
+
+// Pre-allocated variables to prevent GC allocations during animations/renders
+const _tempQuat1 = new THREE.Quaternion();
+const _tempQuat2 = new THREE.Quaternion();
+const _tempQuat3 = new THREE.Quaternion();
+const _tempQuat4 = new THREE.Quaternion();
+const _tempEuler = new THREE.Euler();
+const _tempAxisZ = new THREE.Vector3(0, 0, 1);
+const _tempAxisX = new THREE.Vector3(1, 0, 0);
+const _tempV3_1 = new THREE.Vector3();
+const _tempV3_2 = new THREE.Vector3();
+const _tempV3_3 = new THREE.Vector3();
+const _tempV3_4 = new THREE.Vector3();
+const _tempV3_5 = new THREE.Vector3();
+const _tempV3_6 = new THREE.Vector3();
+const _tempV3_7 = new THREE.Vector3();
+const _tempV3_8 = new THREE.Vector3();
+const _tempMatrix = new THREE.Matrix4();
+
+// Pre-allocated result wrapper for camera follow updates to prevent per-frame object creations
+const _camTransformResultPosition = new THREE.Vector3();
+const _camTransformResultTarget = new THREE.Vector3();
+const _camTransformResultUp = new THREE.Vector3();
+const _camTransformResult = {
+  position: _camTransformResultPosition,
+  target: _camTransformResultTarget,
+  up: _camTransformResultUp
+};
 function updateCanvasRect() {
   if (renderer && renderer.domElement) {
     canvasRect = renderer.domElement.getBoundingClientRect();
@@ -97,6 +126,8 @@ function buildCylinder() {
   const globeGeometry = createThickCylinderGeometry(innerR, outerR, height);
   globeGeometry.translate(0, 0, 4 - height);
   globe = new THREE.Mesh(globeGeometry, globeMaterial);
+  globe.matrixAutoUpdate = false;
+  globe.updateMatrix();
   scene.add(globe);
 
   // Make the orbit ring slightly shorter and offset it to completely prevent co-planar Z-fighting on caps
@@ -104,6 +135,8 @@ function buildCylinder() {
   const orbitGeometry = createThickCylinderGeometry(innerR * 0.985, outerR * 1.005, orbitHeight);
   orbitGeometry.translate(0, 0, 4 - height + 0.01);
   orbitRing = new THREE.Mesh(orbitGeometry, orbitMaterial);
+  orbitRing.matrixAutoUpdate = false;
+  orbitRing.updateMatrix();
   scene.add(orbitRing);
 
   if (typeof introActive !== 'undefined' && introActive) {
@@ -206,8 +239,8 @@ const introTransitionStartUp = new THREE.Vector3();
 
 function initCursivePlane() {
   cursiveCanvas = document.createElement('canvas');
-  cursiveCanvas.width = 4096;
-  cursiveCanvas.height = 2048;
+  cursiveCanvas.width = 2048;
+  cursiveCanvas.height = 1024;
 
   cursiveTexture = new THREE.CanvasTexture(cursiveCanvas);
   cursiveTexture.minFilter = THREE.LinearFilter;
@@ -236,8 +269,8 @@ function drawCursiveName(writeProgress, unwriteProgress) {
   const name1 = "advitiya";
   const name2 = "jadhav";
 
-  // Use the Serif 420 font (Instrument Serif)
-  ctx.font = '420px "Instrument Serif", Georgia, serif';
+  // Use the Serif 210 font (Instrument Serif)
+  ctx.font = '210px "Instrument Serif", Georgia, serif';
   ctx.textBaseline = 'top';
   ctx.fillStyle = '#000000'; // Make writing black
 
@@ -245,13 +278,13 @@ function drawCursiveName(writeProgress, unwriteProgress) {
   const w1 = ctx.measureText(name1).width;
   const w2 = ctx.measureText(name2).width;
 
-  const startX1 = (4096 - w1) / 2;
-  const startX2 = (4096 - w2) / 2;
+  const startX1 = (2048 - w1) / 2;
+  const startX2 = (2048 - w2) / 2;
 
   // Vertical placement — centered and larger
-  const y1 = 480;
-  const y2 = 1000;
-  const rowHeight = 560;
+  const y1 = 240;
+  const y2 = 500;
+  const rowHeight = 280;
 
   // --- Draw First Name ("advitiya") ---
   ctx.save();
@@ -371,7 +404,6 @@ cylFolder.open();
 const loader = new GLTFLoader();
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
-dracoLoader.setDecoderConfig({ type: 'js' });
 loader.setDRACOLoader(dracoLoader);
 loader.setMeshoptDecoder(MeshoptDecoder);
 
@@ -389,6 +421,10 @@ loader.setKTX2Loader(ktx2Loader);
 
 function prepareMesh(child, isVehicle = false) {
   if (child.isMesh) {
+    if (!isVehicle) {
+      child.matrixAutoUpdate = false;
+      child.updateMatrix();
+    }
     if (child.material) {
       // High metalness without environment maps renders pitch black in Three.js.
       // We cap metalness to 0.1 and raise roughness to at least 0.4 to make materials diffuse light.
@@ -457,11 +493,11 @@ function getSnappedData(cache, raycastFn, angle) {
       if (res.valid) {
         cache.set(idx_low, res);
       } else {
-        return { posRadius: res.posRadius, localHitNormal: res.localHitNormal ? res.localHitNormal.clone() : null };
+        return { posRadius: res.posRadius, localHitNormal: res.localHitNormal };
       }
     }
     const cached = cache.get(idx_low);
-    return { posRadius: cached.posRadius, localHitNormal: cached.localHitNormal ? cached.localHitNormal.clone() : null };
+    return { posRadius: cached.posRadius, localHitNormal: cached.localHitNormal };
   }
 
   let data_low;
@@ -493,11 +529,11 @@ function getSnappedData(cache, raycastFn, angle) {
   const posRadius = THREE.MathUtils.lerp(data_low.posRadius, data_high.posRadius, t);
   let localHitNormal = null;
   if (data_low.localHitNormal && data_high.localHitNormal) {
-    localHitNormal = new THREE.Vector3().lerpVectors(data_low.localHitNormal, data_high.localHitNormal, t).normalize();
+    localHitNormal = _tempV3_7.lerpVectors(data_low.localHitNormal, data_high.localHitNormal, t).normalize();
   } else if (data_low.localHitNormal) {
-    localHitNormal = data_low.localHitNormal.clone();
+    localHitNormal = data_low.localHitNormal;
   } else if (data_high.localHitNormal) {
-    localHitNormal = data_high.localHitNormal.clone();
+    localHitNormal = data_high.localHitNormal;
   }
 
   return { posRadius, localHitNormal };
@@ -1199,16 +1235,16 @@ function updateSceneTextboxes(sceneName, refAngle, height, cache, raycastFn, hov
       snappedRadius = cylinderParams.radius;
     }
 
-    const radialDir = new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0).normalize();
-    const tangentDir = new THREE.Vector3(-Math.sin(angle), Math.cos(angle), 0).normalize();
-    const heightDir = new THREE.Vector3(0, 0, 1);
+    const radialDir = _tempV3_1.set(Math.cos(angle), Math.sin(angle), 0).normalize();
+    const tangentDir = _tempV3_2.set(-Math.sin(angle), Math.cos(angle), 0).normalize();
+    const heightDir = _tempV3_3.set(0, 0, 1);
 
     // Default radial height is snapped radius + hoverOffset
     const baseRadius = snappedRadius + hoverOffset;
-    const basePos = radialDir.clone().multiplyScalar(baseRadius);
+    const basePos = _tempV3_4.copy(radialDir).multiplyScalar(baseRadius);
     basePos.z = height;
 
-    const finalPos = basePos.clone()
+    const finalPos = _tempV3_5.copy(basePos)
       .addScaledVector(tangentDir, params.textboxOffsetX)
       .addScaledVector(radialDir, params.textboxOffsetY + 0.85)
       .addScaledVector(heightDir, params.textboxOffsetZ);
@@ -1216,10 +1252,9 @@ function updateSceneTextboxes(sceneName, refAngle, height, cache, raycastFn, hov
     tb.mesh.position.copy(finalPos);
 
     // Orientation: face Z axis, up is radial, right is tangent (negated for clockwise L-to-R layout)
-    const basisMatrix = new THREE.Matrix4();
-    const negTangent = tangentDir.clone().negate();
-    basisMatrix.makeBasis(negTangent, radialDir, new THREE.Vector3(0, 0, 1));
-    tb.mesh.quaternion.setFromRotationMatrix(basisMatrix);
+    const negTangent = _tempV3_6.copy(tangentDir).negate();
+    _tempMatrix.makeBasis(negTangent, radialDir, heightDir);
+    tb.mesh.quaternion.setFromRotationMatrix(_tempMatrix);
 
     // Store base scale for the selection animation system; do NOT directly set mesh.scale here —
     // the per-frame lerp pass in animate() owns the mesh scale.
@@ -1583,13 +1618,11 @@ function updateBoat() {
   // Rotation: match the base alignment & orbit path orientation
   const BOAT_REF_ANGLE = -0.94;
   const totalAngularDelta = (boatParams.angle - BOAT_REF_ANGLE) + orbitRad;
-  const baseEuler = new THREE.Euler(boatParams.rotX, boatParams.rotY, boatParams.rotZ);
-  const baseQuat = new THREE.Quaternion().setFromEuler(baseEuler);
-  const orbitQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), totalAngularDelta);
+  _tempEuler.set(boatParams.rotX, boatParams.rotY, boatParams.rotZ);
+  _tempQuat1.setFromEuler(_tempEuler);
+  _tempQuat2.setFromAxisAngle(_tempAxisZ, totalAngularDelta);
 
-  let finalQuat = new THREE.Quaternion().copy(orbitQuat).multiply(baseQuat);
-
-  boatObject.quaternion.copy(finalQuat);
+  boatObject.quaternion.copy(_tempQuat2).multiply(_tempQuat1);
   boatObject.scale.setScalar(boatParams.scale);
 
   updateSceneTextboxes('Beach', boatParams.angle, boatParams.height, boatCache, runBoatRaycast, hoverOffset, boatParams);
@@ -1608,12 +1641,7 @@ const hoverScenes = {
 };
 const loadedEnvironments = {};
 
-// Pre-allocated variables to prevent GC allocations during hover animation
-const _tempQuat1 = new THREE.Quaternion();
-const _tempQuat2 = new THREE.Quaternion();
-const _tempEuler = new THREE.Euler();
-const _tempAxisZ = new THREE.Vector3(0, 0, 1);
-const _tempAxisX = new THREE.Vector3(1, 0, 0);
+// Load environments and models helper definitions follow
 
 function loadModelWithGUI(name, url, defaults) {
   const params = { ...defaults };
@@ -1971,11 +1999,11 @@ function updateMotorcycle() {
   // Use total angular delta from reference angle so the motorcycle stays parallel to the road.
   const MOTO_REF_ANGLE = 1.74; // angle at which rotX/rotY/rotZ were calibrated
   const totalAngularDelta = (motorcycleParams.angle - MOTO_REF_ANGLE) + orbitRad;
-  const baseEuler = new THREE.Euler(motorcycleParams.rotX, motorcycleParams.rotY, motorcycleParams.rotZ);
-  const baseQuat = new THREE.Quaternion().setFromEuler(baseEuler);
-  const orbitQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), totalAngularDelta);
+  _tempEuler.set(motorcycleParams.rotX, motorcycleParams.rotY, motorcycleParams.rotZ);
+  _tempQuat1.setFromEuler(_tempEuler);
+  _tempQuat2.setFromAxisAngle(_tempAxisZ, totalAngularDelta);
 
-  motorcycleGroup.quaternion.copy(orbitQuat).multiply(baseQuat);
+  motorcycleGroup.quaternion.copy(_tempQuat2).multiply(_tempQuat1);
   motorcycleGroup.scale.setScalar(motorcycleParams.scale);
 
   // Spin wheels
@@ -2082,15 +2110,14 @@ function updateAirplane() {
   const y = posRadius * Math.sin(currentAngle);
   airplaneGroup.position.set(x, y, posZ);
 
-  // Rotation: apply base euler rotation, then compose with orbit rotation around Z axis.
-  // Use total angular delta from reference angle so the airplane stays properly oriented.
   const PLANE_REF_ANGLE = 0.74; // angle at which rotX/rotY/rotZ were calibrated
   const totalAngularDelta = (airplaneParams.angle - PLANE_REF_ANGLE) + orbitRad;
-  const baseEuler = new THREE.Euler(airplaneParams.rotX, airplaneParams.rotY, airplaneParams.rotZ);
-  const baseQuat = new THREE.Quaternion().setFromEuler(baseEuler);
-  const orbitQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), totalAngularDelta);
 
-  airplaneGroup.quaternion.copy(orbitQuat).multiply(baseQuat);
+  _tempEuler.set(airplaneParams.rotX, airplaneParams.rotY, airplaneParams.rotZ);
+  _tempQuat1.setFromEuler(_tempEuler);
+  _tempQuat2.setFromAxisAngle(_tempAxisZ, totalAngularDelta);
+
+  airplaneGroup.quaternion.copy(_tempQuat2).multiply(_tempQuat1);
   airplaneGroup.scale.setScalar(airplaneParams.scale);
 
   // Spin propeller
@@ -2260,22 +2287,22 @@ function updateBronco() {
   // Rotation: apply base euler rotation, then compose with orbit rotation around Z axis.
   const BRONCO_REF_ANGLE = -1.86; // angle at which rotX/rotY/rotZ were calibrated
   const totalAngularDelta = (broncoParams.angle - BRONCO_REF_ANGLE) + orbitRad;
-  const baseEuler = new THREE.Euler(broncoParams.rotX, broncoParams.rotY, broncoParams.rotZ);
-  const baseQuat = new THREE.Quaternion().setFromEuler(baseEuler);
-  const orbitQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), totalAngularDelta);
+  _tempEuler.set(broncoParams.rotX, broncoParams.rotY, broncoParams.rotZ);
+  _tempQuat1.setFromEuler(_tempEuler);
+  _tempQuat2.setFromAxisAngle(_tempAxisZ, totalAngularDelta);
 
-  let finalQuat = new THREE.Quaternion().copy(orbitQuat).multiply(baseQuat);
+  _tempQuat3.copy(_tempQuat2).multiply(_tempQuat1);
 
   if (localHitNormal) {
     // Calculate the radial direction representing the default 'up' direction of the cylinder
-    const cylinderNormal = new THREE.Vector3(Math.cos(currentAngle), Math.sin(currentAngle), 0).normalize();
+    const cylinderNormal = _tempV3_1.set(Math.cos(currentAngle), Math.sin(currentAngle), 0).normalize();
     // Compute the correction rotation between the cylinder normal and the actual terrain normal
-    const alignQuat = new THREE.Quaternion().setFromUnitVectors(cylinderNormal, localHitNormal);
+    const alignQuat = _tempQuat4.setFromUnitVectors(cylinderNormal, localHitNormal);
     // Apply correction to the orientation
-    finalQuat.copy(alignQuat).multiply(orbitQuat).multiply(baseQuat);
+    _tempQuat3.copy(alignQuat).multiply(_tempQuat2).multiply(_tempQuat1);
   }
 
-  broncoGroup.quaternion.copy(finalQuat);
+  broncoGroup.quaternion.copy(_tempQuat3);
   broncoGroup.scale.setScalar(broncoParams.scale);
 
   // Spin wheels
@@ -2474,37 +2501,37 @@ function updateCar2() {
   const frontRadius = frontSnapped.posRadius + hoverOffset;
   const rearRadius = rearSnapped.posRadius + hoverOffset;
 
-  const frontPos = new THREE.Vector3(
+  const frontPos = _tempV3_1.set(
     frontRadius * Math.cos(frontAngle),
     frontRadius * Math.sin(frontAngle),
     pathZ
   );
 
-  const rearPos = new THREE.Vector3(
+  const rearPos = _tempV3_2.set(
     rearRadius * Math.cos(rearAngle),
     rearRadius * Math.sin(rearAngle),
     pathZ
   );
 
   // Position is the midpoint (naturally pulls center inward to place wheels on the road)
-  const centerPos = new THREE.Vector3().addVectors(frontPos, rearPos).multiplyScalar(0.5);
+  const centerPos = _tempV3_3.addVectors(frontPos, rearPos).multiplyScalar(0.5);
   car2Object.position.copy(centerPos);
 
   // Heading: compute road angle from front and rear position difference
-  const forward = new THREE.Vector3().subVectors(frontPos, rearPos).normalize();
+  const forward = _tempV3_4.subVectors(frontPos, rearPos).normalize();
   const roadAngle = Math.atan2(forward.y, forward.x) - Math.PI / 2;
 
   // Base calibration angular delta using the dynamic road angle
   const CAR2_REF_ANGLE = -0.12;
   const totalAngularDelta = (roadAngle - car2Params.angle) + (car2Params.angle - CAR2_REF_ANGLE);
 
-  const baseEuler = new THREE.Euler(car2Params.rotX, car2Params.rotY, car2Params.rotZ);
-  const baseQuat = new THREE.Quaternion().setFromEuler(baseEuler);
-  const orbitQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), totalAngularDelta);
+  _tempEuler.set(car2Params.rotX, car2Params.rotY, car2Params.rotZ);
+  _tempQuat1.setFromEuler(_tempEuler);
+  _tempQuat2.setFromAxisAngle(_tempAxisZ, totalAngularDelta);
 
-  let finalQuat = new THREE.Quaternion().copy(orbitQuat).multiply(baseQuat);
+  _tempQuat3.copy(_tempQuat2).multiply(_tempQuat1);
 
-  car2Object.quaternion.copy(finalQuat);
+  car2Object.quaternion.copy(_tempQuat3);
   car2Object.scale.setScalar(car2Params.scale);
 
   // Spin wheels
@@ -2605,37 +2632,37 @@ function updateRacecar() {
   const frontRadius = frontSnapped.posRadius + hoverOffset;
   const rearRadius = rearSnapped.posRadius + hoverOffset;
 
-  const frontPos = new THREE.Vector3(
+  const frontPos = _tempV3_1.set(
     frontRadius * Math.cos(frontAngle),
     frontRadius * Math.sin(frontAngle),
     pathZ
   );
 
-  const rearPos = new THREE.Vector3(
+  const rearPos = _tempV3_2.set(
     rearRadius * Math.cos(rearAngle),
     rearRadius * Math.sin(rearAngle),
     pathZ
   );
 
   // Position is the midpoint (naturally pulls center inward to place wheels on the road)
-  const centerPos = new THREE.Vector3().addVectors(frontPos, rearPos).multiplyScalar(0.5);
+  const centerPos = _tempV3_3.addVectors(frontPos, rearPos).multiplyScalar(0.5);
   racecarObject.position.copy(centerPos);
 
   // Heading: compute road angle from front and rear position difference
-  const forward = new THREE.Vector3().subVectors(frontPos, rearPos).normalize();
+  const forward = _tempV3_4.subVectors(frontPos, rearPos).normalize();
   const roadAngle = Math.atan2(forward.y, forward.x) - Math.PI / 2;
 
   // Base calibration angular delta using the dynamic road angle
   const RACECAR_REF_ANGLE = -3.05;
   const totalAngularDelta = (roadAngle - racecarParams.angle) + (racecarParams.angle - RACECAR_REF_ANGLE);
 
-  const baseEuler = new THREE.Euler(racecarParams.rotX, racecarParams.rotY, racecarParams.rotZ);
-  const baseQuat = new THREE.Quaternion().setFromEuler(baseEuler);
-  const orbitQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), totalAngularDelta);
+  _tempEuler.set(racecarParams.rotX, racecarParams.rotY, racecarParams.rotZ);
+  _tempQuat1.setFromEuler(_tempEuler);
+  _tempQuat2.setFromAxisAngle(_tempAxisZ, totalAngularDelta);
 
-  let finalQuat = new THREE.Quaternion().copy(orbitQuat).multiply(baseQuat);
+  _tempQuat3.copy(_tempQuat2).multiply(_tempQuat1);
 
-  racecarObject.quaternion.copy(finalQuat);
+  racecarObject.quaternion.copy(_tempQuat3);
   racecarObject.scale.setScalar(racecarParams.scale);
 
   // Spin wheels (Mercedes wheels rotate on the X-axis)
@@ -3008,7 +3035,7 @@ function getVehicleCameraTransform(seq) {
   if (!obj) return null;
 
   // Get the vehicle's world position
-  const vehiclePos = new THREE.Vector3();
+  const vehiclePos = _tempV3_1;
   obj.getWorldPosition(vehiclePos);
 
   // Compute the current angle of the vehicle
@@ -3016,25 +3043,28 @@ function getVehicleCameraTransform(seq) {
   const currentAngle = seq.params.angle + orbitRad;
 
   // Radial outward from cylinder axis (pure cylinder frame)
-  const radialDir = new THREE.Vector3(Math.cos(currentAngle), Math.sin(currentAngle), 0).normalize();
+  const radialDir = _tempV3_2.set(Math.cos(currentAngle), Math.sin(currentAngle), 0).normalize();
   // Height direction: along the cylinder Z axis
-  const heightDir = new THREE.Vector3(0, 0, 1);
+  const heightDir = _tempV3_3.set(0, 0, 1);
   // Tangent direction along the road (forward direction)
-  const vehicleForward = new THREE.Vector3(-Math.sin(currentAngle), Math.cos(currentAngle), 0).normalize();
+  const vehicleForward = _tempV3_4.set(-Math.sin(currentAngle), Math.cos(currentAngle), 0).normalize();
 
   // Camera position = vehicle position + offsets
-  const worldCamPos = vehiclePos.clone()
+  _camTransformResultPosition.copy(vehiclePos)
     .addScaledVector(radialDir, seq.camOffset.x)
     .addScaledVector(heightDir, seq.camOffset.y)
     .addScaledVector(vehicleForward, seq.camOffset.z);
 
   // Look-at target = vehicle position + optional offsets
-  const worldLookAt = vehiclePos.clone()
+  _camTransformResultTarget.copy(vehiclePos)
     .addScaledVector(radialDir, seq.lookOffset.x)
     .addScaledVector(heightDir, seq.lookOffset.y)
     .addScaledVector(vehicleForward, seq.lookOffset.z);
 
-  return { position: worldCamPos, target: worldLookAt, up: radialDir.clone() };
+  // Up direction
+  _camTransformResultUp.copy(radialDir);
+
+  return _camTransformResult;
 }
 
 /**
@@ -3184,12 +3214,14 @@ function animate() {
       if (landscape) landscape.visible = true;
       if (cafe) cafe.visible = true;
 
-      // Update matrix once per frame for the target cached model
-      if (cacheVehicleIdx === 0 && city) city.updateMatrixWorld(true);
-      if (cacheVehicleIdx === 1 && beach) beach.updateMatrixWorld(true);
-      if (cacheVehicleIdx === 2 && desert) desert.updateMatrixWorld(true);
-      if (cacheVehicleIdx === 3 && landscape) landscape.updateMatrixWorld(true);
-      if (cacheVehicleIdx === 4 && cafe) cafe.updateMatrixWorld(true);
+      // Update matrix once for the target cached model on caching start (first angle idx)
+      if (cacheAngleIdx === 0) {
+        if (cacheVehicleIdx === 0 && city) city.updateMatrixWorld(true);
+        if (cacheVehicleIdx === 1 && beach) beach.updateMatrixWorld(true);
+        if (cacheVehicleIdx === 2 && desert) desert.updateMatrixWorld(true);
+        if (cacheVehicleIdx === 3 && landscape) landscape.updateMatrixWorld(true);
+        if (cacheVehicleIdx === 4 && cafe) cafe.updateMatrixWorld(true);
+      }
 
       // Keep background pre-caching light (batchSize = 5) during text writing to maintain 60 FPS.
       // Boost batchSize to 35 once written so caching finishes as quickly as possible.
@@ -3283,48 +3315,80 @@ function animate() {
     }
   }
 
-  if (introActive && showWriting) {
-    // Skip writing entirely and transition straight to the post-sequence reveal
-    introActive = false;
-    isPostSequence = true;
-    introFinaleActive = true;
-    introFinaleTimer = 0.0;
-    postSeqTimer = 0.0;
-    isOrbitAnimating = false;
+  if (introActive) {
+    if (!isPaused && fullyOptimized && showWriting) {
+      const targetWriteTime = Math.max(introParams.writeDuration, 0.1);
+      if (introTimer < targetWriteTime) {
+        introTimer += realDeltaTime;
+      } else {
+        introTimer = targetWriteTime;
+        if (writePauseTimer < 0.3) {
+          writePauseTimer += realDeltaTime;
+        } else {
+          const targetUnwriteTime = Math.max(introParams.unwriteDuration, 0.1);
+          if (unwriteTimer < targetUnwriteTime) {
+            unwriteTimer += realDeltaTime;
+          } else {
+            unwriteTimer = targetUnwriteTime;
+            if (unwritePauseTimer < 0.3) {
+              unwritePauseTimer += realDeltaTime;
+            } else {
+              // Trigger first finale (10s sequence complete transition)
+              introActive = false;
+              isPostSequence = true;
+              introFinaleActive = true;
+              introFinaleTimer = 0.0;
+              postSeqTimer = 0.0;
+              isOrbitAnimating = false;
 
-    // Show the info hint pointing to the (i) icon for 2 seconds
-    const infoHint = document.getElementById('info-hint');
-    if (infoHint) {
-      infoHint.classList.add('show');
-      setTimeout(() => {
-        infoHint.classList.remove('show');
-      }, 2000);
+              // Show the info hint pointing to the (i) icon for 2 seconds
+              const infoHint = document.getElementById('info-hint');
+              if (infoHint) {
+                infoHint.classList.add('show');
+                setTimeout(() => {
+                  infoHint.classList.remove('show');
+                }, 2000);
+              }
+
+              // Capture current camera state for smooth transition start (from intro cam position)
+              transitionStartPos.copy(camera.position);
+              transitionStartTarget.set(0, 0, getCylinderMiddleZ());
+              transitionStartUp.copy(camera.up);
+              // Restore cylinder/background visibilities
+              globe.visible = true;
+              orbitRing.visible = true;
+
+              // Make sure all vehicles are visible (but with 0 opacity so they fade out/remain invisible)
+              orbitSequence.forEach(seq => {
+                const obj = seq.getObject();
+                if (obj) {
+                  obj.visible = true;
+                  setOpacity(obj, 0.0);
+                }
+              });
+
+              // Prepare cursive plane for post-sequence finale
+              if (cursivePlane) {
+                cursivePlane.visible = true;
+                cursivePlane.rotation.set(0, 0, 0);
+                cursivePlane.position.set(0, 0, getCylinderMiddleZ());
+                cursivePlane.material.opacity = 0.0;
+                drawCursiveName(1.0, 0.0);
+              }
+            }
+          }
+        }
+      }
     }
 
-    // Capture current camera state for smooth transition start (from intro cam position)
-    transitionStartPos.copy(camera.position);
-    transitionStartTarget.set(0, 0, getCylinderMiddleZ());
-    transitionStartUp.copy(camera.up);
-    // Restore cylinder/background visibilities
-    globe.visible = true;
-    orbitRing.visible = true;
+    const writeProgress = (fullyOptimized && showWriting) ? Math.min(introTimer / Math.max(introParams.writeDuration, 0.1), 1.0) : 0.0;
+    const unwriteProgress = (fullyOptimized && showWriting) ? Math.min(unwriteTimer / Math.max(introParams.unwriteDuration, 0.1), 1.0) : 0.0;
 
-    // Make sure all vehicles are visible (but with 0 opacity so they fade in)
-    orbitSequence.forEach(seq => {
-      const obj = seq.getObject();
-      if (obj) {
-        obj.visible = true;
-        setOpacity(obj, 0.0);
-      }
-    });
-
-    // Prepare cursive plane for post-sequence finale
-    if (cursivePlane) {
-      cursivePlane.visible = true;
-      cursivePlane.rotation.set(0, 0, 0);
-      cursivePlane.position.set(0, 0, getCylinderMiddleZ());
-      cursivePlane.material.opacity = 0.0;
-      drawCursiveName(1.0, 0.0);
+    // Only redraw the cursive canvas when progress actually changes (avoids GPU texture upload every frame)
+    if (writeProgress !== lastWriteProgress || unwriteProgress !== lastUnwriteProgress) {
+      drawCursiveName(writeProgress, unwriteProgress);
+      lastWriteProgress = writeProgress;
+      lastUnwriteProgress = unwriteProgress;
     }
   }
 
