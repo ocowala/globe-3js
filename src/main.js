@@ -93,7 +93,7 @@ const DAY_NIGHT_DURATION = 45.0; // 45 seconds per full cycle
 
 let starsMaterial = null;
 let starsPoints = null;
-let activeTheme = 'clay';
+let activeBackdropMode = 'cycle';
 
 // Interpolated state variables for smooth transitions
 let currentBg = { r1: 253, g1: 248, b1: 231, r2: 244, g2: 233, b2: 208, r3: 225, g3: 211, b3: 179 };
@@ -105,7 +105,7 @@ let currentStarsOpacity = 0.0;
 let currentCursiveColor = '#000000';
 
 function initStarfield() {
-  const starCount = 80;
+  const starCount = 160;
   const positions = new Float32Array(starCount * 3);
   const radius = 120; // sphere shell outside the globe
 
@@ -3308,6 +3308,33 @@ const sceneTimeConfigs = {
 };
 
 function getDayNightTargets(currentTime) {
+  // 1. If Light Mode (Clay Beige) is forced
+  if (activeBackdropMode === 'clay') {
+    return {
+      bg: themeGradients.clay.day,
+      ambient: themeGradients.clay.day.ambient,
+      ambientIntensity: 0.8,
+      dir: 0xffffff,
+      dirIntensity: 0.7,
+      stars: 0.0,
+      dark: false
+    };
+  }
+
+  // 2. If Dark Mode (Cobalt Midnight) is forced
+  if (activeBackdropMode === 'cobalt') {
+    return {
+      bg: themeGradients.cobalt.night,
+      ambient: themeGradients.cobalt.night.ambient,
+      ambientIntensity: 0.45,
+      dir: 0xd4e3ff,
+      dirIntensity: 0.28,
+      stars: 0.8,
+      dark: true
+    };
+  }
+
+  // 3. Otherwise, Day-Night Cycle is active
   // If assets are not fully loaded, or we are in the intro writing state (isIntroState = introActive || isIntroTransitioning)
   const isIntroState = introActive || isIntroTransitioning;
   if (!allAssetsLoaded || isIntroState) {
@@ -3386,17 +3413,15 @@ function getDayNightTargets(currentTime) {
       dark: config.dark
     };
   } else {
-    // Overview mode: use the activeTheme selected by the user
-    const themeData = themeGradients[activeTheme] || themeGradients.clay;
-    
+    // Overview mode defaults to Beige Day under the cycle
     return {
-      bg: themeData.day,
-      ambient: themeData.day.ambient,
-      ambientIntensity: activeTheme === 'cobalt' ? 0.45 : 0.8,
+      bg: themeGradients.clay.day,
+      ambient: themeGradients.clay.day.ambient,
+      ambientIntensity: 0.8,
       dir: 0xffffff,
-      dirIntensity: activeTheme === 'cobalt' ? 0.28 : 0.7,
-      stars: activeTheme === 'cobalt' ? 0.8 : 0.0,
-      dark: activeTheme === 'cobalt'
+      dirIntensity: 0.7,
+      stars: 0.0,
+      dark: false
     };
   }
 }
@@ -3461,14 +3486,21 @@ function animate() {
     directionalLight.color.copy(currentDirColor);
   }
 
-  // 4. Update body theme classes dynamically (Cobalt or peak Night adds 'dark' mode UI)
-  document.body.classList.remove('theme-clay', 'theme-cobalt', 'theme-emerald', 'theme-crimson');
-  document.body.classList.add(`theme-${activeTheme}`);
-  
+  // 4. Update body theme classes dynamically
+  document.body.classList.remove('theme-clay', 'theme-cobalt', 'theme-emerald', 'theme-crimson', 'dark');
   if (targets.dark) {
-    document.body.classList.add('dark');
+    document.body.classList.add('theme-cobalt', 'dark');
   } else {
-    document.body.classList.remove('dark');
+    // If the active index is Hobbies (emerald) or Beach (crimson) under the day-night cycle, apply them
+    const isSceneActive = isOrbitAnimating || selectedTextbox;
+    const activeIdx = isOrbitAnimating ? currentSeqIndex : activeNavIndex;
+    if (activeBackdropMode === 'cycle' && isSceneActive && activeIdx === 5) {
+      document.body.classList.add('theme-emerald');
+    } else if (activeBackdropMode === 'cycle' && isSceneActive && activeIdx === 3) {
+      document.body.classList.add('theme-crimson');
+    } else {
+      document.body.classList.add('theme-clay');
+    }
   }
 
   // 5. Animate and Twinkle Starfield
@@ -5506,14 +5538,14 @@ if (themeSelector) {
     btn.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      const selectedTheme = btn.getAttribute('data-theme');
+      const mode = btn.getAttribute('data-mode');
       
       // Update active btn styling
       themeBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
 
-      activeTheme = selectedTheme;
-      console.log(`Active day-night theme preset: ${selectedTheme}`);
+      activeBackdropMode = mode;
+      console.log(`Backdrop mode changed to: ${mode}`);
     });
   });
 }
