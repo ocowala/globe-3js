@@ -5138,32 +5138,65 @@ if (audio) {
 }
 
 if (audio && audioToggle) {
-  audioToggle.addEventListener('click', () => {
-    // Initialize Web Audio context on first click interaction to comply with browser safety rules
-    if (!audioCtx) {
-      try {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 128; // small FFT size for 4 bars
-        const source = audioCtx.createMediaElementSource(audio);
-        source.connect(analyser);
-        analyser.connect(audioCtx.destination);
-        dataArray = new Uint8Array(analyser.frequencyBinCount);
-      } catch (err) {
-        console.warn("Failed to initialize Web Audio context:", err);
+  let audioClickTimer = null;
+  audioToggle.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (audioClickTimer !== null) {
+      // Double click detected! Clear timer and cycle song
+      clearTimeout(audioClickTimer);
+      audioClickTimer = null;
+
+      const songKeys = Object.keys(songMap);
+      let currentIdx = songKeys.indexOf(audio.getAttribute('src'));
+      if (currentIdx === -1) {
+        currentIdx = songKeys.findIndex(k => audio.src.endsWith(k));
       }
-    }
+      const nextIdx = (currentIdx + 1) % songKeys.length;
+      const nextSong = songKeys[nextIdx];
 
-    if (audioCtx && audioCtx.state === 'suspended') {
-      audioCtx.resume();
-    }
+      audio.src = nextSong;
+      if (songNameEl) {
+        songNameEl.textContent = songMap[nextSong];
+      }
+      console.log("Cycled to next song:", nextSong);
 
-    if (audio.paused) {
-      audio.play().catch(err => {
-        console.error("Audio playback failed:", err);
-      });
+      if (!audio.paused) {
+        audio.play().catch(err => console.error("Audio playback failed:", err));
+      }
     } else {
-      audio.pause();
+      // Single click timer
+      audioClickTimer = setTimeout(() => {
+        audioClickTimer = null;
+
+        // Initialize Web Audio context on first click interaction to comply with browser safety rules
+        if (!audioCtx) {
+          try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 128; // small FFT size for 4 bars
+            const source = audioCtx.createMediaElementSource(audio);
+            source.connect(analyser);
+            analyser.connect(audioCtx.destination);
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+          } catch (err) {
+            console.warn("Failed to initialize Web Audio context:", err);
+          }
+        }
+
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+
+        if (audio.paused) {
+          audio.play().catch(err => {
+            console.error("Audio playback failed:", err);
+          });
+        } else {
+          audio.pause();
+        }
+      }, 250); // 250ms delay to wait for a potential second click
     }
   });
 }
