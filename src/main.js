@@ -3068,6 +3068,18 @@ function updateBackgroundVisibility() {
     }
   }
 
+  // Find if there is a selected textbox and which background scene it belongs to
+  let focusedBgName = null;
+  if (selectedTextbox) {
+    for (const name in sceneTextboxes) {
+      const found = sceneTextboxes[name].some(tb => tb === selectedTextbox);
+      if (found) {
+        focusedBgName = name;
+        break;
+      }
+    }
+  }
+
   const bgNames = ['City', 'School', 'Landscape', 'Beach', 'Desert', 'Cafe'];
 
   bgNames.forEach(name => {
@@ -3083,14 +3095,19 @@ function updateBackgroundVisibility() {
         return diff < 1.95; // ~112 degrees threshold
       });
 
-      model.visible = isClose;
+      // Force visibility if this is the focused textbox's background scene model
+      if (focusedBgName && name === focusedBgName) {
+        model.visible = true;
+      } else {
+        model.visible = isClose;
+      }
 
       // Update static textboxes visibility — keep selected textbox visible even when orbit is paused
       const textboxes = sceneTextboxes[name];
       if (textboxes) {
         textboxes.forEach((tb) => {
           const isSelected = (tb === selectedTextbox);
-          tb.mesh.visible = (isClose && !introActive && (isOrbitAnimating || isSelected));
+          tb.mesh.visible = ((model.visible || isClose) && !introActive && (isOrbitAnimating || isSelected));
         });
       }
     }
@@ -4259,8 +4276,13 @@ function selectTextbox(tb) {
         selectedTextbox.mesh.userData.portraitGeometry.dispose();
         selectedTextbox.mesh.userData.portraitGeometry = null;
         
+        // Dispose old texture and reallocate to prevent WebGL stretch artifacts
+        selectedTextbox.mesh.material.map.dispose();
         canvas.width = 2048;
         canvas.height = 1024;
+        const newTexture = new THREE.CanvasTexture(canvas);
+        newTexture.minFilter = THREE.LinearFilter;
+        selectedTextbox.mesh.material.map = newTexture;
       }
 
       drawTextBoxCanvas(canvas, data, pastelColor, false, selectedTextbox.mesh.material.map);
@@ -4336,9 +4358,13 @@ function selectTextbox(tb) {
       tb.mesh.geometry = portraitGeometry;
       tb.mesh.userData.portraitGeometry = portraitGeometry;
       
-      // Resize canvas to portrait
+      // Dispose old texture and reallocate to prevent WebGL stretch artifacts
+      tb.mesh.material.map.dispose();
       canvas.width = 1024;
       canvas.height = 1536;
+      const newTexture = new THREE.CanvasTexture(canvas);
+      newTexture.minFilter = THREE.LinearFilter;
+      tb.mesh.material.map = newTexture;
     }
 
     drawTextBoxCanvas(canvas, data, pastelColor, true, tb.mesh.material.map);
@@ -4359,8 +4385,13 @@ function deselectTextbox() {
       selectedTextbox.mesh.userData.portraitGeometry.dispose();
       selectedTextbox.mesh.userData.portraitGeometry = null;
       
+      // Dispose old texture and reallocate to prevent WebGL stretch artifacts
+      selectedTextbox.mesh.material.map.dispose();
       canvas.width = 2048;
       canvas.height = 1024;
+      const newTexture = new THREE.CanvasTexture(canvas);
+      newTexture.minFilter = THREE.LinearFilter;
+      selectedTextbox.mesh.material.map = newTexture;
     }
 
     drawTextBoxCanvas(canvas, data, pastelColor, false, selectedTextbox.mesh.material.map);
