@@ -20,6 +20,10 @@ if (!isHandheldDevice && radialNavOnLoad) {
   radialNavOnLoad.style.display = 'none';
 }
 
+const foliageMeshes = [];
+const waterShaders = [];
+let waterShaderTime = 0.0;
+
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2.0));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;
@@ -35,8 +39,6 @@ const _tempQuat4 = new THREE.Quaternion();
 const _tempEuler = new THREE.Euler();
 const _tempAxisZ = new THREE.Vector3(0, 0, 1);
 const _tempAxisX = new THREE.Vector3(1, 0, 0);
-const _bgLerpColor1 = new THREE.Color();
-const _bgLerpColor2 = new THREE.Color();
 const _tempV3_1 = new THREE.Vector3();
 const _tempV3_2 = new THREE.Vector3();
 const _tempV3_3 = new THREE.Vector3();
@@ -431,24 +433,6 @@ loader.setKTX2Loader(ktx2Loader);
 
 // propellerObject is now set when the standalone airplane.glb is loaded (see below)
 
-// --- Day-Night Cycle Configuration ---
-const emissiveMaterials = [];
-let dayNightTime = 0.0; // Cycles from 0.0 to 1.0 (0.0 = Midday, 0.5 = Midnight, 1.0 = Midday)
-const DAY_NIGHT_DURATION = 60.0; // 60 seconds per full cycle
-
-// Day-Night pre-allocated Color constants to prevent GC allocations in render loop
-const colorDayAmbient = new THREE.Color(0xfff6ea);
-const colorNightAmbient = new THREE.Color(0x3a4f66);
-
-const colorDayDir = new THREE.Color(0xffffff);
-const colorNightDir = new THREE.Color(0xd4e3ff);
-
-const colorDayHemiSky = new THREE.Color(0xffffff);
-const colorNightHemiSky = new THREE.Color(0x18222f);
-
-const colorDayHemiGround = new THREE.Color(0x444444);
-const colorNightHemiGround = new THREE.Color(0x090e14);
-
 function prepareMesh(child, isVehicle = false) {
   if (child.isMesh) {
     if (!isVehicle) {
@@ -465,21 +449,9 @@ function prepareMesh(child, isVehicle = false) {
         child.material.roughness = 0.4;
       }
 
-      // Cache emissive materials for day-night cycle
-      const materials = Array.isArray(child.material) ? child.material : [child.material];
-      materials.forEach((mat) => {
-        if (mat.emissive && (mat.emissive.r > 0 || mat.emissive.g > 0 || mat.emissive.b > 0)) {
-          if (mat.userData.defaultEmissiveIntensity === undefined) {
-            mat.userData.defaultEmissiveIntensity = mat.emissiveIntensity !== undefined ? mat.emissiveIntensity : 1.0;
-          }
-          if (!emissiveMaterials.includes(mat)) {
-            emissiveMaterials.push(mat);
-          }
-        }
-      });
-
       // Pre-initialize transparency for vehicles to prevent compilation lag during transitions
       if (isVehicle) {
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
         materials.forEach((mat) => {
           mat.transparent = true;
           if (mat.userData.originalOpacity === undefined) {
@@ -1653,9 +1625,15 @@ function updateBoat() {
   const hoverOffset = hoverData ? (hoverData.current * hoverData.maxProtrusion) : 0.0;
   const posRadius = snapped.posRadius + hoverOffset;
 
-  const x = posRadius * Math.cos(currentAngle);
-  const y = posRadius * Math.sin(currentAngle);
-  boatObject.position.set(x, y, posZ);
+  const bobTime = performance.now() * 0.0015;
+  
+  // Bobbing radius (up/down relative to water plane) and height (Z axis)
+  const bobbingRadius = posRadius + Math.sin(bobTime * 2.0) * 0.025;
+  const bobbingZ = posZ + Math.cos(bobTime * 1.5) * 0.015;
+  
+  const x = bobbingRadius * Math.cos(currentAngle);
+  const y = bobbingRadius * Math.sin(currentAngle);
+  boatObject.position.set(x, y, bobbingZ);
 
   // Rotation: match the base alignment & orbit path orientation
   const BOAT_REF_ANGLE = -0.94;
@@ -1664,7 +1642,13 @@ function updateBoat() {
   _tempQuat1.setFromEuler(_tempEuler);
   _tempQuat2.setFromAxisAngle(_tempAxisZ, totalAngularDelta);
 
-  boatObject.quaternion.copy(_tempQuat2).multiply(_tempQuat1);
+  // Add subtle wave tilt (rolling and pitching) to the boat's rotation
+  const rollAngle = Math.sin(bobTime * 2.0) * 0.035; // rocking side-to-side
+  const pitchAngle = Math.cos(bobTime * 1.5) * 0.02;  // rocking front-to-back
+  _tempEuler.set(rollAngle, pitchAngle, 0);
+  _tempQuat3.setFromEuler(_tempEuler);
+
+  boatObject.quaternion.copy(_tempQuat2).multiply(_tempQuat1).multiply(_tempQuat3);
   boatObject.scale.setScalar(boatParams.scale);
 
   updateSceneTextboxes('Beach', boatParams.angle, boatParams.height, boatCache, runBoatRaycast, hoverOffset, boatParams);
@@ -1783,8 +1767,38 @@ function loadModelWithGUI(name, url, defaults) {
       }
       prepareMesh(child);
 
-      // Collect target meshes for optimized raycasting
+      // Collect target meshes for optimized raycasting and visual upgrades
       if (child.isMesh) {
+        // Collect trees/foliage for wind swaying (Idea 5)
+        const meshName = (child.name || '').toLowerCase();
+        let isFoliage = meshName.includes('tree') || 
+                        meshName.includes('foliage') || 
+                        meshName.includes('leaves') || 
+                        meshName.includes('pine') || 
+                        meshName.includes('canopy') || 
+                        meshName.includes('plant') || 
+                        meshName.includes('bush');
+                        
+        if (!isFoliage && child.material) {
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          isFoliage = mats.some(mat => {
+            const matName = (mat && mat.name) ? mat.name.toLowerCase() : '';
+            return matName.includes('leaves') || 
+                   matName.includes('foliage') || 
+                   matName.includes('tree') || 
+                   matName.includes('pine') || 
+                   matName.includes('green') || 
+                   matName.includes('canopy') || 
+                   matName.includes('plant') || 
+                   matName.includes('bush');
+          });
+        }
+        
+        if (isFoliage) {
+          child.matrixAutoUpdate = true; // enable dynamic wind sway transforms
+          foliageMeshes.push(child);
+        }
+
         if (name === 'City') {
           const meshName = child.name || '';
           const isRoadMesh = meshName.includes('Curve') || meshName.includes('curve');
@@ -1805,6 +1819,28 @@ function loadModelWithGUI(name, url, defaults) {
             const mats = Array.isArray(child.material) ? child.material : [child.material];
             isGroundSurface = mats.some(mat => {
               const matName = (mat && mat.name) ? mat.name.toLowerCase() : '';
+              
+              // Wavy water shader compilation hook (Idea 3)
+              if (matName.includes('water')) {
+                mat.onBeforeCompile = (shader) => {
+                  shader.uniforms.time = { value: 0 };
+                  waterShaders.push(shader);
+                  
+                  shader.vertexShader = `
+                    uniform float time;
+                  ` + shader.vertexShader;
+                  
+                  shader.vertexShader = shader.vertexShader.replace(
+                    '#include <begin_vertex>',
+                    `
+                    #include <begin_vertex>
+                    // Dynamic wave displacement (sine wave mapping on Y-axis)
+                    transformed.y += sin(position.x * 2.5 + time * 1.5) * 0.04 + cos(position.z * 2.5 + time * 1.5) * 0.04;
+                    `
+                  );
+                };
+              }
+              
               return matName.includes('sand') || matName.includes('beach') || matName.includes('water') || matName.includes('ground') || matName.includes('terrain');
             });
           }
@@ -3195,43 +3231,6 @@ function animate() {
   const deltaTime = Math.min(realDeltaTime, 0.05); // cap for physics/orbit
   lastTime = currentTime;
 
-  // --- Day-Night Cycle Updates ---
-  dayNightTime = (currentTime / 1000.0 / DAY_NIGHT_DURATION) % 1.0;
-  const nightFactor = -Math.cos(dayNightTime * Math.PI * 2) * 0.5 + 0.5;
-
-  // Lerp ambient light
-  ambientLight.intensity = THREE.MathUtils.lerp(0.8, 0.45, nightFactor);
-  ambientLight.color.lerpColors(colorDayAmbient, colorNightAmbient, nightFactor);
-
-  // Lerp directional light
-  directionalLight.intensity = THREE.MathUtils.lerp(0.7, 0.28, nightFactor);
-  directionalLight.color.lerpColors(colorDayDir, colorNightDir, nightFactor);
-
-  // Lerp hemisphere light
-  hemiLight.intensity = THREE.MathUtils.lerp(0.6, 0.35, nightFactor);
-  hemiLight.color.lerpColors(colorDayHemiSky, colorNightHemiSky, nightFactor);
-  hemiLight.groundColor.lerpColors(colorDayHemiGround, colorNightHemiGround, nightFactor);
-
-  // Lerp emissive material intensity
-  emissiveMaterials.forEach((mat) => {
-    const baseVal = mat.userData.defaultEmissiveIntensity || 1.0;
-    mat.emissiveIntensity = THREE.MathUtils.lerp(0.0, baseVal * 1.5, nightFactor);
-  });
-
-  // Helper color lerper using pre-allocated THREE.Color instances
-  function lerpColorString(cString1, cString2, pct) {
-    _bgLerpColor1.set(cString1);
-    _bgLerpColor2.set(cString2);
-    _bgLerpColor1.lerp(_bgLerpColor2, pct);
-    return `#${_bgLerpColor1.getHexString()}`;
-  }
-
-  // Update HTML body radial background gradient
-  const topColor = lerpColorString('#fdf8e7', '#18222f', nightFactor);
-  const midColor = lerpColorString('#f4e9d0', '#0f1721', nightFactor);
-  const bottomColor = lerpColorString('#e1d3b3', '#090e14', nightFactor);
-  document.body.style.background = `radial-gradient(circle at top, ${topColor} 0%, ${midColor} 45%, ${bottomColor} 100%)`;
-
   // --- Sync Radial Nav Overlay ---
   const radialNav = document.getElementById('radial-nav');
   if (radialNav) {
@@ -3254,6 +3253,24 @@ function animate() {
       radialNav.classList.remove('show');
     }
   }
+
+  // --- Update Wavy Water Shaders (Idea 3) ---
+  waterShaderTime += realDeltaTime;
+  waterShaders.forEach(shader => {
+    if (shader && shader.uniforms && shader.uniforms.time) {
+      shader.uniforms.time.value = waterShaderTime;
+    }
+  });
+
+  // --- Update Foliage Wind Sway (Idea 5) ---
+  const windTime = currentTime * 0.0015;
+  foliageMeshes.forEach((mesh, idx) => {
+    // Sway rotation back and forth slightly. We offset by idx to make them sway out of phase!
+    const swayX = Math.sin(windTime + idx * 0.3) * 0.025;
+    const swayZ = Math.cos(windTime * 0.8 + idx * 0.45) * 0.02;
+    mesh.rotation.x = swayX;
+    mesh.rotation.z = swayZ;
+  });
 
   // --- Update Hover Protrusion ---
   const hoverSpeed = 10.0;
