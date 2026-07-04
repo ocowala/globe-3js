@@ -95,6 +95,15 @@ let starsMaterial = null;
 let starsPoints = null;
 let activeTheme = 'clay';
 
+// Interpolated state variables for smooth transitions
+let currentBg = { r1: 253, g1: 248, b1: 231, r2: 244, g2: 233, b2: 208, r3: 225, g3: 211, b3: 179 };
+let currentAmbientColor = new THREE.Color(0xfff6ea);
+let currentAmbientIntensity = 0.8;
+let currentDirColor = new THREE.Color(0xffffff);
+let currentDirIntensity = 0.7;
+let currentStarsOpacity = 0.0;
+let currentCursiveColor = '#000000';
+
 function initStarfield() {
   const starCount = 80;
   const positions = new Float32Array(starCount * 3);
@@ -117,10 +126,10 @@ function initStarfield() {
 
   starsMaterial = new THREE.PointsMaterial({
     color: 0xffffff,
-    size: 0.35,
+    size: 1.5,
     transparent: true,
     opacity: 0.0,
-    sizeAttenuation: true
+    sizeAttenuation: false
   });
 
   starsPoints = new THREE.Points(starsGeometry, starsMaterial);
@@ -325,7 +334,7 @@ function drawCursiveName(writeProgress, unwriteProgress) {
   // Use the Serif 210 font (Instrument Serif)
   ctx.font = '210px "Instrument Serif", Georgia, serif';
   ctx.textBaseline = 'top';
-  ctx.fillStyle = '#000000'; // Make writing black
+  ctx.fillStyle = currentCursiveColor; // Dynamically updated based on active theme/dark phase
 
   // Measure text to center them
   const w1 = ctx.measureText(name1).width;
@@ -3217,6 +3226,155 @@ const themeGradients = {
   }
 };
 
+// --- Scene-Tied Times of Day Configuration ---
+const sceneTimeConfigs = {
+  // Index 0: City at Night / Resume
+  // Starts night-ish (midnight cobalt) and transitions to dawn
+  0: {
+    bg: { r1: 120, g1: 88, b1: 104, r2: 80, g2: 60, b2: 85, r3: 40, g3: 30, b3: 50 }, // Purple-peach dawn
+    ambient: 0x5a4a66,
+    ambientIntensity: 0.55,
+    dir: 0xffd0b0,
+    dirIntensity: 0.45,
+    stars: 0.2,
+    dark: true
+  },
+  // Index 1: School / Academic
+  // Day (Clay Beige daylight)
+  1: {
+    bg: { r1: 253, g1: 248, b1: 231, r2: 244, g2: 233, b2: 208, r3: 225, g3: 211, b3: 179 },
+    ambient: 0xfff6ea,
+    ambientIntensity: 0.8,
+    dir: 0xffffff,
+    dirIntensity: 0.7,
+    stars: 0.0,
+    dark: false
+  },
+  // Index 2: Skills / Landscape
+  // 4 PM-ish / Late afternoon (Golden hour)
+  2: {
+    bg: { r1: 254, g1: 230, b1: 180, r2: 244, g2: 198, b2: 138, r3: 212, g3: 150, b3: 105 },
+    ambient: 0xffe9d2,
+    ambientIntensity: 0.75,
+    dir: 0xffd2a0,
+    dirIntensity: 0.75,
+    stars: 0.0,
+    dark: false
+  },
+  // Index 3: Experience / Beach
+  // Sunset (Light Crimson theme fits perfectly!)
+  3: {
+    bg: { r1: 253, g1: 198, b1: 185, r2: 235, g2: 154, b2: 140, r3: 195, g3: 115, b3: 105 },
+    ambient: 0xffe4db,
+    ambientIntensity: 0.65,
+    dir: 0xffaa90,
+    dirIntensity: 0.6,
+    stars: 0.0,
+    dark: false
+  },
+  // Index 4: Projects / Desert
+  // Starry Night (Cobalt Midnight theme fits perfectly!)
+  4: {
+    bg: { r1: 20, g1: 28, b1: 36, r2: 13, g2: 19, b2: 26, r3: 5, g3: 8, b3: 12 },
+    ambient: 0x3a4f66,
+    ambientIntensity: 0.45,
+    dir: 0xd4e3ff,
+    dirIntensity: 0.28,
+    stars: 1.0,
+    dark: true
+  },
+  // Index 5: Hobbies / Cafe
+  // Morning (Emerald Green theme fits morning beautifully!)
+  5: {
+    bg: { r1: 242, g1: 247, b1: 242, r2: 225, g2: 235, b2: 225, r3: 204, g3: 220, b3: 202 },
+    ambient: 0xeaf6ea,
+    ambientIntensity: 0.8,
+    dir: 0xf0fff0,
+    dirIntensity: 0.7,
+    stars: 0.0,
+    dark: false
+  }
+};
+
+function getDayNightTargets(currentTime) {
+  // If we are in the intro, follow mode, or focused on a scene
+  const isSceneActive = introActive || isIntroTransitioning || isOrbitAnimating || selectedTextbox;
+  
+  if (isSceneActive) {
+    const activeIdx = (introActive || isIntroTransitioning || isOrbitAnimating) ? currentSeqIndex : activeNavIndex;
+    
+    // Get target config for this scene index
+    let config = sceneTimeConfigs[activeIdx] || sceneTimeConfigs[1];
+    
+    // Dynamic Dawn transition logic for City (Index 0)
+    if (activeIdx === 0 && (introActive || isIntroTransitioning || isOrbitAnimating)) {
+      const seq = orbitSequence[0];
+      if (seq && seq.params) {
+        const startDeg = seq.start; // 20
+        const endDeg = seq.end; // -30
+        const currentDeg = seq.params.orbitDegrees;
+        const totalDist = Math.abs(startDeg - endDeg);
+        const currentDist = Math.abs(startDeg - currentDeg);
+        
+        // Progress goes from 0.0 (start) to 1.0 (end)
+        const progress = Math.min(Math.max(currentDist / totalDist, 0.0), 1.0);
+        
+        // Transition from Midnight (Cobalt) to Dawn
+        const midnight = themeGradients.cobalt.night;
+        const dawn = { r1: 120, g1: 88, b1: 104, r2: 80, g2: 60, b2: 85, r3: 40, g3: 30, b3: 50 };
+        
+        const r1 = THREE.MathUtils.lerp(midnight.r1, dawn.r1, progress);
+        const g1 = THREE.MathUtils.lerp(midnight.g1, dawn.g1, progress);
+        const b1 = THREE.MathUtils.lerp(midnight.b1, dawn.b1, progress);
+        
+        const r2 = THREE.MathUtils.lerp(midnight.r2, dawn.r2, progress);
+        const g2 = THREE.MathUtils.lerp(midnight.g2, dawn.g2, progress);
+        const b2 = THREE.MathUtils.lerp(midnight.b2, dawn.b2, progress);
+        
+        const r3 = THREE.MathUtils.lerp(midnight.r3, dawn.r3, progress);
+        const g3 = THREE.MathUtils.lerp(midnight.g3, dawn.g3, progress);
+        const b3 = THREE.MathUtils.lerp(midnight.b3, dawn.b3, progress);
+        
+        const colorAmbient = new THREE.Color(midnight.ambient || 0x223344).lerp(new THREE.Color(0x5a4a66), progress);
+        const colorDir = new THREE.Color(0xd4e3ff).lerp(new THREE.Color(0xffd0b0), progress);
+        
+        return {
+          bg: { r1, g1, b1, r2, g2, b2, r3, g3, b3 },
+          ambient: colorAmbient.getHex(),
+          ambientIntensity: THREE.MathUtils.lerp(0.45, 0.55, progress),
+          dir: colorDir.getHex(),
+          dirIntensity: THREE.MathUtils.lerp(0.28, 0.45, progress),
+          stars: THREE.MathUtils.lerp(0.8, 0.2, progress),
+          dark: true
+        };
+      }
+    }
+    
+    return {
+      bg: config.bg,
+      ambient: config.ambient,
+      ambientIntensity: config.ambientIntensity,
+      dir: config.dir,
+      dirIntensity: config.dirIntensity,
+      stars: config.stars,
+      dark: config.dark
+    };
+  } else {
+    // Overview mode: use the activeTheme selected by the user
+    const themeData = themeGradients[activeTheme] || themeGradients.clay;
+    
+    return {
+      bg: themeData.day,
+      ambient: themeData.day.ambient,
+      ambientIntensity: activeTheme === 'cobalt' ? 0.45 : 0.8,
+      dir: 0xffffff,
+      dirIntensity: activeTheme === 'cobalt' ? 0.28 : 0.7,
+      stars: activeTheme === 'cobalt' ? 0.8 : 0.0,
+      dark: activeTheme === 'cobalt'
+    };
+  }
+}
+
 // --- Animate ---
 function animate() {
   requestAnimationFrame(animate);
@@ -3226,55 +3384,62 @@ function animate() {
   const deltaTime = Math.min(realDeltaTime, 0.05); // cap for physics/orbit
   lastTime = currentTime;
 
-  // --- Day-Night Cycle & Twinkling Starfield ---
-  dayNightTime = (currentTime / 1000.0 / DAY_NIGHT_DURATION) % 1.0;
-  
-  // Calculate nightFactor (0.0 at midday, 1.0 at midnight)
-  const nightFactor = Math.sin(dayNightTime * Math.PI * 2) * 0.5 + 0.5;
+  // --- Refined Day-Night Cycle & Twinkling Starfield ---
+  const targets = getDayNightTargets(currentTime);
 
-  const currentThemeData = themeGradients[activeTheme] || themeGradients.clay;
+  // Transition speed: smoothly transitions backgrounds and lights over ~1 to 1.5 seconds
+  const transitionSpeed = Math.min(2.0 * realDeltaTime, 1.0);
 
-  // 1. Lerp Ambient Light Intensity and Color
-  if (ambientLight) {
-    ambientLight.intensity = THREE.MathUtils.lerp(0.8, 0.45, nightFactor);
-    ambientLight.color.lerpColors(
-      new THREE.Color(currentThemeData.day.ambient),
-      new THREE.Color(currentThemeData.night.ambient),
-      nightFactor
-    );
-  }
+  // 1. Lerp BG Colors
+  currentBg.r1 += (targets.bg.r1 - currentBg.r1) * transitionSpeed;
+  currentBg.g1 += (targets.bg.g1 - currentBg.g1) * transitionSpeed;
+  currentBg.b1 += (targets.bg.b1 - currentBg.b1) * transitionSpeed;
 
-  // 2. Lerp Directional Light (Sun ➔ Moon)
-  if (directionalLight) {
-    directionalLight.intensity = THREE.MathUtils.lerp(0.7, 0.28, nightFactor);
-    directionalLight.color.lerpColors(
-      new THREE.Color(0xffffff),
-      new THREE.Color(0xd4e3ff),
-      nightFactor
-    );
-  }
+  currentBg.r2 += (targets.bg.r2 - currentBg.r2) * transitionSpeed;
+  currentBg.g2 += (targets.bg.g2 - currentBg.g2) * transitionSpeed;
+  currentBg.b2 += (targets.bg.b2 - currentBg.b2) * transitionSpeed;
 
-  // 3. Lerp CSS Background Gradient
-  const r1 = Math.round(THREE.MathUtils.lerp(currentThemeData.day.r1, currentThemeData.night.r1, nightFactor));
-  const g1 = Math.round(THREE.MathUtils.lerp(currentThemeData.day.g1, currentThemeData.night.g1, nightFactor));
-  const b1 = Math.round(THREE.MathUtils.lerp(currentThemeData.day.b1, currentThemeData.night.b1, nightFactor));
+  currentBg.r3 += (targets.bg.r3 - currentBg.r3) * transitionSpeed;
+  currentBg.g3 += (targets.bg.g3 - currentBg.g3) * transitionSpeed;
+  currentBg.b3 += (targets.bg.b3 - currentBg.b3) * transitionSpeed;
 
-  const r2 = Math.round(THREE.MathUtils.lerp(currentThemeData.day.r2, currentThemeData.night.r2, nightFactor));
-  const g2 = Math.round(THREE.MathUtils.lerp(currentThemeData.day.g2, currentThemeData.night.g2, nightFactor));
-  const b2 = Math.round(THREE.MathUtils.lerp(currentThemeData.day.b2, currentThemeData.night.b2, nightFactor));
+  const r1 = Math.round(currentBg.r1);
+  const g1 = Math.round(currentBg.g1);
+  const b1 = Math.round(currentBg.b1);
 
-  const r3 = Math.round(THREE.MathUtils.lerp(currentThemeData.day.r3, currentThemeData.night.r3, nightFactor));
-  const g3 = Math.round(THREE.MathUtils.lerp(currentThemeData.day.g3, currentThemeData.night.g3, nightFactor));
-  const b3 = Math.round(THREE.MathUtils.lerp(currentThemeData.day.b3, currentThemeData.night.b3, nightFactor));
+  const r2 = Math.round(currentBg.r2);
+  const g2 = Math.round(currentBg.g2);
+  const b2 = Math.round(currentBg.b2);
+
+  const r3 = Math.round(currentBg.r3);
+  const g3 = Math.round(currentBg.g3);
+  const b3 = Math.round(currentBg.b3);
 
   document.body.style.background = `radial-gradient(circle at top, rgb(${r1},${g1},${b1}) 0%, rgb(${r2},${g2},${b2}) 45%, rgb(${r3},${g3},${b3}) 100%)`;
 
+  // 2. Lerp Ambient Light
+  if (ambientLight) {
+    currentAmbientIntensity += (targets.ambientIntensity - currentAmbientIntensity) * transitionSpeed;
+    ambientLight.intensity = currentAmbientIntensity;
+    
+    currentAmbientColor.lerp(new THREE.Color(targets.ambient), transitionSpeed);
+    ambientLight.color.copy(currentAmbientColor);
+  }
+
+  // 3. Lerp Directional Light
+  if (directionalLight) {
+    currentDirIntensity += (targets.dirIntensity - currentDirIntensity) * transitionSpeed;
+    directionalLight.intensity = currentDirIntensity;
+    
+    currentDirColor.lerp(new THREE.Color(targets.dir), transitionSpeed);
+    directionalLight.color.copy(currentDirColor);
+  }
+
   // 4. Update body theme classes dynamically (Cobalt or peak Night adds 'dark' mode UI)
-  const isDarkPhase = nightFactor > 0.5;
   document.body.classList.remove('theme-clay', 'theme-cobalt', 'theme-emerald', 'theme-crimson');
   document.body.classList.add(`theme-${activeTheme}`);
   
-  if (isDarkPhase || activeTheme === 'cobalt') {
+  if (targets.dark) {
     document.body.classList.add('dark');
   } else {
     document.body.classList.remove('dark');
@@ -3282,7 +3447,19 @@ function animate() {
 
   // 5. Animate and Twinkle Starfield
   if (starsMaterial) {
-    starsMaterial.opacity = nightFactor * (0.5 + 0.3 * Math.sin(currentTime * 0.003));
+    currentStarsOpacity += (targets.stars - currentStarsOpacity) * transitionSpeed;
+    const twinkle = 0.5 + 0.3 * Math.sin(currentTime * 0.003);
+    starsMaterial.opacity = currentStarsOpacity * twinkle;
+  }
+
+  // 6. Draw name in white during dark phases, black in light phases
+  const targetCursiveColor = targets.dark ? '#ffffff' : '#000000';
+  if (currentCursiveColor !== targetCursiveColor) {
+    currentCursiveColor = targetCursiveColor;
+    drawCursiveName(1.0, 0.0);
+    if (cursivePlane && cursivePlane.material && cursivePlane.material.map) {
+      cursivePlane.material.map.needsUpdate = true;
+    }
   }
 
   // --- Sync Radial Nav Overlay ---
