@@ -93,6 +93,7 @@ const DAY_NIGHT_DURATION = 45.0; // 45 seconds per full cycle
 
 let starsMaterial = null;
 let starsPoints = null;
+let activeTheme = 'clay';
 
 function initStarfield() {
   const starCount = 80;
@@ -5293,7 +5294,7 @@ if (radialNavContainer) {
 }
 
 // --- Customizable Themes Controller ---
-let activeTheme = 'clay';
+
 
 const themeSelector = document.getElementById('theme-selector');
 if (themeSelector) {
