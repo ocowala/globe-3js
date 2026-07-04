@@ -10,6 +10,15 @@ import * as dat from 'dat.gui';
 const container = document.getElementById('canvas-container');
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
 const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+const isIOSDevice = /iPhone|iPad|iPod/i.test(navigator.userAgent) || 
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+// Disable and hide radial nav entirely on desktop / non-iOS devices
+const radialNavOnLoad = document.getElementById('radial-nav');
+if (!isIOSDevice && radialNavOnLoad) {
+  radialNavOnLoad.style.display = 'none';
+}
+
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2.0));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;
@@ -3156,7 +3165,7 @@ function animate() {
   // --- Sync Radial Nav Overlay ---
   const radialNav = document.getElementById('radial-nav');
   if (radialNav) {
-    const shouldShow = isPostSequence && !introActive && !isIntroTransitioning && !selectedTextbox;
+    const shouldShow = isIOSDevice && isPostSequence && !introActive && !isIntroTransitioning && !selectedTextbox;
     if (shouldShow) {
       radialNav.classList.add('show');
       const wheel = radialNav.querySelector('.radial-wheel');
