@@ -3153,6 +3153,29 @@ function animate() {
   const deltaTime = Math.min(realDeltaTime, 0.05); // cap for physics/orbit
   lastTime = currentTime;
 
+  // --- Sync Radial Nav Overlay ---
+  const radialNav = document.getElementById('radial-nav');
+  if (radialNav) {
+    const shouldShow = isPostSequence && !introActive && !isIntroTransitioning && !selectedTextbox;
+    if (shouldShow) {
+      radialNav.classList.add('show');
+      const wheel = radialNav.querySelector('.radial-wheel');
+      if (wheel) {
+        wheel.style.transform = `rotate(${-activeNavIndex * 60}deg)`;
+      }
+      const nodes = radialNav.querySelectorAll('.radial-node');
+      nodes.forEach((node, idx) => {
+        if (idx === activeNavIndex) {
+          node.classList.add('active');
+        } else {
+          node.classList.remove('active');
+        }
+      });
+    } else {
+      radialNav.classList.remove('show');
+    }
+  }
+
   // --- Update Hover Protrusion ---
   const hoverSpeed = 10.0;
   for (const name in hoverScenes) {
@@ -4686,6 +4709,43 @@ const songMap = {
   '/fillmore.mp3': 'fillmore county - vansire, floor cry',
 };
 
+// --- Web Audio API state for visualizer ---
+let audioCtx = null;
+let analyser = null;
+let dataArray = null;
+
+function updateVisualizer() {
+  if (!analyser || audio.paused) {
+    const bars = document.querySelectorAll('.audio-visualizer .bar');
+    bars.forEach(bar => {
+      bar.style.transform = 'scaleY(0.15)';
+    });
+    return;
+  }
+
+  requestAnimationFrame(updateVisualizer);
+
+  analyser.getByteFrequencyData(dataArray);
+
+  const bars = document.querySelectorAll('.audio-visualizer .bar');
+  if (bars.length === 4) {
+    const b0 = dataArray[4] || 0;
+    const b1 = dataArray[12] || 0;
+    const b2 = dataArray[24] || 0;
+    const b3 = dataArray[40] || 0;
+
+    const scale0 = Math.max(0.15, b0 / 255);
+    const scale1 = Math.max(0.15, b1 / 255);
+    const scale2 = Math.max(0.15, b2 / 255);
+    const scale3 = Math.max(0.15, b3 / 255);
+
+    bars[0].style.transform = `scaleY(${scale0})`;
+    bars[1].style.transform = `scaleY(${scale1})`;
+    bars[2].style.transform = `scaleY(${scale2})`;
+    bars[3].style.transform = `scaleY(${scale3})`;
+  }
+}
+
 if (audio) {
   const songKeys = Object.keys(songMap);
   const randomSong = songKeys[Math.floor(Math.random() * songKeys.length)];
@@ -4699,6 +4759,10 @@ if (audio) {
   audio.addEventListener('play', () => {
     if (songNameEl) songNameEl.classList.add('playing');
     if (audioToggle) audioToggle.classList.add('playing');
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    updateVisualizer();
   });
   audio.addEventListener('pause', () => {
     if (songNameEl) songNameEl.classList.remove('playing');
@@ -4708,15 +4772,31 @@ if (audio) {
 
 if (audio && audioToggle) {
   audioToggle.addEventListener('click', () => {
+    // Initialize Web Audio context on first click interaction to comply with browser safety rules
+    if (!audioCtx) {
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 128; // small FFT size for 4 bars
+        const source = audioCtx.createMediaElementSource(audio);
+        source.connect(analyser);
+        analyser.connect(audioCtx.destination);
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+      } catch (err) {
+        console.warn("Failed to initialize Web Audio context:", err);
+      }
+    }
+
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+
     if (audio.paused) {
-      audio.play().then(() => {
-        if (songNameEl) songNameEl.classList.add('playing');
-      }).catch(err => {
+      audio.play().catch(err => {
         console.error("Audio playback failed:", err);
       });
     } else {
       audio.pause();
-      if (songNameEl) songNameEl.classList.remove('playing');
     }
   });
 }
@@ -4976,7 +5056,8 @@ window.addEventListener('pointerdown', (event) => {
   if (event.target.tagName === 'BUTTON' ||
     event.target.closest('.dg') ||
     event.target.id === 'audio-toggle' ||
-    event.target.closest('#audio-toggle')) {
+    event.target.closest('#audio-toggle') ||
+    event.target.closest('.radial-nav')) {
     return;
   }
 
@@ -5088,4 +5169,29 @@ if (movieVideo) {
     movieVideo.src = 'https://pub-072874b429b14b129985f91cc0b6ecbc.r2.dev/capcut_video_v1.mp4';
     console.log("Environment: Vercel Cloud (Staging/Production). Loading video from Cloudflare R2.");
   }
+}
+
+// --- Radial Nav Dial Click Bindings ---
+const radialNavContainer = document.getElementById('radial-nav');
+if (radialNavContainer) {
+  const nodes = radialNavContainer.querySelectorAll('.radial-node');
+  nodes.forEach(node => {
+    node.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const idx = parseInt(node.getAttribute('data-idx'));
+      if (!isNaN(idx)) {
+        if (navLabels[idx]) {
+          const entry = navLabels[idx];
+          if (entry.config.label === 'Resume') {
+            console.log("Radial Nav Resume clicked. Opening /resume_v1.pdf");
+            window.open('/resume_v1.pdf', '_blank');
+          } else {
+            console.log(`Radial Nav clicked: ${entry.config.label}. Navigating to index ${idx}.`);
+            triggerNavigation(idx);
+          }
+        }
+      }
+    });
+  });
 }

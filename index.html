@@ -74,10 +74,32 @@
 
     <div id="canvas-container"></div>
 
-    <audio id="bg-audio" preload="auto" loop></audio>
+    <audio id="bg-audio" crossorigin="anonymous" preload="auto" loop></audio>
     <span id="audio-toggle" title="Toggle Audio" aria-label="Toggle Audio">
-      <span class="music-emoji">🎶</span><span id="song-name"></span>
+      <span class="music-emoji">🎶</span>
+      <div id="audio-visualizer" class="audio-visualizer">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+      </div>
+      <span id="song-name"></span>
     </span>
+
+    <!-- Radial Navigation Wheel (primarily for iPhone/iPad & desktop) -->
+    <div id="radial-nav" class="radial-nav">
+      <div class="radial-wheel">
+        <button class="radial-node node-0" data-idx="0" title="Resume" style="background:#f7c5c0"></button>
+        <button class="radial-node node-1" data-idx="1" title="School" style="background:#c7b8ea"></button>
+        <button class="radial-node node-2" data-idx="2" title="Skills" style="background:#fce8a3"></button>
+        <button class="radial-node node-3" data-idx="3" title="Experience" style="background:#b8e6c8"></button>
+        <button class="radial-node node-4" data-idx="4" title="Projects" style="background:#ffd8b1"></button>
+        <button class="radial-node node-5" data-idx="5" title="Hobbies" style="background:#a8d8ea"></button>
+        <div class="radial-center">
+          <span class="radial-arrow">↑</span>
+        </div>
+      </div>
+    </div>
 
   </div>
 

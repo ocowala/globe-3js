@@ -491,6 +491,199 @@ body.dark #song-name.playing {
   }
 }
 
+/* ── Radial Navigation Dial (Top/Bottom Left) ── */
+.radial-nav {
+  position: fixed;
+  bottom: 28px;
+  left: 28px;
+  width: 90px;
+  height: 90px;
+  z-index: 25;
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+  transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.85);
+}
+
+.radial-nav.show {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1.0);
+}
+
+.radial-wheel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  transition: transform 0.8s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.radial-node {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin-top: -8px;
+  margin-left: -8px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s ease;
+  padding: 0;
+  outline: none;
+}
+
+.radial-node:hover {
+  transform: scale(1.3);
+  border-color: #24333f;
+}
+
+/* 6 nodes positioned radially at 60deg steps, radius = 32px. Node 0 is at 12 o'clock (-90deg). */
+.radial-node.node-0 { transform: rotate(-90deg) translate(32px) rotate(90deg); }
+.radial-node.node-1 { transform: rotate(-30deg) translate(32px) rotate(30deg); }
+.radial-node.node-2 { transform: rotate(30deg) translate(32px) rotate(-30deg); }
+.radial-node.node-3 { transform: rotate(90deg) translate(32px) rotate(-90deg); }
+.radial-node.node-4 { transform: rotate(150deg) translate(32px) rotate(-150deg); }
+.radial-node.node-5 { transform: rotate(210deg) translate(32px) rotate(-210deg); }
+
+.radial-node.active {
+  border-color: #24333f;
+  border-width: 1.5px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  animation: pulse-node 1.5s infinite alternate ease-in-out;
+}
+
+@keyframes pulse-node {
+  0% { transform: scale(1.3); }
+  100% { transform: scale(1.55); }
+}
+
+.radial-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 26px;
+  height: 26px;
+  margin-top: -13px;
+  margin-left: -13px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.radial-arrow {
+  font-size: 11px;
+  color: #24333f;
+  font-weight: bold;
+  transform: translateY(-1px);
+}
+
+body.dark .radial-nav {
+  background: rgba(20, 28, 36, 0.45);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+body.dark .radial-center {
+  background: rgba(20, 28, 36, 0.85);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f1f5f9;
+}
+
+body.dark .radial-arrow {
+  color: #f1f5f9;
+}
+
+body.dark .radial-node {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+body.dark .radial-node.active {
+  border-color: #f1f5f9;
+}
+
+/* ── Audio Visualizer (Music Pill Icon) ── */
+.audio-visualizer {
+  display: flex;
+  align-items: flex-end;
+  gap: 2.5px;
+  width: 16px;
+  height: 14px;
+  flex-shrink: 0;
+  pointer-events: none;
+  opacity: 0;
+  max-width: 0;
+  overflow: hidden;
+  transition: opacity 0.2s ease, max-width 0.3s ease;
+}
+
+#audio-toggle:hover .audio-visualizer {
+  opacity: 1;
+  max-width: 20px;
+}
+
+.audio-visualizer .bar {
+  width: 2px;
+  height: 100%;
+  background: #24333f;
+  transform-origin: bottom;
+  transform: scaleY(0.15); /* flat when idle */
+  transition: transform 0.1s ease;
+  border-radius: 1px;
+}
+
+body.dark .audio-visualizer .bar {
+  background: #f1f5f9;
+}
+
+/* ── Responsive adjustments for Radial Nav on mobile ── */
+@media (max-width: 768px) {
+  .radial-nav {
+    bottom: calc(20px + env(safe-area-inset-bottom));
+    left: calc(16px + env(safe-area-inset-left));
+    width: 80px;
+    height: 80px;
+  }
+  
+  .radial-node {
+    width: 14px;
+    height: 14px;
+    margin-top: -7px;
+    margin-left: -7px;
+  }
+  
+  .radial-node.node-0 { transform: rotate(-90deg) translate(28px) rotate(90deg); }
+  .radial-node.node-1 { transform: rotate(-30deg) translate(28px) rotate(30deg); }
+  .radial-node.node-2 { transform: rotate(30deg) translate(28px) rotate(-30deg); }
+  .radial-node.node-3 { transform: rotate(90deg) translate(28px) rotate(-90deg); }
+  .radial-node.node-4 { transform: rotate(150deg) translate(28px) rotate(-150deg); }
+  .radial-node.node-5 { transform: rotate(210deg) translate(28px) rotate(-210deg); }
+
+  .radial-center {
+    width: 24px;
+    height: 24px;
+    margin-top: -12px;
+    margin-left: -12px;
+  }
+}
+
 
 
 
