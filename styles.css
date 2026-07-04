@@ -139,6 +139,20 @@ canvas {
   border-width: 1.5px;
 }
 
+#audio-toggle .audio-visualizer {
+  display: none;
+}
+
+#audio-toggle.playing .music-emoji {
+  display: none !important;
+}
+
+#audio-toggle.playing .audio-visualizer {
+  display: flex !important;
+  opacity: 1 !important;
+  max-width: 20px !important;
+}
+
 #bg-audio {
   display: none;
 }

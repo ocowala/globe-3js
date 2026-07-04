@@ -3229,15 +3229,15 @@ const themeGradients = {
 // --- Scene-Tied Times of Day Configuration ---
 const sceneTimeConfigs = {
   // Index 0: City at Night / Resume
-  // Starts night-ish (midnight cobalt) and transitions to dawn
+  // Starts night-ish (midnight cobalt) and transitions to Crimson Dusk
   0: {
-    bg: { r1: 120, g1: 88, b1: 104, r2: 80, g2: 60, b2: 85, r3: 40, g3: 30, b3: 50 }, // Purple-peach dawn
-    ambient: 0x5a4a66,
-    ambientIntensity: 0.55,
-    dir: 0xffd0b0,
-    dirIntensity: 0.45,
-    stars: 0.2,
-    dark: true
+    bg: { r1: 253, g1: 242, b1: 238, r2: 245, g2: 223, b2: 213, r3: 229, g3: 196, b3: 182 }, // Crimson Dusk
+    ambient: 0xffefe8,
+    ambientIntensity: 0.65,
+    dir: 0xffaa90,
+    dirIntensity: 0.6,
+    stars: 0.0,
+    dark: false
   },
   // Index 1: School / Academic
   // Day (Clay Beige daylight)
@@ -3252,20 +3252,31 @@ const sceneTimeConfigs = {
   },
   // Index 2: Skills / Landscape
   // 4 PM-ish / Late afternoon (Golden hour)
+  // Blend of Clay (60%) and Crimson (40%) to create a beautiful pastel sunset-gold
   2: {
-    bg: { r1: 254, g1: 230, b1: 180, r2: 244, g2: 198, b2: 138, r3: 212, g3: 150, b3: 105 },
-    ambient: 0xffe9d2,
+    bg: {
+      r1: Math.round(253 * 0.6 + 253 * 0.4),
+      g1: Math.round(248 * 0.6 + 242 * 0.4),
+      b1: Math.round(231 * 0.6 + 238 * 0.4),
+      r2: Math.round(244 * 0.6 + 245 * 0.4),
+      g2: Math.round(233 * 0.6 + 223 * 0.4),
+      b2: Math.round(208 * 0.6 + 213 * 0.4),
+      r3: Math.round(225 * 0.6 + 229 * 0.4),
+      g3: Math.round(211 * 0.6 + 196 * 0.4),
+      b3: Math.round(179 * 0.6 + 182 * 0.4)
+    },
+    ambient: 0xfff3eb,
     ambientIntensity: 0.75,
-    dir: 0xffd2a0,
-    dirIntensity: 0.75,
+    dir: 0xffe6d9,
+    dirIntensity: 0.7,
     stars: 0.0,
     dark: false
   },
   // Index 3: Experience / Beach
-  // Sunset (Light Crimson theme fits perfectly!)
+  // Sunset (Light Crimson Dusk)
   3: {
-    bg: { r1: 253, g1: 198, b1: 185, r2: 235, g2: 154, b2: 140, r3: 195, g3: 115, b3: 105 },
-    ambient: 0xffe4db,
+    bg: { r1: 253, g1: 242, b1: 238, r2: 245, g2: 223, b2: 213, r3: 229, g3: 196, b3: 182 },
+    ambient: 0xffefe8,
     ambientIntensity: 0.65,
     dir: 0xffaa90,
     dirIntensity: 0.6,
@@ -3273,7 +3284,7 @@ const sceneTimeConfigs = {
     dark: false
   },
   // Index 4: Projects / Desert
-  // Starry Night (Cobalt Midnight theme fits perfectly!)
+  // Starry Night (Cobalt Midnight)
   4: {
     bg: { r1: 20, g1: 28, b1: 36, r2: 13, g2: 19, b2: 26, r3: 5, g3: 8, b3: 12 },
     ambient: 0x3a4f66,
@@ -3284,7 +3295,7 @@ const sceneTimeConfigs = {
     dark: true
   },
   // Index 5: Hobbies / Cafe
-  // Morning (Emerald Green theme fits morning beautifully!)
+  // Morning (Emerald Sage)
   5: {
     bg: { r1: 242, g1: 247, b1: 242, r2: 225, g2: 235, b2: 225, r3: 204, g3: 220, b3: 202 },
     ambient: 0xeaf6ea,
@@ -3297,17 +3308,32 @@ const sceneTimeConfigs = {
 };
 
 function getDayNightTargets(currentTime) {
-  // If we are in the intro, follow mode, or focused on a scene
-  const isSceneActive = introActive || isIntroTransitioning || isOrbitAnimating || selectedTextbox;
+  // If assets are not fully loaded, or we are in the intro writing state (isIntroState = introActive || isIntroTransitioning)
+  const isIntroState = introActive || isIntroTransitioning;
+  if (!allAssetsLoaded || isIntroState) {
+    // Return Clay Beige Day configuration during loading and name writing
+    return {
+      bg: themeGradients.clay.day,
+      ambient: themeGradients.clay.day.ambient,
+      ambientIntensity: 0.8,
+      dir: 0xffffff,
+      dirIntensity: 0.7,
+      stars: 0.0,
+      dark: false
+    };
+  }
+
+  // Otherwise, we are in the follow sequence or post-sequence view
+  const isSceneActive = isOrbitAnimating || selectedTextbox;
   
   if (isSceneActive) {
-    const activeIdx = (introActive || isIntroTransitioning || isOrbitAnimating) ? currentSeqIndex : activeNavIndex;
+    const activeIdx = isOrbitAnimating ? currentSeqIndex : activeNavIndex;
     
     // Get target config for this scene index
     let config = sceneTimeConfigs[activeIdx] || sceneTimeConfigs[1];
     
     // Dynamic Dawn transition logic for City (Index 0)
-    if (activeIdx === 0 && (introActive || isIntroTransitioning || isOrbitAnimating)) {
+    if (activeIdx === 0 && isOrbitAnimating) {
       const seq = orbitSequence[0];
       if (seq && seq.params) {
         const startDeg = seq.start; // 20
@@ -3319,9 +3345,9 @@ function getDayNightTargets(currentTime) {
         // Progress goes from 0.0 (start) to 1.0 (end)
         const progress = Math.min(Math.max(currentDist / totalDist, 0.0), 1.0);
         
-        // Transition from Midnight (Cobalt) to Dawn
+        // Transition from Midnight (Cobalt) to Dawn (Crimson Dusk)
         const midnight = themeGradients.cobalt.night;
-        const dawn = { r1: 120, g1: 88, b1: 104, r2: 80, g2: 60, b2: 85, r3: 40, g3: 30, b3: 50 };
+        const dawn = themeGradients.crimson.day;
         
         const r1 = THREE.MathUtils.lerp(midnight.r1, dawn.r1, progress);
         const g1 = THREE.MathUtils.lerp(midnight.g1, dawn.g1, progress);
@@ -3335,17 +3361,17 @@ function getDayNightTargets(currentTime) {
         const g3 = THREE.MathUtils.lerp(midnight.g3, dawn.g3, progress);
         const b3 = THREE.MathUtils.lerp(midnight.b3, dawn.b3, progress);
         
-        const colorAmbient = new THREE.Color(midnight.ambient || 0x223344).lerp(new THREE.Color(0x5a4a66), progress);
-        const colorDir = new THREE.Color(0xd4e3ff).lerp(new THREE.Color(0xffd0b0), progress);
+        const colorAmbient = new THREE.Color(midnight.ambient || 0x223344).lerp(new THREE.Color(dawn.ambient), progress);
+        const colorDir = new THREE.Color(0xd4e3ff).lerp(new THREE.Color(0xffaa90), progress);
         
         return {
           bg: { r1, g1, b1, r2, g2, b2, r3, g3, b3 },
           ambient: colorAmbient.getHex(),
-          ambientIntensity: THREE.MathUtils.lerp(0.45, 0.55, progress),
+          ambientIntensity: THREE.MathUtils.lerp(0.45, 0.65, progress),
           dir: colorDir.getHex(),
-          dirIntensity: THREE.MathUtils.lerp(0.28, 0.45, progress),
-          stars: THREE.MathUtils.lerp(0.8, 0.2, progress),
-          dark: true
+          dirIntensity: THREE.MathUtils.lerp(0.28, 0.6, progress),
+          stars: THREE.MathUtils.lerp(0.8, 0.0, progress),
+          dark: progress < 0.5 // UI items go light mode in the latter half of sunrise
         };
       }
     }
