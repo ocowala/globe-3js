@@ -3520,6 +3520,14 @@ function animate() {
     }
   }
 
+  // 7. Update cylinder material color dynamically based on dark mode
+  if (globeMaterial) {
+    const targetCylinderColor = targets.dark ? new THREE.Color(0x141c24) : new THREE.Color(0xe8d9c4);
+    const targetEmissiveColor = targets.dark ? new THREE.Color(0x05080c) : new THREE.Color(0x271d1a);
+    globeMaterial.color.lerp(targetCylinderColor, transitionSpeed);
+    globeMaterial.emissive.lerp(targetEmissiveColor, transitionSpeed);
+  }
+
   // --- Sync Radial Nav Overlay ---
   const radialNav = document.getElementById('radial-nav');
   if (radialNav) {
