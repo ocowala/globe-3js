@@ -12,10 +12,11 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPr
 const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 const isIOSDevice = /iPhone|iPad|iPod/i.test(navigator.userAgent) || 
                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isHandheldDevice = isMobile || isIOSDevice;
 
-// Disable and hide radial nav entirely on desktop / non-iOS devices
+// Disable and hide radial nav entirely on desktop / non-handheld devices
 const radialNavOnLoad = document.getElementById('radial-nav');
-if (!isIOSDevice && radialNavOnLoad) {
+if (!isHandheldDevice && radialNavOnLoad) {
   radialNavOnLoad.style.display = 'none';
 }
 
@@ -3165,7 +3166,7 @@ function animate() {
   // --- Sync Radial Nav Overlay ---
   const radialNav = document.getElementById('radial-nav');
   if (radialNav) {
-    const shouldShow = isIOSDevice && isPostSequence && !introActive && !isIntroTransitioning && !selectedTextbox;
+    const shouldShow = isHandheldDevice && isPostSequence && !introActive && !isIntroTransitioning && !selectedTextbox;
     if (shouldShow) {
       radialNav.classList.add('show');
       const wheel = radialNav.querySelector('.radial-wheel');
