@@ -45,37 +45,56 @@ canvas {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 20px;
+  border-radius: 18px; /* circular when collapsed */
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: flex-start;
+  gap: 0px;
   font-family: "Instrument Serif", Georgia, serif;
   font-size: 14px;
   color: #24333f;
   letter-spacing: -0.01em;
   text-transform: lowercase;
   user-select: none;
-  transition: opacity 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
-  padding: 6px 14px;
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  padding: 0;
+  padding-left: 10px; /* centers the 16px emoji exactly */
+  width: 36px;
+  height: 36px;
   box-shadow: 0 4px 12px rgba(32, 48, 63, 0.08);
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 #audio-toggle:hover {
   background: rgba(255, 255, 255, 0.85);
-  transform: translateY(-1px);
+  width: 280px; /* comfortable width for song titles */
+  padding-left: 16px;
+  padding-right: 16px;
+  gap: 10px;
 }
 
 #audio-toggle .music-emoji {
   font-size: 16px;
   line-height: 1;
   pointer-events: none;
+  flex-shrink: 0;
 }
 
 #song-name {
   color: inherit;
   pointer-events: none;
-  transition: all 0.3s ease;
+  white-space: nowrap;
+  opacity: 0;
+  overflow: hidden;
+  text-overflow: ellipsis; /* handles extra long song names cleanly */
+  transition: opacity 0.2s ease;
+}
+
+#audio-toggle:hover #song-name {
+  opacity: 1;
+  transition-delay: 0.1s; /* fade in text once pill has started expanding */
 }
 
 #song-name.playing {
@@ -416,7 +435,18 @@ body.dark #song-name.playing {
     bottom: calc(20px + env(safe-area-inset-bottom));
     right: calc(16px + env(safe-area-inset-right));
     font-size: 12px;
-    padding: 5px 12px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    padding-left: 11px; /* centers the 14px emoji exactly */
+    gap: 0;
+  }
+
+  #audio-toggle:hover {
+    width: 240px; /* slightly narrower expanded state on mobile */
+    padding-left: 14px;
+    padding-right: 14px;
+    gap: 8px;
   }
 
   #audio-toggle .music-emoji {
