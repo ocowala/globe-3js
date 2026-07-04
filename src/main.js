@@ -5528,24 +5528,38 @@ if (radialNavContainer) {
   });
 }
 
-// --- Customizable Themes Controller ---
+// --- Customizable Themes Toggle Controller ---
+const themeToggle = document.getElementById('theme-toggle');
+if (themeToggle) {
+  const emojiEl = themeToggle.querySelector('.theme-emoji');
+  
+  const modesList = ['cycle', 'cobalt', 'clay'];
+  const emojisMap = {
+    cycle: '🌗',
+    cobalt: '🌙',
+    clay: '☀️'
+  };
+  const titlesMap = {
+    cycle: 'Backdrop: Day-Night Cycle',
+    cobalt: 'Backdrop: Dark Mode (Cobalt)',
+    clay: 'Backdrop: Light Mode (Beige)'
+  };
 
-
-const themeSelector = document.getElementById('theme-selector');
-if (themeSelector) {
-  const themeBtns = themeSelector.querySelectorAll('.theme-btn');
-  themeBtns.forEach(btn => {
-    btn.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const mode = btn.getAttribute('data-mode');
-      
-      // Update active btn styling
-      themeBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-
-      activeBackdropMode = mode;
-      console.log(`Backdrop mode changed to: ${mode}`);
-    });
+  themeToggle.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Cycle backdrop mode: cycle -> cobalt -> clay -> cycle
+    const currentIdx = modesList.indexOf(activeBackdropMode);
+    const nextIdx = (currentIdx + 1) % modesList.length;
+    const nextMode = modesList[nextIdx];
+    
+    activeBackdropMode = nextMode;
+    
+    // Update button text and title
+    if (emojiEl) emojiEl.textContent = emojisMap[nextMode];
+    themeToggle.title = titlesMap[nextMode];
+    
+    console.log(`Backdrop mode cycled to: ${nextMode}`);
   });
 }

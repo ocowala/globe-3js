@@ -698,42 +698,54 @@ body.dark .audio-visualizer .bar {
   }
 }
 
-/* ── Theme Panel Selector ── */
-.theme-selector {
+/* ── Theme Toggle Button (Top-Right) ── */
+.theme-toggle {
   position: fixed;
   top: 28px;
   right: 28px;
   z-index: 30;
-  display: flex;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  padding: 6px;
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 4px 16px rgba(32, 48, 63, 0.06);
-}
-
-.theme-btn {
-  width: 18px;
-  height: 18px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 50%;
-  border: 1.5px solid transparent;
   cursor: pointer;
-  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  box-shadow: 0 4px 12px rgba(32, 48, 63, 0.08);
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
   outline: none;
+  padding: 0;
   box-sizing: border-box;
-  transition: transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.2s ease;
 }
 
-.theme-btn:hover {
-  transform: scale(1.25);
+.theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.85);
+  transform: scale(1.1);
 }
 
-.theme-btn.active {
-  transform: scale(1.15);
-  border-color: #24333f !important;
+.theme-toggle:active {
+  transform: scale(0.95);
+}
+
+.theme-toggle .theme-emoji {
+  font-size: 16px;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+
+body.dark .theme-toggle {
+  background: rgba(20, 28, 36, 0.7);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #f1f5f9;
+}
+
+body.dark .theme-toggle:hover {
+  background: rgba(20, 28, 36, 0.85);
 }
 
 /* ── Theme Gradients & Layout Rules ── */
@@ -757,25 +769,7 @@ body.theme-crimson {
   color: #4a2c20;
 }
 
-/* Active outlines based on text colors of the themes */
-body.theme-cobalt .theme-btn.active { border-color: #e2e8f0 !important; }
-body.theme-emerald .theme-btn.active { border-color: #1f3424 !important; }
-body.theme-crimson .theme-btn.active { border-color: #4a2c20 !important; }
 
-/* Responsive adjustments for mobile viewport */
-@media (max-width: 768px) {
-  .theme-selector {
-    top: auto;
-    bottom: calc(20px + env(safe-area-inset-bottom));
-    right: 50%;
-    transform: translateX(50%);
-    z-index: 30;
-    gap: 12px;
-    padding: 8px 12px;
-    border-radius: 24px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-  }
-}
 
 
 
