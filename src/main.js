@@ -8,7 +8,7 @@ import * as dat from 'dat.gui';
 import {
   initPreloader,
   updatePreloader,
-  triggerCountdown,
+  markAssetsLoaded,
   isPreloaderActive,
   isHandoffActive,
   getPreloaderCameraTransform,
@@ -396,8 +396,8 @@ function checkAllAssetsLoaded() {
   if (loadedCount === 12 && !allAssetsLoaded) {
     allAssetsLoaded = true;
     loaderFinishedTime = performance.now();
-    console.log("All 12 assets loaded, starting countdown and liftoff sequence...");
-    triggerCountdown();
+    console.log("All 12 assets loaded, registering loaded state with preloader...");
+    markAssetsLoaded();
   }
 }
 
@@ -2899,7 +2899,7 @@ const orbitSequence = [
 let currentSeqIndex = 0;
 let orbitDegreesPerSecond = 5; // Animation speed (degrees per second)
 let lastTime = performance.now();
-let isOrbitAnimating = true;
+let isOrbitAnimating = false;
 
 // --- Camera Follow State ---
 let cameraFollowEnabled = true;
@@ -3313,6 +3313,18 @@ const sceneTimeConfigs = {
 };
 
 function getDayNightTargets(currentTime) {
+  if (isPreloaderActive()) {
+    return {
+      bg: { r1: 20, g1: 28, b1: 36, r2: 13, g2: 19, b2: 26, r3: 5, g3: 8, b3: 12 },
+      ambient: 0x3a4f66,
+      ambientIntensity: 0.45,
+      dir: 0xd4e3ff,
+      dirIntensity: 0.28,
+      stars: 1.0,
+      dark: true
+    };
+  }
+
   // 1. If Light Mode (Clay Beige) is forced
   if (activeBackdropMode === 'clay') {
     return {
@@ -3643,7 +3655,7 @@ function animate() {
 
 
   const isPaused = camGuiState && camGuiState.paused;
-  const isIntroState = introActive || isIntroTransitioning;
+  const isIntroState = isPreloaderActive() || introActive || isIntroTransitioning;
 
   if (isVehicleHeld) {
     activeWheelSpeedFactor = Math.max(0.0, activeWheelSpeedFactor - realDeltaTime * 4.0);
@@ -4487,7 +4499,7 @@ function animate() {
           if (nextTBs) nextTBs.forEach(tb => setOpacity(tb.mesh, 1.0));
         }
       }
-    } else if (isOrbitAnimating) {
+    } else if (isOrbitAnimating && !isPreloaderActive()) {
       // Directly follow the current vehicle
       const currentSeq = orbitSequence[currentSeqIndex];
       const transform = currentSeq ? getVehicleCameraTransform(currentSeq) : null;

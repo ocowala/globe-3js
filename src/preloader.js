@@ -30,6 +30,11 @@ let preloaderTimer = 0.0;
 let loadingStartTime = 0.0;
 let countdownTimer = 5.0; // Countdown starts at T-5s
 let handoffTimer = 0.0;
+let assetsLoadedFlag = false;
+
+export function markAssetsLoaded() {
+  assetsLoadedFlag = true;
+}
 
 // Sway values (pitch/roll)
 let swayAmplitude = 0.05;
@@ -247,6 +252,11 @@ export function updatePreloader(dt, camera) {
     camera.position.copy(preloaderGroup.position).add(new THREE.Vector3(3.0, 3.0, 3.0));
     camera.lookAt(preloaderGroup.position);
     camera.up.set(0, 1, 0);
+  }
+
+  // If assets are loaded and we reached the 10-second mark, trigger the launch countdown
+  if ((currentState === STATE_DRIFTING || currentState === STATE_LOADING) && assetsLoadedFlag && preloaderTimer >= 10.0) {
+    triggerCountdown();
   }
 
   // --- Telemetry calculations & updates ---
