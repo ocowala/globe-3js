@@ -19,7 +19,7 @@ const smokeMeshes = []; // Smoke_1 to Smoke_5
 let starfieldRef = null;
 
 // Positioning & Physics
-const preloaderCenterZ = 15; // Position preloader scene at Z = 15
+const preloaderCenterZ = 30; // Position preloader scene at Z = 30
 const rocketBasePos = new THREE.Vector3(0, 0, preloaderCenterZ);
 const forwardDirection = new THREE.Vector3(1.0, 1.2, 0.0).normalize(); // Flight path vector (tilted in XY, constant Z)
 
@@ -163,21 +163,23 @@ export function initPreloader(scene, camera, starfield, onLoaded) {
   loader.load('/assets/models/rocket_v1.glb', (gltf) => {
     const model = gltf.scene;
     
-    // Find the Rocket_Ship body and smoke nodes
+    // Find the Rocket_Ship body group and smoke nodes
     model.traverse((child) => {
-      if (child.isMesh) {
-        if (child.name === 'Rocket_Ship') {
-          rocketShip = child;
-          // Set its orientation to point along forwardDirection
-          const localUp = new THREE.Vector3(0, 1, 0); // Blender up is +Z, Three gltf loader converts to +Y
-          rocketShip.quaternion.setFromUnitVectors(localUp, forwardDirection);
-        } else if (child.name.startsWith('Smoke_')) {
-          const idx = parseInt(child.name.split('_')[1]) - 1;
+      if (child.name === 'Rocket_Ship' && !child.isMesh) {
+        rocketShip = child;
+        console.log("Preloader: Matched rocket parent group object:", child.name);
+      } else if (child.isMesh) {
+        const lowerName = child.name.toLowerCase();
+        if (lowerName.includes('smoke_')) {
+          const parts = lowerName.split('smoke_');
+          const numStr = parts[parts.length - 1];
+          const idx = parseInt(numStr) - 1;
           if (idx >= 0 && idx < 5) {
             smokeMeshes[idx] = child;
             // Hide smoke initially during drifting phase
             child.visible = false;
             child.scale.set(0, 0, 0);
+            console.log("Preloader: Matched smoke mesh:", child.name, "index:", idx);
           }
         }
       }
@@ -243,6 +245,18 @@ export function updatePreloader(dt, camera) {
   if (!preloaderActive) return;
 
   preloaderTimer += dt;
+
+  // Self-heal DOM references in case the DOM elements load slightly after JS execution
+  if (!terminalBody) {
+    terminalBody = document.getElementById('terminal-body');
+    if (terminalBody) {
+      processQueue();
+    }
+  }
+  if (!speedEl) speedEl = document.getElementById('telemetry-speed');
+  if (!altEl) altEl = document.getElementById('telemetry-alt');
+  if (!timerEl) timerEl = document.getElementById('telemetry-time');
+
   if (timerEl) {
     timerEl.innerText = preloaderTimer.toFixed(1) + 's';
   }
@@ -319,47 +333,45 @@ export function updatePreloader(dt, camera) {
       swayFactor = 0.0;
     }
 
+    const localUp = new THREE.Vector3(0, 1, 0);
+    const baseQuat = new THREE.Quaternion().setFromUnitVectors(localUp, forwardDirection);
+
+    // Continuous slow roll rotation around the rocket's longitudinal local axis to show 3D volume
+    const rollAngle = preloaderTimer * 0.25; // slow roll rate
+    const rollQuat = new THREE.Quaternion().setFromAxisAngle(localUp, rollAngle);
+
     if (swayFactor > 0.0) {
-      // Oscillate pitch (x) and roll (z) slowly
+      // Oscillate pitch (x) and yaw (z) slowly
       const pitch = Math.sin(preloaderTimer * 1.5) * 0.05 * swayFactor;
       const roll = Math.cos(preloaderTimer * 1.8) * 0.05 * swayFactor;
-      // Apply oscillation on top of base quaternion
-      const baseQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), forwardDirection);
       const swayQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, 0, roll));
-      rocketShip.quaternion.copy(baseQuat).multiply(swayQuat);
+      // Combine base orientation * roll * sway
+      rocketShip.quaternion.copy(baseQuat).multiply(rollQuat).multiply(swayQuat);
     } else {
-      // Completely stabilized
-      const baseQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), forwardDirection);
-      rocketShip.quaternion.copy(baseQuat);
+      // Completely stabilized in sway, but keep rolling
+      rocketShip.quaternion.copy(baseQuat).multiply(rollQuat);
     }
 
-    // --- Smoke sequential fade-in and pulsing animation ---
-    const ignitionActive = (currentState === STATE_COUNTDOWN && countdownTimer <= 3.0) || (currentState === STATE_HANDOFF);
-    const loadingActive = (currentState === STATE_LOADING);
+    // --- Smoke sequential fade-in (countdown ignition onwards) ---
+    const ignitionActive = (currentState === STATE_COUNTDOWN) || (currentState === STATE_HANDOFF);
 
-    if (ignitionActive || loadingActive) {
-      // If asset loading has started, we activate/fade smoke sequentially.
-      // We can use the time elapsed since loading started (for loading phase)
-      // or set it to immediate active for ignition.
-      let elapsedPlumeTime = 0;
-      if (ignitionActive) {
-        elapsedPlumeTime = 5.0; // force all smoke active
+    if (ignitionActive) {
+      let elapsedPlumeTime = 0.0;
+      if (currentState === STATE_HANDOFF) {
+        elapsedPlumeTime = 5.0; // keep fully active
       } else {
-        elapsedPlumeTime = preloaderTimer - loadingStartTime; // seconds since loading logs started
+        elapsedPlumeTime = 5.0 - countdownTimer; // time since countdown started
       }
 
-      // Sequential delay between each smoke segment (Smoke_1 = largest/closest, Smoke_5 = smallest/furthest)
-      const delayPerSmoke = 0.3; // 300ms delay
+      // Sequential delay between each smoke segment (Smoke_1 = largest, Smoke_5 = smallest)
+      const delayPerSmoke = 0.25; // 250ms spacing
 
       smokeMeshes.forEach((smoke, idx) => {
         if (!smoke) return;
         const triggerTime = idx * delayPerSmoke;
         if (elapsedPlumeTime >= triggerTime) {
           smoke.visible = true;
-          // Fade in/scale up smoothly
           const fadeProgress = Math.min((elapsedPlumeTime - triggerTime) / 0.5, 1.0);
-          
-          // High-frequency rumble pulse scale
           const pulse = 1.0 + Math.sin(preloaderTimer * 28.0 + idx * 2.0) * 0.12;
           const targetScale = fadeProgress * pulse;
           smoke.scale.set(targetScale, targetScale, targetScale);
@@ -369,7 +381,7 @@ export function updatePreloader(dt, camera) {
         }
       });
     } else {
-      // Drifting: no smoke visible
+      // Drifting and loading logs phase: smoke is completely hidden
       smokeMeshes.forEach(smoke => {
         if (smoke) {
           smoke.visible = false;
@@ -382,15 +394,14 @@ export function updatePreloader(dt, camera) {
   // --- Background Starfield control ---
   if (starfieldRef) {
     if (currentState === STATE_DRIFTING || currentState === STATE_LOADING) {
-      // Slow background rotation to create drift feeling
-      starfieldRef.rotation.y += 0.015 * dt;
-      starfieldRef.rotation.x += 0.008 * dt;
+      // Keep stars static so the rocket's roll is clearly visible against the starry backdrop
+      starfieldRef.rotation.set(0, 0, 0);
     } else if (currentState === STATE_COUNTDOWN) {
-      // Speeding up star rotation
+      // Slowly start rotating stars during ignition to build liftoff tension
       const speedUpDuration = Math.min((3.0 - countdownTimer) / 3.0, 1.0);
-      const rotationMultiplier = THREE.MathUtils.lerp(1.0, 25.0, Math.max(0, speedUpDuration));
-      starfieldRef.rotation.y += 0.015 * rotationMultiplier * dt;
-      starfieldRef.rotation.x += 0.008 * rotationMultiplier * dt;
+      const rotationMultiplier = THREE.MathUtils.lerp(0.0, 5.0, Math.max(0, speedUpDuration));
+      starfieldRef.rotation.y += 0.005 * rotationMultiplier * dt;
+      starfieldRef.rotation.x += 0.003 * rotationMultiplier * dt;
     } else if (currentState === STATE_HANDOFF) {
       // High-speed warp stars rotating/rushing by
       const rotationMultiplier = THREE.MathUtils.lerp(25.0, 120.0, handoffProgress);

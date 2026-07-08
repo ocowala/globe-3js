@@ -27,8 +27,25 @@ body {
 
 
 #canvas-container {
+  position: absolute;
+  top: 0;
+  right: 0;
   width: 100%;
   height: 100%;
+  transition: width 1.5s cubic-bezier(0.25, 1, 0.5, 1), height 1.5s cubic-bezier(0.25, 1, 0.5, 1);
+  z-index: 1;
+}
+
+body.preloader-layout #canvas-container {
+  width: 50%;
+}
+
+@media (max-width: 767px) {
+  body.preloader-layout #canvas-container {
+    width: 100%;
+    height: 45vh;
+    top: 0;
+  }
 }
 
 canvas {

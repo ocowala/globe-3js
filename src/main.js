@@ -3452,6 +3452,15 @@ function animate() {
   const deltaTime = Math.min(realDeltaTime, 0.05); // cap for physics/orbit
   lastTime = currentTime;
 
+  // Auto-resize renderer and camera aspect ratio if the canvas container transitions in size
+  const containerWidth = container.clientWidth;
+  const containerHeight = container.clientHeight;
+  if (renderer.domElement.width !== containerWidth || renderer.domElement.height !== containerHeight) {
+    camera.aspect = containerWidth / containerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(containerWidth, containerHeight);
+  }
+
   if (isPreloaderActive()) {
     updatePreloader(realDeltaTime, camera);
     if (starsMaterial) {
@@ -3476,30 +3485,54 @@ function animate() {
     }
     
     // Check if handoff just started
-    if (isHandoffActive() && !isIntroTransitioning) {
-      isIntroTransitioning = true;
-      introTransitionProgress = 0.0;
-      introTransitionStartPos.set(3.0, 3.0, 18.0);
-      introTransitionStartTarget.set(0, 0, 15.0);
-      introTransitionStartUp.set(0, 1, 0);
+    if (isHandoffActive() && !isPostSequence) {
+      isPostSequence = true;
+      postSeqTimer = 0.0;
+      isIntroTransitioning = false; // Bypass the vehicle follow transition
+
+      // Set transition starting positions from preloader's current state (Z = 30)
+      transitionStartPos.set(3.0, 3.0, 33.0);
+      transitionStartTarget.set(0, 0, 30.0);
+      transitionStartUp.set(0, 1, 0);
       transitionStartGlobeOpacity = 0.0;
       transitionStartOrbitOpacity = 0.0;
+      transitionStartFOV = camera.fov;
+
+      // Remove the side-by-side split screen layout to trigger full-screen transition
+      document.body.classList.remove('preloader-layout');
       
-      // Restore dat.gui controls visibility
-      if (gui && gui.domElement) {
-        gui.domElement.style.display = '';
+      // Restore dat.gui controls visibility (commented out for now)
+      // if (gui && gui.domElement) {
+      //   gui.domElement.style.display = '';
+      // }
+      
+      // Enable cylinder visibility so they can fade in during the sweep
+      if (globe) {
+        globe.visible = true;
+        globeMaterial.opacity = 0.0;
       }
-      
-      // Enable cylinder visibility so they can fade in during the pan
-      if (globe) globe.visible = true;
-      if (orbitRing) orbitRing.visible = true;
+      if (orbitRing) {
+        orbitRing.visible = true;
+        orbitMaterial.opacity = 0.0;
+      }
+
+      // Show the cursive name plane and hide it initially to let it fade in
+      if (cursivePlane) {
+        cursivePlane.visible = true;
+        cursivePlane.material.opacity = 0.0;
+        cursivePlane.position.set(0, 0, getCylinderMiddleZ());
+        cursivePlane.rotation.set(0, 0, 0);
+      }
+
+      // Show all category vehicles (they will fade out or stay visible depending on loop)
       orbitSequence.forEach(seq => {
         const obj = seq.getObject();
         if (obj) {
           obj.visible = true;
-          setOpacity(obj, 0.0);
+          setOpacity(obj, 1.0);
         }
       });
+
       // Show all backgrounds
       const bgNames = ['City', 'School', 'Landscape', 'Beach', 'Desert', 'Cafe'];
       bgNames.forEach(name => {
@@ -3779,13 +3812,7 @@ function animate() {
   const now = performance.now();
   const showWriting = allAssetsLoaded && (now - loaderFinishedTime >= 200);
 
-  if (showWriting && !loaderOverlayHidden) {
-    loaderOverlayHidden = true;
-    const loaderOverlay = document.getElementById('loading-overlay');
-    if (loaderOverlay) {
-      loaderOverlay.classList.add('fade-out');
-    }
-  }
+
 
   if (introActive) {
     if (!isPaused && fullyOptimized && showWriting) {
@@ -4375,9 +4402,10 @@ function animate() {
       controls.autoRotate = false;
     }
 
-    // Fade in cursive text and cylinder
-    globeMaterial.opacity = THREE.MathUtils.lerp(globeMaterial.opacity, 0.35, 0.02);
-    orbitMaterial.opacity = THREE.MathUtils.lerp(orbitMaterial.opacity, 0.45, 0.02);
+    // Fade in cylinder
+    const sweepT = Math.min(postSeqTimer / 3.0, 1.0);
+    globeMaterial.opacity = THREE.MathUtils.lerp(0.0, 0.35, sweepT);
+    orbitMaterial.opacity = THREE.MathUtils.lerp(0.0, 0.45, sweepT);
 
     // Fade in the cursive name and apply counter-rotation to keep it static/horizontal
     if (cursivePlane) {
@@ -4548,7 +4576,7 @@ function animate() {
     }
 
     // Disable orbit controls during camera follow so they don't fight, but allow them when paused (except during textbox focus transition)
-    if (isPreloaderActive() || isIntroTransitioning || isOrbitAnimating || isTransitioning || textboxFocusState === 'entering' || textboxFocusState === 'exiting') {
+    if (isPreloaderActive() || isIntroTransitioning || isOrbitAnimating || isTransitioning || (isPostSequence && postSeqTimer < 3.0) || textboxFocusState === 'entering' || textboxFocusState === 'exiting') {
       controls.enabled = false;
     } else {
       controls.enabled = true;
