@@ -39,11 +39,33 @@
 
   <!-- Loading Overlay -->
   <div id="loading-overlay">
-    <div class="loader-container">
-      <div class="loader-orbit-ring">
-        <img src="/prince-icon.png" alt="Loading" class="loader-icon">
+    <!-- Left panel: Monospace terminal UI -->
+    <div class="preloader-panel terminal-panel">
+      <div class="terminal-header">
+        <div class="terminal-dot red"></div>
+        <div class="terminal-dot yellow"></div>
+        <div class="terminal-dot green"></div>
+        <span class="terminal-title">bash</span>
       </div>
-      <span id="loader-percent">0%</span>
+      <div class="terminal-body" id="terminal-body"></div>
+    </div>
+    
+    <!-- Right panel: HUD and telemetry readout -->
+    <div class="preloader-panel rocket-panel">
+      <div class="telemetry-box">
+        <div class="telemetry-row">
+          <span class="telemetry-label">SPEED</span>
+          <span class="telemetry-value" id="telemetry-speed">0.00 km/s</span>
+        </div>
+        <div class="telemetry-row">
+          <span class="telemetry-label">ALTITUDE</span>
+          <span class="telemetry-value" id="telemetry-alt">124.0 km</span>
+        </div>
+        <div class="telemetry-row">
+          <span class="telemetry-label">TIMER</span>
+          <span class="telemetry-value" id="telemetry-time">0.0s</span>
+        </div>
+      </div>
     </div>
   </div>
 

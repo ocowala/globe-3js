@@ -5,6 +5,15 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 import * as dat from 'dat.gui';
+import {
+  initPreloader,
+  updatePreloader,
+  triggerCountdown,
+  isPreloaderActive,
+  isHandoffActive,
+  getPreloaderCameraTransform,
+  getPreloaderHandoffProgress
+} from './preloader.js';
 
 
 const container = document.getElementById('canvas-container');
@@ -138,6 +147,9 @@ function initStarfield() {
 }
 
 initStarfield();
+initPreloader(scene, camera, starsPoints, () => {
+  console.log("Preloader assets initialized.");
+});
 
 
 const createThickCylinderGeometry = (innerRadius, outerRadius, height) => {
@@ -201,7 +213,7 @@ function buildCylinder() {
   orbitRing.updateMatrix();
   scene.add(orbitRing);
 
-  if (typeof introActive !== 'undefined' && introActive) {
+  if ((typeof introActive !== 'undefined' && introActive) || isPreloaderActive()) {
     globe.visible = false;
     orbitRing.visible = false;
   }
@@ -212,7 +224,7 @@ function buildCylinder() {
 }
 
 // --- Intro Cursive Animation State ---
-let introActive = true;
+let introActive = false;
 let introTimer = 0;
 let unwriteTimer = 0;
 let loadedCount = 0;
@@ -381,19 +393,11 @@ function drawCursiveName(writeProgress, unwriteProgress) {
 }
 
 function checkAllAssetsLoaded() {
-  const pctEl = document.getElementById('loader-percent');
-  if (loadedCount < 12) {
-    if (pctEl) {
-      const pct = Math.min(99, Math.round((loadedCount / 12) * 100));
-      pctEl.innerText = pct + '%';
-    }
-  } else if (loadedCount === 12 && !allAssetsLoaded) {
+  if (loadedCount === 12 && !allAssetsLoaded) {
     allAssetsLoaded = true;
     loaderFinishedTime = performance.now();
-    if (pctEl) {
-      pctEl.innerText = '100%';
-    }
-    console.log("All 12 assets loaded, starting incremental caching in background...");
+    console.log("All 12 assets loaded, starting countdown and liftoff sequence...");
+    triggerCountdown();
   }
 }
 
@@ -3434,6 +3438,41 @@ function animate() {
   const realDeltaTime = Math.min((currentTime - lastTime) / 1000, 1.0); // cap at 1s to prevent total break
   const deltaTime = Math.min(realDeltaTime, 0.05); // cap for physics/orbit
   lastTime = currentTime;
+
+  if (isPreloaderActive()) {
+    updatePreloader(realDeltaTime, camera);
+    if (starsMaterial) {
+      starsMaterial.opacity = 0.85; // Override twinkling starfield opacity to be bright during launch
+    }
+    
+    // Check if handoff just started
+    if (isHandoffActive() && !isIntroTransitioning) {
+      isIntroTransitioning = true;
+      introTransitionProgress = 0.0;
+      introTransitionStartPos.set(3.0, -4.0, 48.0);
+      introTransitionStartTarget.set(0, 0, 45.0);
+      introTransitionStartUp.set(0, 0, 1);
+      transitionStartGlobeOpacity = 0.0;
+      transitionStartOrbitOpacity = 0.0;
+      
+      // Enable cylinder visibility so they can fade in during the pan
+      globe.visible = true;
+      orbitRing.visible = true;
+      orbitSequence.forEach(seq => {
+        const obj = seq.getObject();
+        if (obj) {
+          obj.visible = true;
+          setOpacity(obj, 0.0);
+        }
+      });
+      // Show all backgrounds
+      const bgNames = ['City', 'School', 'Landscape', 'Beach', 'Desert', 'Cafe'];
+      bgNames.forEach(name => {
+        const model = scene.getObjectByName(name);
+        if (model) model.visible = true;
+      });
+    }
+  }
 
   // --- Refined Day-Night Cycle & Twinkling Starfield ---
   const targets = getDayNightTargets(currentTime);
