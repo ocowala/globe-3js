@@ -4,7 +4,10 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
-// import * as dat from 'dat.gui';
+// import * as dat from 'dat.gui'; 
+
+// comment out dat.gui to remove the debug panel
+// uncomment import AND comment DummyGUI class to bring back dat.gui dev
 
 class DummyGUI {
   constructor() {
@@ -45,9 +48,9 @@ class DummyGUI {
   }
   open() { return this; }
   close() { return this; }
-  destroy() {}
-  hide() {}
-  show() {}
+  destroy() { }
+  hide() { }
+  show() { }
 }
 const dat = {
   GUI: DummyGUI
@@ -57,8 +60,8 @@ const dat = {
 const container = document.getElementById('canvas-container');
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
 const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-const isIOSDevice = /iPhone|iPad|iPod/i.test(navigator.userAgent) || 
-                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isIOSDevice = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isHandheldDevice = isMobile || isIOSDevice;
 
 // Disable and hide radial nav entirely on desktop / non-handheld devices
@@ -162,7 +165,7 @@ function initStarfield() {
     const v = Math.random();
     const theta = u * 2.0 * Math.PI;
     const phi = Math.acos(2.0 * v - 1.0);
-    
+
     positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
     positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
     positions[i * 3 + 2] = radius * Math.cos(phi);
@@ -288,21 +291,21 @@ let textboxFocusState = 'idle'; // 'idle' | 'entering' | 'focused' | 'exiting'
 let textboxFocusTimer = 0.0;
 
 // Saved camera state from BEFORE entering focus (restored on exit)
-const textboxFocusPrePos    = new THREE.Vector3();
+const textboxFocusPrePos = new THREE.Vector3();
 const textboxFocusPreTarget = new THREE.Vector3();
-const textboxFocusPreUp     = new THREE.Vector3();
-let   textboxFocusPreFOV    = 38;
+const textboxFocusPreUp = new THREE.Vector3();
+let textboxFocusPreFOV = 38;
 
 // Start state of the current lerp segment (enter or exit)
-const textboxFocusLerpStartPos    = new THREE.Vector3();
+const textboxFocusLerpStartPos = new THREE.Vector3();
 const textboxFocusLerpStartTarget = new THREE.Vector3();
-const textboxFocusLerpStartUp     = new THREE.Vector3();
-let   textboxFocusLerpStartFOV    = 38;
+const textboxFocusLerpStartUp = new THREE.Vector3();
+let textboxFocusLerpStartFOV = 38;
 
 // Target camera state when entering focus
-const textboxFocusTargetPos    = new THREE.Vector3();
+const textboxFocusTargetPos = new THREE.Vector3();
 const textboxFocusTargetLookAt = new THREE.Vector3();
-const textboxFocusTargetUp     = new THREE.Vector3();
+const textboxFocusTargetUp = new THREE.Vector3();
 
 function getResponsiveFOV() {
   const aspect = window.innerWidth / window.innerHeight;
@@ -971,7 +974,7 @@ function drawTextBoxCanvas(canvas, data, pastelColor, isFocused, textureToUpdate
       // Bullets list
       ctx.fillStyle = '#222222';
       ctx.font = '32px "Instrument Serif", Georgia, serif';
-      
+
       let bulletY = 730;
       details.bullets.forEach((bullet) => {
         ctx.fillText("•", startX, bulletY);
@@ -1082,7 +1085,7 @@ function drawTextBoxCanvas(canvas, data, pastelColor, isFocused, textureToUpdate
       // Bullets list
       ctx.fillStyle = '#222222';
       ctx.font = '38px "Instrument Serif", Georgia, serif';
-      
+
       let bulletY = 300;
       details.bullets.forEach((bullet) => {
         ctx.fillText("•", startX, bulletY);
@@ -1243,7 +1246,7 @@ function createTextBox(data, pastelColor = '#ffffff') {
   const geometry = new THREE.PlaneGeometry(2.0, 1.0);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.name = 'textbox';
-  
+
   // Attach canvas to mesh userData for easy redraw updates
   mesh.userData = { canvas, data, pastelColor };
 
@@ -1369,7 +1372,7 @@ function updateSceneTextboxes(sceneName, refAngle, height, cache, raycastFn, hov
     // the per-frame lerp pass in animate() owns the mesh scale.
     tb.baseScale = params.textboxScale;
     if (tb.currentScale === undefined) tb.currentScale = params.textboxScale;
-    if (tb.targetScale === undefined) tb.targetScale  = params.textboxScale;
+    if (tb.targetScale === undefined) tb.targetScale = params.textboxScale;
     if (tb.targetOpacity === undefined) tb.targetOpacity = 0.85;
   });
 }
@@ -1514,7 +1517,7 @@ function createNavLabel(text, pastelHex) {
 
   const innerR = cylinderParams.radius * cylinderParams.wallRatio;
   const outerR = cylinderParams.radius;
-  
+
   // Use thetaLength = 0.8 radians
   const geometry = createRingSectorGeometry(innerR, outerR, 0.8, 32);
   const mesh = new THREE.Mesh(geometry, material);
@@ -3399,13 +3402,13 @@ function getDayNightTargets(currentTime) {
 
   // Otherwise, we are in the follow sequence or post-sequence view
   const isSceneActive = isOrbitAnimating || selectedTextbox;
-  
+
   if (isSceneActive) {
     const activeIdx = isOrbitAnimating ? currentSeqIndex : activeNavIndex;
-    
+
     // Get target config for this scene index
     let config = sceneTimeConfigs[activeIdx] || sceneTimeConfigs[1];
-    
+
     // Dynamic Dawn transition logic for City (Index 0)
     if (activeIdx === 0 && isOrbitAnimating) {
       const seq = orbitSequence[0];
@@ -3415,29 +3418,29 @@ function getDayNightTargets(currentTime) {
         const currentDeg = seq.params.orbitDegrees;
         const totalDist = Math.abs(startDeg - endDeg);
         const currentDist = Math.abs(startDeg - currentDeg);
-        
+
         // Progress goes from 0.0 (start) to 1.0 (end)
         const progress = Math.min(Math.max(currentDist / totalDist, 0.0), 1.0);
-        
+
         // Transition from Midnight (Cobalt) to Dawn (Crimson Dusk)
         const midnight = themeGradients.cobalt.night;
         const dawn = themeGradients.crimson.day;
-        
+
         const r1 = THREE.MathUtils.lerp(midnight.r1, dawn.r1, progress);
         const g1 = THREE.MathUtils.lerp(midnight.g1, dawn.g1, progress);
         const b1 = THREE.MathUtils.lerp(midnight.b1, dawn.b1, progress);
-        
+
         const r2 = THREE.MathUtils.lerp(midnight.r2, dawn.r2, progress);
         const g2 = THREE.MathUtils.lerp(midnight.g2, dawn.g2, progress);
         const b2 = THREE.MathUtils.lerp(midnight.b2, dawn.b2, progress);
-        
+
         const r3 = THREE.MathUtils.lerp(midnight.r3, dawn.r3, progress);
         const g3 = THREE.MathUtils.lerp(midnight.g3, dawn.g3, progress);
         const b3 = THREE.MathUtils.lerp(midnight.b3, dawn.b3, progress);
-        
+
         const colorAmbient = new THREE.Color(midnight.ambient || 0x223344).lerp(new THREE.Color(dawn.ambient), progress);
         const colorDir = new THREE.Color(0xd4e3ff).lerp(new THREE.Color(0xffaa90), progress);
-        
+
         return {
           bg: { r1, g1, b1, r2, g2, b2, r3, g3, b3 },
           ambient: colorAmbient.getHex(),
@@ -3449,7 +3452,7 @@ function getDayNightTargets(currentTime) {
         };
       }
     }
-    
+
     return {
       bg: config.bg,
       ambient: config.ambient,
@@ -3519,7 +3522,7 @@ function animate() {
   if (ambientLight) {
     currentAmbientIntensity += (targets.ambientIntensity - currentAmbientIntensity) * transitionSpeed;
     ambientLight.intensity = currentAmbientIntensity;
-    
+
     currentAmbientColor.lerp(new THREE.Color(targets.ambient), transitionSpeed);
     ambientLight.color.copy(currentAmbientColor);
   }
@@ -3528,7 +3531,7 @@ function animate() {
   if (directionalLight) {
     currentDirIntensity += (targets.dirIntensity - currentDirIntensity) * transitionSpeed;
     directionalLight.intensity = currentDirIntensity;
-    
+
     currentDirColor.lerp(new THREE.Color(targets.dir), transitionSpeed);
     directionalLight.color.copy(currentDirColor);
   }
@@ -4597,7 +4600,7 @@ function animate() {
 
       // Sync targetScale with baseScale for unselected boxes (baseScale may change each frame via GUI)
       if (tb !== selectedTextbox) {
-        tb.targetScale   = tb.baseScale;
+        tb.targetScale = tb.baseScale;
         tb.targetOpacity = 0.85;
       }
 
@@ -4630,7 +4633,7 @@ function animate() {
         controls.enableDamping = false;
         controls.update(); // instantly update internal angles
         controls.enableDamping = true;
-        controls.enabled  = true; // allow free-look once settled
+        controls.enabled = true; // allow free-look once settled
       }
 
     } else if (textboxFocusState === 'exiting') {
@@ -4643,13 +4646,13 @@ function animate() {
       controls.enabled = false;
 
       if (t >= 1.0) {
-        textboxFocusState  = 'idle';
+        textboxFocusState = 'idle';
         camGuiState.paused = false; // orbit was paused on select; always resume on deselect
-        isOrbitAnimating   = true;
+        isOrbitAnimating = true;
         controls.enableDamping = false;
         controls.update(); // instantly update internal angles to pre-focus state
         controls.enableDamping = true;
-        controls.enabled   = true;
+        controls.enabled = true;
       }
     }
     // 'focused' state: camera is free, user may orbit; highlight stays active
@@ -4767,7 +4770,7 @@ const textboxDetails = {
 // --- Textbox Focus Helpers ---
 
 function applyTextboxHighlight(tb, selected) {
-  tb.targetScale   = selected ? tb.baseScale * 1.55 : tb.baseScale;
+  tb.targetScale = selected ? tb.baseScale * 1.55 : tb.baseScale;
   tb.targetOpacity = selected ? 1.0 : 0.85;
 }
 
@@ -4778,13 +4781,13 @@ function selectTextbox(tb) {
     // Restore previous's simple texture
     if (selectedTextbox.mesh && selectedTextbox.mesh.userData && selectedTextbox.mesh.material.map) {
       const { canvas, data, pastelColor } = selectedTextbox.mesh.userData;
-      
+
       // Restore landscape geometry and canvas if it was mobile portrait
       if (selectedTextbox.mesh.userData.portraitGeometry) {
         selectedTextbox.mesh.geometry = selectedTextbox.mesh.userData.originalGeometry;
         selectedTextbox.mesh.userData.portraitGeometry.dispose();
         selectedTextbox.mesh.userData.portraitGeometry = null;
-        
+
         // Dispose old texture and reallocate to prevent WebGL stretch artifacts
         selectedTextbox.mesh.material.map.dispose();
         canvas.width = 2048;
@@ -4818,7 +4821,7 @@ function selectTextbox(tb) {
 
   // Pause orbit while focused
   camGuiState.paused = true;
-  isOrbitAnimating   = false;
+  isOrbitAnimating = false;
 
   // Check aspect ratio to determine mobile/portrait
   const aspect = window.innerWidth / window.innerHeight;
@@ -4851,7 +4854,7 @@ function selectTextbox(tb) {
 
   textboxFocusState = 'entering';
   textboxFocusTimer = 0.0;
-  controls.enabled  = false;
+  controls.enabled = false;
 
   // Redraw this textbox canvas to show detailed presentation slide
   if (tb.mesh && tb.mesh.userData && tb.mesh.material.map) {
@@ -4866,7 +4869,7 @@ function selectTextbox(tb) {
       const portraitGeometry = new THREE.PlaneGeometry(1.2, 1.8);
       tb.mesh.geometry = portraitGeometry;
       tb.mesh.userData.portraitGeometry = portraitGeometry;
-      
+
       // Dispose old texture and reallocate to prevent WebGL stretch artifacts
       tb.mesh.material.map.dispose();
       canvas.width = 1024;
@@ -4893,7 +4896,7 @@ function deselectTextbox() {
       selectedTextbox.mesh.geometry = selectedTextbox.mesh.userData.originalGeometry;
       selectedTextbox.mesh.userData.portraitGeometry.dispose();
       selectedTextbox.mesh.userData.portraitGeometry = null;
-      
+
       // Dispose old texture and reallocate to prevent WebGL stretch artifacts
       selectedTextbox.mesh.material.map.dispose();
       canvas.width = 2048;
@@ -4918,7 +4921,7 @@ function deselectTextbox() {
 
   textboxFocusState = 'exiting';
   textboxFocusTimer = 0.0;
-  controls.enabled  = false;
+  controls.enabled = false;
 }
 
 function returnToFinale() {
@@ -4942,7 +4945,7 @@ function returnToFinale() {
   if (sectorIdx !== -1) {
     activeNavIndex = sectorIdx;
   }
-  
+
   // Ensure all background scenes are flat (not hovering/protruding) upon returning to the finale
   for (const name in hoverScenes) {
     hoverScenes[name].target = 0.0;
@@ -5517,7 +5520,7 @@ window.addEventListener('pointerup', releaseVehicleHold);
 window.addEventListener('pointercancel', releaseVehicleHold);
 window.addEventListener('mouseleave', releaseVehicleHold);
 
-let isResumeHovered  = false;
+let isResumeHovered = false;
 let isTextboxHovered = false;
 
 window.addEventListener('pointermove', (event) => {
@@ -5620,7 +5623,7 @@ if (radialNavContainer) {
 const themeToggle = document.getElementById('theme-toggle');
 if (themeToggle) {
   const emojiEl = themeToggle.querySelector('.theme-emoji');
-  
+
   const modesList = ['cycle', 'cobalt', 'clay'];
   const emojisMap = {
     cycle: '🌗',
@@ -5636,18 +5639,18 @@ if (themeToggle) {
   themeToggle.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
-    
+
     // Cycle backdrop mode: cycle -> cobalt -> clay -> cycle
     const currentIdx = modesList.indexOf(activeBackdropMode);
     const nextIdx = (currentIdx + 1) % modesList.length;
     const nextMode = modesList[nextIdx];
-    
+
     activeBackdropMode = nextMode;
-    
+
     // Update button text and title
     if (emojiEl) emojiEl.textContent = emojisMap[nextMode];
     themeToggle.title = titlesMap[nextMode];
-    
+
     console.log(`Backdrop mode cycled to: ${nextMode}`);
   });
 }
