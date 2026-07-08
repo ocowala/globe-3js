@@ -4,7 +4,54 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
-import * as dat from 'dat.gui';
+// import * as dat from 'dat.gui';
+
+class DummyGUI {
+  constructor() {
+    this.__folders = {};
+    this.__controllers = [];
+  }
+  addFolder(name) {
+    const folder = new DummyGUI();
+    this.__folders[name] = folder;
+    return folder;
+  }
+  add() {
+    const controller = {
+      step: () => controller,
+      min: () => controller,
+      max: () => controller,
+      name: () => controller,
+      onChange: (cb) => {
+        return controller;
+      },
+      listen: () => controller,
+      updateDisplay: () => controller,
+    };
+    this.__controllers.push(controller);
+    return controller;
+  }
+  addColor() {
+    const controller = {
+      name: () => controller,
+      onChange: (cb) => {
+        return controller;
+      },
+      listen: () => controller,
+      updateDisplay: () => controller,
+    };
+    this.__controllers.push(controller);
+    return controller;
+  }
+  open() { return this; }
+  close() { return this; }
+  destroy() {}
+  hide() {}
+  show() {}
+}
+const dat = {
+  GUI: DummyGUI
+};
 
 
 const container = document.getElementById('canvas-container');
