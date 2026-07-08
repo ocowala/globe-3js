@@ -19,9 +19,9 @@ const smokeMeshes = []; // Smoke_1 to Smoke_5
 let starfieldRef = null;
 
 // Positioning & Physics
-const preloaderCenterZ = 45; // Position preloader scene far away on the Z axis
+const preloaderCenterZ = 15; // Position preloader scene at Z = 15
 const rocketBasePos = new THREE.Vector3(0, 0, preloaderCenterZ);
-const forwardDirection = new THREE.Vector3(1.0, 1.2, -0.8).normalize(); // Flight path vector
+const forwardDirection = new THREE.Vector3(1.0, 1.2, 0.0).normalize(); // Flight path vector (tilted in XY, constant Z)
 
 let driftSpeed = 0.15;
 let currentSpeed = driftSpeed;
@@ -34,8 +34,8 @@ let handoffTimer = 0.0;
 // Sway values (pitch/roll)
 let swayAmplitude = 0.05;
 
-// Camera properties
-const cameraStartPos = new THREE.Vector3(3.0, -4.0, preloaderCenterZ + 3.0);
+// Camera properties (three-quarters isometric profile view matching Blender)
+const cameraStartPos = new THREE.Vector3(3.0, 3.0, preloaderCenterZ + 3.0);
 const cameraStartTarget = new THREE.Vector3(0, 0, preloaderCenterZ);
 
 // Terminal nodes
@@ -142,7 +142,7 @@ export function initPreloader(scene, camera, starfield, onLoaded) {
   // Position preloader camera initially
   camera.position.copy(cameraStartPos);
   camera.lookAt(cameraStartTarget);
-  camera.up.set(0, 0, 1);
+  camera.up.set(0, 1, 0);
 
   // Set up terminal nodes
   terminalBody = document.getElementById('terminal-body');
@@ -244,9 +244,9 @@ export function updatePreloader(dt, camera) {
 
   // Update camera position to follow rocket in isometric three-quarters perspective
   if (currentState !== STATE_HANDOFF && camera && preloaderGroup) {
-    camera.position.copy(preloaderGroup.position).add(new THREE.Vector3(3.0, -4.0, 3.0));
+    camera.position.copy(preloaderGroup.position).add(new THREE.Vector3(3.0, 3.0, 3.0));
     camera.lookAt(preloaderGroup.position);
-    camera.up.set(0, 0, 1);
+    camera.up.set(0, 1, 0);
   }
 
   // --- Telemetry calculations & updates ---

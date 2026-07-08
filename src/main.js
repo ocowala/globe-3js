@@ -424,6 +424,7 @@ initCursivePlane();
 
 // --- Single shared GUI ---
 const gui = new dat.GUI({ width: 300 });
+gui.domElement.style.display = 'none';
 
 // Cylinder folder
 const cylFolder = gui.addFolder('Cylinder');
@@ -3445,19 +3446,41 @@ function animate() {
       starsMaterial.opacity = 0.85; // Override twinkling starfield opacity to be bright during launch
     }
     
+    // While preloader is active but handoff hasn't started, force all cylinder and background elements to hidden
+    if (!isHandoffActive()) {
+      if (globe) globe.visible = false;
+      if (orbitRing) orbitRing.visible = false;
+      
+      const bgNames = ['City', 'School', 'Landscape', 'Beach', 'Desert', 'Cafe'];
+      bgNames.forEach(name => {
+        const model = scene.getObjectByName(name);
+        if (model) model.visible = false;
+      });
+      
+      orbitSequence.forEach(seq => {
+        const obj = seq.getObject();
+        if (obj) obj.visible = false;
+      });
+    }
+    
     // Check if handoff just started
     if (isHandoffActive() && !isIntroTransitioning) {
       isIntroTransitioning = true;
       introTransitionProgress = 0.0;
-      introTransitionStartPos.set(3.0, -4.0, 48.0);
-      introTransitionStartTarget.set(0, 0, 45.0);
-      introTransitionStartUp.set(0, 0, 1);
+      introTransitionStartPos.set(3.0, 3.0, 18.0);
+      introTransitionStartTarget.set(0, 0, 15.0);
+      introTransitionStartUp.set(0, 1, 0);
       transitionStartGlobeOpacity = 0.0;
       transitionStartOrbitOpacity = 0.0;
       
+      // Restore dat.gui controls visibility
+      if (gui && gui.domElement) {
+        gui.domElement.style.display = '';
+      }
+      
       // Enable cylinder visibility so they can fade in during the pan
-      globe.visible = true;
-      orbitRing.visible = true;
+      if (globe) globe.visible = true;
+      if (orbitRing) orbitRing.visible = true;
       orbitSequence.forEach(seq => {
         const obj = seq.getObject();
         if (obj) {
@@ -4513,7 +4536,7 @@ function animate() {
     }
 
     // Disable orbit controls during camera follow so they don't fight, but allow them when paused (except during textbox focus transition)
-    if (isOrbitAnimating || isTransitioning || textboxFocusState === 'entering' || textboxFocusState === 'exiting') {
+    if (isPreloaderActive() || isIntroTransitioning || isOrbitAnimating || isTransitioning || textboxFocusState === 'entering' || textboxFocusState === 'exiting') {
       controls.enabled = false;
     } else {
       controls.enabled = true;
