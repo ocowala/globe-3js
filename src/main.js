@@ -5132,6 +5132,7 @@ const songMap = {
   '/dreamers.mp3': 'sea dreamers - shankar, sting',
   '/fly.mp3': 'fly by day - anri',
   '/fillmore.mp3': 'fillmore county - vansire, floor cry',
+  '/come-with-me.mp3': 'come with me - surfaces',
 };
 
 // --- Web Audio API state for visualizer ---
