@@ -434,16 +434,14 @@ function checkAllAssetsLoaded() {
   const pctEl = document.getElementById('loader-percent');
   if (loadedCount < 12) {
     if (pctEl) {
-      const pct = Math.min(99, Math.round((loadedCount / 12) * 100));
+      const pct = Math.round((loadedCount / 12) * 80);
       pctEl.innerText = pct + '%';
     }
   } else if (loadedCount === 12 && !allAssetsLoaded) {
-    allAssetsLoaded = true;
-    loaderFinishedTime = performance.now();
     if (pctEl) {
-      pctEl.innerText = '100%';
+      pctEl.innerText = '80%';
     }
-    console.log("All 12 assets loaded, starting incremental caching in background...");
+    console.log("All 12 assets loaded, starting incremental caching during loading screen...");
   }
 }
 
@@ -3640,7 +3638,7 @@ function animate() {
   }
 
   // --- Incremental Pre-Caching ---
-  if (allAssetsLoaded && !fullyOptimized) {
+  if (loadedCount === 12 && !fullyOptimized) {
     try {
       const city = scene.getObjectByName('City');
       const beach = scene.getObjectByName('Beach');
@@ -3671,10 +3669,9 @@ function animate() {
         if (cacheVehicleIdx === 4 && cafe) cafe.updateMatrixWorld(true);
       }
 
-      // Keep background pre-caching light (batchSize = 5) during text writing to maintain 60 FPS.
-      // Boost batchSize to 35 once written so caching finishes as quickly as possible.
+      // Run caching at full throttle (batchSize = 120) behind loading screen
       const writeProgress = Math.min(introTimer / Math.max(introParams.writeDuration, 0.1), 1.0);
-      const batchSize = (introActive && writeProgress < 1.0) ? 5 : 35;
+      const batchSize = (!allAssetsLoaded) ? 120 : ((introActive && writeProgress < 1.0) ? 5 : 35);
       let processed = 0;
 
       while (processed < batchSize && cacheVehicleIdx < 5) {
@@ -3715,6 +3712,18 @@ function animate() {
         }
       }
 
+      // Update loading percentage text from 80% to 99% during caching
+      if (!allAssetsLoaded) {
+        const totalCached = cacheVehicleIdx * cacheAngles.length + cacheAngleIdx;
+        const totalToCache = 5 * cacheAngles.length;
+        const cachingPct = (totalCached / totalToCache) * 20;
+        const totalPct = Math.min(99, Math.round(80 + cachingPct));
+        const pctEl = document.getElementById('loader-percent');
+        if (pctEl) {
+          pctEl.innerText = totalPct + '%';
+        }
+      }
+
       // Restore visibilities
       if (city) city.visible = cityVis;
       if (beach) beach.visible = beachVis;
@@ -3743,11 +3752,21 @@ function animate() {
         if (landscape) landscape.visible = false;
         if (cafe) cafe.visible = false;
         if (school) school.visible = false;
+
+        // Caching and shader pre-compilation is finished, we can now hide loading screen
+        allAssetsLoaded = true;
+        loaderFinishedTime = performance.now();
+        const pctEl = document.getElementById('loader-percent');
+        if (pctEl) {
+          pctEl.innerText = '100%';
+        }
       }
     } catch (err) {
       console.warn("Exception in background pre-caching loop:", err);
-      // Fallback: force fullyOptimized = true so we don't block transition or freeze
+      // Fallback: force fullyOptimized = true & allAssetsLoaded = true so we don't block transition or freeze
       fullyOptimized = true;
+      allAssetsLoaded = true;
+      loaderFinishedTime = performance.now();
     }
   }
 
@@ -4969,6 +4988,7 @@ function returnToFinale() {
     cursivePlane.rotation.set(0, 0, 0);
     cursivePlane.position.set(0, 0, getCylinderMiddleZ());
     cursivePlane.material.opacity = 0.0;
+    drawCursiveName(1.0, 0.0);
   }
 
   console.log("Returning to post-sequence finale via keyboard.");
@@ -5465,6 +5485,7 @@ window.addEventListener('click', (event) => {
           cursivePlane.rotation.set(0, 0, 0);
           cursivePlane.position.set(0, 0, getCylinderMiddleZ());
           cursivePlane.material.opacity = 0.0;
+          drawCursiveName(1.0, 0.0);
         }
 
         console.log("Cylinder background clicked — transitioning to post-sequence final view.");

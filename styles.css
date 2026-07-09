@@ -191,8 +191,7 @@ canvas {
   width: 44px;
   height: 44px;
   object-fit: contain;
-  border-radius: 50%;
-  box-shadow: 0 4px 18px rgba(32, 48, 63, 0.2);
+  background: transparent;
 }
 
 .loader-orbit-ring {
