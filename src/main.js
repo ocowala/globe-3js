@@ -1278,10 +1278,10 @@ const sceneTextboxes = {
 const staticTextboxConfigs = {
   'City': [
     { angleOffset: 12.0, data: { title: "hello & welcome", subtitle: "software engineer specializing in systems & graphics", badges: ["full stack", "creative dev", "problem solver"] } },
-    { angleOffset: -16.0, data: { title: "contact info", subtitle: "email: developer@example.com | phone: (123) 456-7890", badges: ["github", "linkedin", "email"] } }
+    { angleOffset: -16.0, data: { title: "contact info", subtitle: "email: jadhav31@purdue.edu | phone: (732) 853-5756", badges: ["github", "linkedin", "email"] } }
   ],
   'School': [
-    { angleOffset: 6.0, data: { title: "computer science", subtitle: "bs in computer science | graduation: may 2026", badges: ["gpa: 3.9", "dean's list", "undergrad"] } },
+    { angleOffset: 6.0, data: { title: "computer science", subtitle: "bs in computer engineering | graduation: may 2028", badges: ["gpa: 3.7", "dean's list", "undergrad"] } },
     { angleOffset: -8.0, data: { title: "relevant coursework", subtitle: "focus on programming, systems & mathematics", badges: ["algorithms", "databases", "networks", "compilers", "os"] } }
   ],
   'Landscape': [
@@ -5124,15 +5124,15 @@ const audioToggle = document.getElementById('audio-toggle');
 const songNameEl = document.getElementById('song-name');
 
 const songMap = {
-  '/suis_mois.mp3': 'suis mois - camille, hans zimmer',
+  '/suis_mois.mp3': 'suis moi - camille, zimmer',
   '/windmills.mp3': 'windmills of your mind - sting',
-  '/ciao.mp3': "l'amore dice ciao - armando trovajoli",
+  '/ciao.mp3': "l'amore dice ciao - trovajoli",
   '/bean-sabine.mp3': 'bean sabine ost - howard goodall',
   '/bygone-days.mp3': 'bygone days - hisaishi',
   '/dreamers.mp3': 'sea dreamers - shankar, sting',
   '/fly.mp3': 'fly by day - anri',
   '/fillmore.mp3': 'fillmore county - vansire, floor cry',
-  '/come-with-me.mp3': 'come with me - surfaces',
+  '/come-with-me.mp3': 'come with me - surfaces, salem ilese',
 };
 
 // --- Web Audio API state for visualizer ---
