@@ -19,8 +19,8 @@ const smokeMeshes = []; // Smoke_1 to Smoke_5
 let starfieldRef = null;
 
 // Positioning & Physics
-const preloaderCenterZ = 30; // Position preloader scene at Z = 30
-const rocketBasePos = new THREE.Vector3(0, 0, preloaderCenterZ);
+export const preloaderCenterZ = 12; // Position preloader scene at Z = 12
+const rocketBasePos = new THREE.Vector3(-1.5, -1.8, preloaderCenterZ);
 const forwardDirection = new THREE.Vector3(1.0, 1.2, 0.0).normalize(); // Flight path vector (tilted in XY, constant Z)
 
 let driftSpeed = 0.15;
@@ -40,8 +40,8 @@ export function markAssetsLoaded() {
 let swayAmplitude = 0.05;
 
 // Camera properties (three-quarters isometric profile view matching Blender)
-const cameraStartPos = new THREE.Vector3(3.0, 3.0, preloaderCenterZ + 3.0);
-const cameraStartTarget = new THREE.Vector3(0, 0, preloaderCenterZ);
+const cameraStartPos = new THREE.Vector3(5.0, 5.0, 16.0);
+const cameraStartTarget = new THREE.Vector3(0, 0, 7.0);
 
 // Terminal nodes
 let terminalBody = null;
@@ -184,6 +184,13 @@ export function initPreloader(scene, camera, starfield, onLoaded) {
         }
       }
     });
+
+    if (rocketShip) {
+      rocketShip.children.forEach((child) => {
+        child.position.z += 0.018385;
+      });
+      console.log("Preloader: Shifted rocket children by Z += 0.018385 to align centerline with pivot.");
+    }
 
     // Add model to preloader group
     preloaderGroup.position.copy(rocketBasePos);
@@ -333,18 +340,23 @@ export function updatePreloader(dt, camera) {
       swayFactor = 0.0;
     }
 
-    const localUp = new THREE.Vector3(0, 1, 0);
-    const baseQuat = new THREE.Quaternion().setFromUnitVectors(localUp, forwardDirection);
+    const localLongitudinal = new THREE.Vector3(1, 1, 0).normalize();
+    const localTransverse1 = new THREE.Vector3(1, -1, 0).normalize();
+    const localTransverse2 = new THREE.Vector3(0, 0, 1);
+
+    const baseQuat = new THREE.Quaternion().setFromUnitVectors(localLongitudinal, forwardDirection);
 
     // Continuous slow roll rotation around the rocket's longitudinal local axis to show 3D volume
     const rollAngle = preloaderTimer * 0.25; // slow roll rate
-    const rollQuat = new THREE.Quaternion().setFromAxisAngle(localUp, rollAngle);
+    const rollQuat = new THREE.Quaternion().setFromAxisAngle(localLongitudinal, rollAngle);
 
     if (swayFactor > 0.0) {
-      // Oscillate pitch (x) and yaw (z) slowly
-      const pitch = Math.sin(preloaderTimer * 1.5) * 0.05 * swayFactor;
-      const roll = Math.cos(preloaderTimer * 1.8) * 0.05 * swayFactor;
-      const swayQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, 0, roll));
+      // Oscillate pitch and yaw slowly around local transverse axes
+      const pitchAngle = Math.sin(preloaderTimer * 1.5) * 0.05 * swayFactor;
+      const yawAngle = Math.cos(preloaderTimer * 1.8) * 0.05 * swayFactor;
+      const pitchQuat = new THREE.Quaternion().setFromAxisAngle(localTransverse1, pitchAngle);
+      const yawQuat = new THREE.Quaternion().setFromAxisAngle(localTransverse2, yawAngle);
+      const swayQuat = new THREE.Quaternion().multiplyQuaternions(pitchQuat, yawQuat);
       // Combine base orientation * roll * sway
       rocketShip.quaternion.copy(baseQuat).multiply(rollQuat).multiply(swayQuat);
     } else {

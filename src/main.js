@@ -12,7 +12,8 @@ import {
   isPreloaderActive,
   isHandoffActive,
   getPreloaderCameraTransform,
-  getPreloaderHandoffProgress
+  getPreloaderHandoffProgress,
+  preloaderCenterZ
 } from './preloader.js';
 
 
@@ -213,9 +214,14 @@ function buildCylinder() {
   orbitRing.updateMatrix();
   scene.add(orbitRing);
 
-  if ((typeof introActive !== 'undefined' && introActive) || isPreloaderActive()) {
+  if (typeof introActive !== 'undefined' && introActive) {
     globe.visible = false;
     orbitRing.visible = false;
+  } else if (isPreloaderActive()) {
+    globe.visible = true;
+    orbitRing.visible = true;
+    globeMaterial.opacity = 0.35;
+    orbitMaterial.opacity = 0.45;
   }
 
   if (window.labelsInitialized) {
@@ -3467,10 +3473,16 @@ function animate() {
       starsMaterial.opacity = 0.85; // Override twinkling starfield opacity to be bright during launch
     }
     
-    // While preloader is active but handoff hasn't started, force all cylinder and background elements to hidden
+    // While preloader is active but handoff hasn't started, force backgrounds to hidden, but cylinder visible in background
     if (!isHandoffActive()) {
-      if (globe) globe.visible = false;
-      if (orbitRing) orbitRing.visible = false;
+      if (globe) {
+        globe.visible = true;
+        globeMaterial.opacity = 0.35;
+      }
+      if (orbitRing) {
+        orbitRing.visible = true;
+        orbitMaterial.opacity = 0.45;
+      }
       
       const bgNames = ['City', 'School', 'Landscape', 'Beach', 'Desert', 'Cafe'];
       bgNames.forEach(name => {
@@ -3490,12 +3502,13 @@ function animate() {
       postSeqTimer = 0.0;
       isIntroTransitioning = false; // Bypass the vehicle follow transition
 
-      // Set transition starting positions from preloader's current state (Z = 30)
-      transitionStartPos.set(3.0, 3.0, 33.0);
-      transitionStartTarget.set(0, 0, 30.0);
+      // Set transition starting positions from preloader's current state
+      const preloaderCam = getPreloaderCameraTransform();
+      transitionStartPos.copy(preloaderCam.position);
+      transitionStartTarget.copy(preloaderCam.target);
       transitionStartUp.set(0, 1, 0);
-      transitionStartGlobeOpacity = 0.0;
-      transitionStartOrbitOpacity = 0.0;
+      transitionStartGlobeOpacity = globeMaterial.opacity;
+      transitionStartOrbitOpacity = orbitMaterial.opacity;
       transitionStartFOV = camera.fov;
 
       // Remove the side-by-side split screen layout to trigger full-screen transition
@@ -3506,14 +3519,19 @@ function animate() {
       //   gui.domElement.style.display = '';
       // }
       
-      // Enable cylinder visibility so they can fade in during the sweep
+      // Enable cylinder visibility
       if (globe) {
         globe.visible = true;
-        globeMaterial.opacity = 0.0;
+        // Keep it visible if it was already showing in the preloader
+        if (!isPreloaderActive()) {
+          globeMaterial.opacity = 0.0;
+        }
       }
       if (orbitRing) {
         orbitRing.visible = true;
-        orbitMaterial.opacity = 0.0;
+        if (!isPreloaderActive()) {
+          orbitMaterial.opacity = 0.0;
+        }
       }
 
       // Show the cursive name plane and hide it initially to let it fade in
@@ -4404,8 +4422,8 @@ function animate() {
 
     // Fade in cylinder
     const sweepT = Math.min(postSeqTimer / 3.0, 1.0);
-    globeMaterial.opacity = THREE.MathUtils.lerp(0.0, 0.35, sweepT);
-    orbitMaterial.opacity = THREE.MathUtils.lerp(0.0, 0.45, sweepT);
+    globeMaterial.opacity = THREE.MathUtils.lerp(transitionStartGlobeOpacity, 0.35, sweepT);
+    orbitMaterial.opacity = THREE.MathUtils.lerp(transitionStartOrbitOpacity, 0.45, sweepT);
 
     // Fade in the cursive name and apply counter-rotation to keep it static/horizontal
     if (cursivePlane) {
@@ -5184,6 +5202,7 @@ const songMap = {
   '/dreamers.mp3': 'sea dreamers - shankar, sting',
   '/fly.mp3': 'fly by day - anri',
   '/fillmore.mp3': 'fillmore county - vansire, floor cry',
+  '/come-with-me.mp3': 'come with me - surfaces',
 };
 
 // --- Web Audio API state for visualizer ---
