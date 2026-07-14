@@ -5153,6 +5153,7 @@ const songMap = {
   '/fly.mp3': 'fly by day - anri',
   '/fillmore.mp3': 'fillmore county - vansire, floor cry',
   '/come-with-me.mp3': 'come with me - surfaces, salem ilese',
+  '/crystal-settings.mp3': 'crystal settings - alyzea'
 };
 
 // --- Web Audio API state for visualizer ---
@@ -5306,6 +5307,7 @@ function exitMovieView() {
   return false; // not handled
 }
 
+/*
 const movieBtn = document.getElementById('movie-btn');
 if (movieBtn) {
   movieBtn.addEventListener('click', (event) => {
@@ -5376,6 +5378,7 @@ if (movieBtn) {
     controls.enabled = false;
   });
 }
+*/
 
 // --- Raycast Click on Cylinder (Globe) ---
 const _globeRaycaster = new THREE.Raycaster();
@@ -5389,9 +5392,9 @@ window.addEventListener('click', (event) => {
     event.target.closest('button') ||
     event.target.closest('.dg') ||
     event.target.id === 'audio-toggle' ||
-    event.target.closest('#audio-toggle') ||
+    event.target.closest('#audio-toggle')/* ||
     event.target.id === 'movie-btn' ||
-    event.target.closest('#movie-btn')) {
+    event.target.closest('#movie-btn')*/) {
     return;
   }
 

@@ -341,7 +341,7 @@ canvas {
   opacity: 1.0;
 }
 
-/* ── Movie Button ── */
+/* ── Movie Button ──
 .movie-btn {
   width: 20px;
   height: 20px;
@@ -369,6 +369,7 @@ canvas {
   opacity: 0.85;
   pointer-events: none;
 }
+*/
 
 /* ── Video Overlay ── */
 #video-overlay {
