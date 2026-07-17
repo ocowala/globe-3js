@@ -280,6 +280,12 @@ let unwritePauseTimer = 0;
 let introFinaleActive = false;
 let introFinaleTimer = 0;
 let isVehicleHeld = false;
+let isDraggingMobileNav = false;
+let dragStartPointerX = 0;
+let dragStartAngle = 0;
+let mobileNavSelectionTimeout = null;
+let dragOmegaSpeed = 0.4;
+let mobileNavDragHoldTimer = 0.0;
 let activeWheelSpeedFactor = 1.0;
 let transitionStartGlobeOpacity = 1.0;
 let transitionStartOrbitOpacity = 0.45;
@@ -4326,6 +4332,13 @@ function animate() {
       }
     }
   } else if (isPostSequence) {
+    if (isDraggingMobileNav && isHandheldDevice) {
+      mobileNavDragHoldTimer -= realDeltaTime;
+      if (mobileNavDragHoldTimer <= 0) {
+        releaseMobileNavDrag();
+      }
+    }
+
     if (isPaused) {
       controls.enabled = true;
       controls.update();
@@ -4333,7 +4346,14 @@ function animate() {
       postSeqTimer += realDeltaTime;
       const accelTime = 3.0; // 3 seconds acceleration
       const omegaMax = 0.4;  // max angular velocity (in rad/s)
-      const currentOmega = omegaMax * Math.min(postSeqTimer / accelTime, 1.0);
+
+      if (!isDraggingMobileNav) {
+        dragOmegaSpeed = THREE.MathUtils.lerp(dragOmegaSpeed, omegaMax, 0.05);
+      } else {
+        dragOmegaSpeed = 0.0;
+      }
+
+      const currentOmega = dragOmegaSpeed * Math.min(postSeqTimer / accelTime, 1.0);
       postSeqAngle += currentOmega * realDeltaTime;
 
       const postSeqDuration = 3.0; // 3 seconds for the final camera sweep
@@ -4559,6 +4579,44 @@ function animate() {
     // Position labels statically on the cylinder cap to rotate with the scene
     updateNavLabelPositions();
 
+    // If on mobile overview, calculate active highlights based on position/drag
+    if (isHandheldDevice && isPostSequence) {
+      let closestIdx = -1;
+      let minDiff = Infinity;
+      const marginOfError = 0.26; // approx 15 degrees
+
+      navLabels.forEach((entry, idx) => {
+        const angleOnScreen = entry.baseAngle - postSeqAngle;
+        let diff = angleOnScreen - Math.PI / 2;
+        diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+        const absDiff = Math.abs(diff);
+
+        if (absDiff < minDiff) {
+          minDiff = absDiff;
+          closestIdx = idx;
+        }
+      });
+
+      // Update target highlights dynamically
+      navLabels.forEach((entry, idx) => {
+        const isSelected = (idx === closestIdx && minDiff < marginOfError);
+        if (isSelected) {
+          // If we are currently locked in selection (before transition), scale to 1.4, else 1.3
+          entry.targetScale = (mobileNavSelectionTimeout !== null) ? 1.4 : 1.3;
+          entry.targetOpacity = 1.0;
+          if (hoverScenes[entry.config.scene]) {
+            hoverScenes[entry.config.scene].target = 1.0;
+          }
+        } else {
+          entry.targetScale = 1.0;
+          entry.targetOpacity = 0.75;
+          if (hoverScenes[entry.config.scene]) {
+            hoverScenes[entry.config.scene].target = 0.0;
+          }
+        }
+      });
+    }
+
     // Fade in nav labels and apply active highlighting
     navLabels.forEach((entry, idx) => {
       entry.mesh.visible = true;
@@ -4685,46 +4743,7 @@ function animate() {
 initNavLabels();
 animate();
 
-// --- Mobile Navigation Pop-up Tool ---
-function initMobileNavigation() {
-  const container = document.getElementById('mobile-nav-container');
-  const toggleBtn = document.getElementById('mobile-nav-toggle');
-  const menu = document.getElementById('mobile-nav-menu');
 
-  if (!container || !toggleBtn || !menu) return;
-
-  // Toggle menu open/close
-  toggleBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    menu.classList.toggle('open');
-  });
-
-  // Close menu when clicking outside
-  window.addEventListener('click', () => {
-    menu.classList.remove('open');
-  });
-
-  // Menu item select handler
-  const items = document.querySelectorAll('.mobile-nav-item');
-  items.forEach((item) => {
-    item.addEventListener('click', (e) => {
-      e.stopPropagation();
-      menu.classList.remove('open');
-
-      const idx = parseInt(item.getAttribute('data-idx'));
-      if (idx === -1) {
-        // Return to Home (zooms out to overview)
-        if (selectedTextbox) {
-          deselectTextbox();
-        }
-        returnToFinale();
-      } else {
-        // Navigate to the selected section
-        triggerNavigation(idx);
-      }
-    });
-  });
-}
 
 // --- Dynamic Device Info Tooltip Instructions ---
 function initInfoTooltipDeviceSpecific() {
@@ -4734,9 +4753,9 @@ function initInfoTooltipDeviceSpecific() {
 
   if (isHandheldDevice) {
     tooltip.innerHTML = `
-      <div class="info-row"><span class="key">drag</span> rotate</div>
+      <div class="info-row"><span class="key">drag</span> rotate/browse</div>
+      <div class="info-row"><span class="key">drag to top</span> select</div>
       <div class="info-row"><span class="key">tap card</span> zoom in</div>
-      <div class="info-row"><span class="key">menu</span> browse</div>
       <div class="info-row"><span class="key">tap out</span> zoom out</div>
     `;
 
@@ -4745,10 +4764,6 @@ function initInfoTooltipDeviceSpecific() {
     infoBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       const isShowing = tooltip.classList.contains('show-mobile');
-
-      // Close menu if open
-      const menu = document.getElementById('mobile-nav-menu');
-      if (menu) menu.classList.remove('open');
 
       if (isShowing) {
         tooltip.classList.remove('show-mobile');
@@ -4769,7 +4784,7 @@ function initInfoTooltipDeviceSpecific() {
   }
 }
 
-initMobileNavigation();
+
 initInfoTooltipDeviceSpecific();
 
 // --- Navigation Tab Click Handlers ---
@@ -5679,7 +5694,22 @@ window.addEventListener('pointerdown', (event) => {
     event.target.id === 'audio-toggle' ||
     event.target.closest('#audio-toggle') ||
     event.target.closest('.radial-nav') ||
-    event.target.closest('.theme-selector')) {
+    event.target.closest('.theme-selector') ||
+    event.target.closest('.mobile-nav-container')) {
+    return;
+  }
+
+  // Mobile drag-to-select logic: only in overview (isPostSequence) on mobile/touch
+  if (isPostSequence && isHandheldDevice) {
+    isDraggingMobileNav = true;
+    dragStartPointerX = event.clientX;
+    dragStartAngle = postSeqAngle;
+    if (mobileNavSelectionTimeout) {
+      clearTimeout(mobileNavSelectionTimeout);
+      mobileNavSelectionTimeout = null;
+    }
+    dragOmegaSpeed = 0.0;
+    mobileNavDragHoldTimer = 5.0; // Reset 5-second inactivity timeout
     return;
   }
 
@@ -5715,14 +5745,67 @@ const releaseVehicleHold = () => {
   }
 };
 
-window.addEventListener('pointerup', releaseVehicleHold);
-window.addEventListener('pointercancel', releaseVehicleHold);
-window.addEventListener('mouseleave', releaseVehicleHold);
+const releaseMobileNavDrag = () => {
+  if (isDraggingMobileNav && isHandheldDevice) {
+    isDraggingMobileNav = false;
+
+    // Find the closest sector to the top (12 o'clock, which is Math.PI / 2)
+    let closestIdx = -1;
+    let minDiff = Infinity;
+    const marginOfError = 0.26; // approx 15 degrees in radians
+
+    navLabels.forEach((entry, idx) => {
+      const angleOnScreen = entry.baseAngle - postSeqAngle;
+      let diff = angleOnScreen - Math.PI / 2;
+      diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+      const absDiff = Math.abs(diff);
+
+      if (absDiff < minDiff) {
+        minDiff = absDiff;
+        closestIdx = idx;
+      }
+    });
+
+    if (closestIdx !== -1 && minDiff < marginOfError) {
+      // Successfully selected a sector!
+      const selectedLabel = navLabels[closestIdx];
+      selectedLabel.targetScale = 1.4;
+      selectedLabel.targetOpacity = 1.0;
+
+      mobileNavSelectionTimeout = setTimeout(() => {
+        triggerNavigation(closestIdx);
+        mobileNavSelectionTimeout = null;
+      }, 500);
+    } else {
+      // No sector selected, auto-rotation will lerp back to speed
+    }
+  }
+};
+
+window.addEventListener('pointerup', () => {
+  releaseVehicleHold();
+  releaseMobileNavDrag();
+});
+window.addEventListener('pointercancel', () => {
+  releaseVehicleHold();
+  releaseMobileNavDrag();
+});
+window.addEventListener('mouseleave', () => {
+  releaseVehicleHold();
+  releaseMobileNavDrag();
+});
 
 let isResumeHovered = false;
 let isTextboxHovered = false;
 
 window.addEventListener('pointermove', (event) => {
+  if (isDraggingMobileNav && isHandheldDevice) {
+    const deltaX = event.clientX - dragStartPointerX;
+    postSeqAngle = dragStartAngle - deltaX * 0.005;
+    mobileNavDragHoldTimer = 5.0; // Reset inactivity timer on pointer motion
+    return;
+  }
+
   // Calculate mouse position in normalized device coordinates (-1 to +1)
   _mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   _mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
