@@ -4729,7 +4729,8 @@ function initMobileNavigation() {
 // --- Dynamic Device Info Tooltip Instructions ---
 function initInfoTooltipDeviceSpecific() {
   const tooltip = document.querySelector('.info-tooltip');
-  if (!tooltip) return;
+  const infoBtn = document.querySelector('.info-btn');
+  if (!tooltip || !infoBtn) return;
 
   if (isHandheldDevice) {
     tooltip.innerHTML = `
@@ -4738,6 +4739,33 @@ function initInfoTooltipDeviceSpecific() {
       <div class="info-row"><span class="key">menu</span> browse</div>
       <div class="info-row"><span class="key">tap out</span> zoom out</div>
     `;
+
+    let hideTimeout = null;
+
+    infoBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isShowing = tooltip.classList.contains('show-mobile');
+
+      // Close menu if open
+      const menu = document.getElementById('mobile-nav-menu');
+      if (menu) menu.classList.remove('open');
+
+      if (isShowing) {
+        tooltip.classList.remove('show-mobile');
+        if (hideTimeout) clearTimeout(hideTimeout);
+      } else {
+        tooltip.classList.add('show-mobile');
+        if (hideTimeout) clearTimeout(hideTimeout);
+        hideTimeout = setTimeout(() => {
+          tooltip.classList.remove('show-mobile');
+        }, 5000);
+      }
+    });
+
+    window.addEventListener('click', () => {
+      tooltip.classList.remove('show-mobile');
+      if (hideTimeout) clearTimeout(hideTimeout);
+    });
   }
 }
 

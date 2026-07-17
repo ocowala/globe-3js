@@ -293,12 +293,21 @@ canvas {
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
+/* Show tooltip on mobile via JS class */
+.info-tooltip.show-mobile {
+  opacity: 1.0 !important;
+  transform: translateY(0) !important;
+  pointer-events: auto !important;
+}
+
 /* Show on container hover or button focus */
-.info-container:hover .info-tooltip,
-.info-btn:focus + .info-tooltip {
-  opacity: 1.0;
-  transform: translateY(0);
-  pointer-events: auto;
+@media (hover: hover) {
+  .info-container:hover .info-tooltip,
+  .info-btn:focus + .info-tooltip {
+    opacity: 1.0;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
 }
 
 .info-row {
@@ -475,8 +484,8 @@ body.dark #song-name.playing {
   }
 
   .info-tooltip {
-    top: auto;
-    bottom: calc(100% + 8px);
+    top: calc(100% + 8px) !important;
+    bottom: auto !important;
     left: -10px;
     width: 125px;
     padding: 8px 10px;
@@ -507,6 +516,7 @@ body.dark #song-name.playing {
 
 /* ── Radial Navigation Dial (Top/Bottom Left) ── */
 .radial-nav {
+  display: none !important;
   position: fixed;
   bottom: 28px;
   left: 28px;
@@ -774,7 +784,7 @@ body.theme-crimson {
   position: fixed;
   bottom: 28px;
   left: 28px;
-  z-index: 40;
+  z-index: 9999;
   display: flex;
   flex-direction: column-reverse;
   align-items: flex-start;
