@@ -4685,6 +4685,65 @@ function animate() {
 initNavLabels();
 animate();
 
+// --- Mobile Navigation Pop-up Tool ---
+function initMobileNavigation() {
+  const container = document.getElementById('mobile-nav-container');
+  const toggleBtn = document.getElementById('mobile-nav-toggle');
+  const menu = document.getElementById('mobile-nav-menu');
+
+  if (!container || !toggleBtn || !menu) return;
+
+  // Toggle menu open/close
+  toggleBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.classList.toggle('open');
+  });
+
+  // Close menu when clicking outside
+  window.addEventListener('click', () => {
+    menu.classList.remove('open');
+  });
+
+  // Menu item select handler
+  const items = document.querySelectorAll('.mobile-nav-item');
+  items.forEach((item) => {
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menu.classList.remove('open');
+
+      const idx = parseInt(item.getAttribute('data-idx'));
+      if (idx === -1) {
+        // Return to Home (zooms out to overview)
+        if (selectedTextbox) {
+          deselectTextbox();
+        }
+        returnToFinale();
+      } else {
+        // Navigate to the selected section
+        triggerNavigation(idx);
+      }
+    });
+  });
+}
+
+// --- Dynamic Device Info Tooltip Instructions ---
+function initInfoTooltipDeviceSpecific() {
+  const tooltip = document.querySelector('.info-tooltip');
+  if (!tooltip) return;
+
+  if (isHandheldDevice) {
+    tooltip.innerHTML = `
+      <div class="info-row"><span class="key">drag</span> rotate</div>
+      <div class="info-row"><span class="key">tap card</span> zoom in</div>
+      <div class="info-row"><span class="key">menu</span> browse</div>
+      <div class="info-row"><span class="key">tap out</span> zoom out</div>
+    `;
+  }
+}
+
+initMobileNavigation();
+initInfoTooltipDeviceSpecific();
+
 // --- Navigation Tab Click Handlers ---
 
 
