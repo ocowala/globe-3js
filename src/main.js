@@ -714,9 +714,9 @@ function drawTextBoxCanvas(canvas, data, pastelColor, isFocused, textureToUpdate
     if (canvas.width < canvas.height) {
       // PORTRAIT (Mobile) Layout: Stacked vertical grids with centered heading capsules & centered wrapped badges
       const categories = [
-        { title: "languages", badges: ["Python", "Java", "C", "C++", "SQL", "JavaScript", "TypeScript", "R", "HTML", "CSS"], barColor: '#e11d48' },
-        { title: "libraries", badges: ["React", "Flask", "Node.js", "NumPy", "Pandas", "Scikit-Learn", "PyTorch", "LangChain"], barColor: '#2563eb' },
-        { title: "tools", badges: ["Git", "AWS", "Firebase", "LaTeX"], barColor: '#64748b' }
+        { title: "languages", badges: ["Python", "Java", "C++", "C", "SQL", "JavaScript", "TypeScript", "Swift", "MATLAB"], barColor: '#e11d48' },
+        { title: "frameworks", badges: ["React", "React Native", "Next.js", "Spring Boot", "NumPy", "Pandas", "Scikit-learn", "TensorFlow", "PyTorch", "OpenCV", "YOLOv7", "BeautifulSoup"], barColor: '#2563eb' },
+        { title: "tools & cloud", badges: ["AWS", "Azure", "Firebase", "MongoDB", "Vercel", "Git", "Podman", "Docker", "GitHub Copilot", "AWS Cloud Practitioner"], barColor: '#64748b' }
       ];
 
       const startY = 120;
@@ -820,9 +820,9 @@ function drawTextBoxCanvas(canvas, data, pastelColor, isFocused, textureToUpdate
     } else {
       // LANDSCAPE (Desktop) Layout: side-by-side category label and badges
       const categories = [
-        { title: "languages", badges: ["Python", "Java", "C", "C++", "SQL", "JavaScript", "TypeScript", "R", "HTML", "CSS"], barColor: '#e11d48' },
-        { title: "libraries", badges: ["React", "Flask", "Node.js", "NumPy", "Pandas", "Scikit-Learn", "PyTorch", "LangChain"], barColor: '#2563eb' },
-        { title: "tools", badges: ["Git", "AWS", "Firebase", "LaTeX"], barColor: '#64748b' }
+        { title: "languages", badges: ["Python", "Java", "C++", "C", "SQL", "JavaScript", "TypeScript", "Swift", "MATLAB"], barColor: '#e11d48' },
+        { title: "frameworks", badges: ["React", "React Native", "Next.js", "Spring Boot", "NumPy", "Pandas", "Scikit-learn", "TensorFlow", "PyTorch", "OpenCV", "YOLOv7", "BeautifulSoup"], barColor: '#2563eb' },
+        { title: "tools & cloud", badges: ["AWS", "Azure", "Firebase", "MongoDB", "Vercel", "Git", "Podman", "Docker", "GitHub Copilot", "AWS Cloud Practitioner"], barColor: '#64748b' }
       ];
 
       const startY = 100;
@@ -1275,28 +1275,28 @@ const sceneTextboxes = {
 
 const staticTextboxConfigs = {
   'City': [
-    { angleOffset: 12.0, data: { title: "hello & welcome", subtitle: "software engineer specializing in systems & graphics", badges: ["full stack", "creative dev", "problem solver"] } },
-    { angleOffset: -16.0, data: { title: "contact info", subtitle: "email: jadhav31@purdue.edu | phone: (732) 853-5756", badges: ["github", "linkedin", "email"] } }
+    { angleOffset: 12.0, data: { title: "advitiya jadhav", subtitle: "computer engineering student & developer", badges: ["systems", "full stack"] } },
+    { angleOffset: -16.0, data: { title: "contact & links", subtitle: "email: jadhav31@purdue.edu | phone: +1 732 853 5756", badges: ["email", "github", "linkedin"] } }
   ],
   'School': [
-    { angleOffset: 6.0, data: { title: "computer science", subtitle: "bs in computer engineering | graduation: may 2028", badges: ["gpa: 3.7", "dean's list", "undergrad"] } },
-    { angleOffset: -8.0, data: { title: "relevant coursework", subtitle: "focus on programming, systems & mathematics", badges: ["algorithms", "databases", "networks", "compilers", "os"] } }
+    { angleOffset: 6.0, data: { title: "purdue university", subtitle: "computer engineering | grad: may 2028", badges: ["GPA: 3.7", "75+ Credits"] } },
+    { angleOffset: -8.0, data: { title: "relevant coursework", subtitle: "computing and engineering fundamentals", badges: ["data structures", "digital systems", "advanced c", "math"] } }
   ],
   'Landscape': [
-    { angleOffset: 0.0, data: { title: "technical skills", subtitle: "languages, libraries & tools", badges: ["Python", "React", "AWS", "Git"], isSkills: true } }
+    { angleOffset: 0.0, data: { title: "technical skills", subtitle: "languages, frameworks & tools", badges: ["languages", "frameworks", "devops", "cloud"], isSkills: true } }
   ],
   'Beach': [
-    { angleOffset: 4.5, data: { title: "data pipelines", subtitle: "real-time streaming & analytics", badges: ["Kafka", "Flink", "PostgreSQL", "Python"] } },
-    { angleOffset: -17.5, data: { title: "software engineering", subtitle: "building robust & scalable services", badges: ["Go", "gRPC", "Redis", "Docker"] } }
+    { angleOffset: 4.5, data: { title: "milliman", subtitle: "software development intern | may 2026 - aug 2026", badges: ["api security", "llm drug search", "excel report ui", "github actions"] } },
+    { angleOffset: -17.5, data: { title: "purdue extension", subtitle: "assistant web developer | jun 2025 - present", badges: ["react / wordpress", "accessibility", "expertise database"] } }
   ],
   'Desert': [
-    { angleOffset: 1.5, data: { title: "devops engineering", subtitle: "resilient infrastructures & ci/cd", badges: ["Terraform", "GitHub Actions", "Docker", "AWS"] } },
-    { angleOffset: -17.5, data: { title: "globe-3js", subtitle: "interactive 3d portfolio engine", badges: ["Three.js", "Vite", "Vanilla JS", "CSS"] } },
-    { angleOffset: -36.5, data: { title: "api gateway", subtitle: "routing & auth proxy", badges: ["Go", "Redis", "Prometheus", "Docker"] } }
+    { angleOffset: 1.5, data: { title: "car auction market", subtitle: "live market aggregation & price prediction", badges: ["python scraper", "express backend", "react frontend", "postgresql"] } },
+    { angleOffset: -17.5, data: { title: "extensionllm", subtitle: "llm-powered search and rag pipeline", badges: ["langchain", "vector database", "rag pipeline", "react search"] } },
+    { angleOffset: -36.5, data: { title: "spellkasten", subtitle: "interactive word-graph semantic visualization", badges: ["d3.js", "force-directed graph", "express backend", "shortest path"] } }
   ],
   'Cafe': [
-    { angleOffset: -10.0, data: { title: "systems optimization", subtitle: "low-latency & profiling", badges: ["C++", "Rust", "WebAssembly", "Go"] } },
-    { angleOffset: -32.0, data: { title: "3d graphics", subtitle: "shaders & interactive webgl", badges: ["Three.js", "WebGL", "GLSL", "Blender"] } }
+    { angleOffset: -10.0, data: { title: "cooking", subtitle: "cuisine, dessert & methods", badges: ["thai", "falooda", "flambeing"] } },
+    { angleOffset: -32.0, data: { title: "tennis", subtitle: "recreational play, rallying & fitness", badges: ["singles", "doubles", "cardio"] } }
   ]
 };
 
@@ -4698,88 +4698,175 @@ function getSectorIndexFromVehicleIndex(vehicleIdx) {
 // --- Textbox Focus Details Overlay System ---
 
 const textboxDetails = {
-  "data pipelines": {
-    subtitle: "real-time ingestion & processing | beach scene",
+  "advitiya jadhav": {
+    subtitle: "computer engineering at purdue university",
     bullets: [
-      "Engineered high-throughput real-time Kafka streaming ingestion pipelines processing millions of daily event payloads.",
-      "Integrated Apache Flink to perform sliding-window aggregation analytics, reducing business KPI latency by 40%.",
-      "Designed highly optimized timeseries table partitioning in PostgreSQL to support rapid historical audits."
+      "Computer Engineering student at Purdue with experience in full stack web development and AI.",
+      "Passionate about designing efficient systems and modern user interfaces."
     ],
-    tech: ["Kafka", "Flink", "PostgreSQL", "Python", "Go", "Docker"],
+    tech: ["Python", "C++", "JavaScript", "React"],
     svg: `<svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="200" height="150" rx="12" fill="rgba(36,51,63,0.06)"/>
-      <path d="M40 75 h40 M120 75 h40" stroke="#24333f" stroke-width="3" stroke-dasharray="4 4"/>
-      <circle cx="40" cy="75" r="12" fill="#24333f"/>
-      <circle cx="100" cy="45" r="16" fill="#5d677d"/>
-      <circle cx="100" cy="105" r="16" fill="#5d677d"/>
-      <circle cx="160" cy="75" r="12" fill="#24333f"/>
-      <path d="M40 75 L84 45 M40 75 L84 105 M116 45 L160 75 M116 105 L160 75" stroke="#24333f" stroke-width="2.5"/>
+      <circle cx="100" cy="55" r="22" stroke="#24333f" stroke-width="3" fill="#5d677d"/>
+      <path d="M60 115 C60 90, 140 90, 140 115" stroke="#24333f" stroke-width="3" fill="#24333f"/>
+      <path d="M40 40 l3 3 m-3 0 l3 -3" stroke="#24333f" stroke-width="2"/>
+      <path d="M160 45 l4 4 m-4 0 l4 -4" stroke="#24333f" stroke-width="2"/>
     </svg>`
   },
-  "software engineering": {
-    subtitle: "robust & scalable services | beach scene",
+  "contact & links": {
+    subtitle: "get in touch",
     bullets: [
-      "Developed modular gRPC microservices in Go, increasing server throughput and improving inter-service communication efficiency.",
-      "Implemented cache-aside session layers using Redis, decreasing primary relational database read load by 35%.",
-      "Wrote comprehensive unit and integration test suites, securing 90% codebase logic coverage.",
+      "Email: jadhav31@purdue.edu",
+      "Phone: +1 732 853 5756",
+      "GitHub: github.com/ocowala",
+      "LinkedIn: linkedin.com/in/advitiyajadhav"
     ],
-    tech: ["Go", "gRPC", "Redis", "Docker", "PostgreSQL", "Git"],
+    tech: ["Email", "LinkedIn", "GitHub"],
+    svg: `<svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="200" height="150" rx="12" fill="rgba(36,51,63,0.06)"/>
+      <rect x="40" y="45" width="120" height="70" rx="6" stroke="#24333f" stroke-width="3"/>
+      <path d="M40 45 l60 35 l60 -35" stroke="#24333f" stroke-width="3"/>
+      <circle cx="100" cy="115" r="6" fill="#5d677d"/>
+    </svg>`
+  },
+  "purdue university": {
+    subtitle: "bs in computer engineering | west lafayette, in",
+    bullets: [
+      "Cumulative GPA: 3.7 with Junior standing (75+ Credits).",
+      "Focused on systems programming, hardware-software integration, and math."
+    ],
+    tech: ["Computer Engineering", "Purdue"],
+    svg: `<svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="200" height="150" rx="12" fill="rgba(36,51,63,0.06)"/>
+      <path d="M40 110 h120 M50 110 V65 M80 110 V65 M120 110 V65 M150 110 V65" stroke="#24333f" stroke-width="3"/>
+      <path d="M45 65 h110 L100 35 Z" stroke="#24333f" stroke-width="3" fill="#5d677d"/>
+      <rect x="35" y="110" width="130" height="10" fill="#24333f"/>
+    </svg>`
+  },
+  "relevant coursework": {
+    subtitle: "core engineering & math courses",
+    bullets: [
+      "Data Structures, Digital System Design, and Advanced C Programming.",
+      "Linear Algebra, Differential Equations, and Multivariable Calculus."
+    ],
+    tech: ["C", "Data Structures", "Mathematics"],
+    svg: `<svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="200" height="150" rx="12" fill="rgba(36,51,63,0.06)"/>
+      <rect x="50" y="40" width="100" height="20" rx="3" stroke="#24333f" stroke-width="2.5" fill="#5d677d"/>
+      <rect x="45" y="65" width="110" height="20" rx="3" stroke="#24333f" stroke-width="2.5" fill="#24333f"/>
+      <rect x="40" y="90" width="120" height="20" rx="3" stroke="#24333f" stroke-width="2.5" fill="#5d677d"/>
+      <path d="M130 50 h10 M135 75 h10 M140 100 h10" stroke="#fff" stroke-width="2"/>
+    </svg>`
+  },
+  "milliman": {
+    subtitle: "software development intern | brookfield, wi (may 2026 – aug 2026)",
+    bullets: [
+      "Engineered API key security (rotation, 2FA), reducing DB latency by 30%.",
+      "Developed LLM drug lookup (Claude, GPT-5.5) with token-efficient auto-mode (cut usage by 25%).",
+      "Built UI supporting 35+ template Excel exports, cutting report time by 35%.",
+      "Migrated pipelines from Azure DevOps to GitHub Actions, saving $2,000/month."
+    ],
+    tech: ["C#", "TypeScript", "GitHub Actions", "Azure DevOps", "Security"],
+    svg: `<svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="200" height="150" rx="12" fill="rgba(36,51,63,0.06)"/>
+      <path d="M100 35 C130 35, 150 45, 150 75 C150 110, 100 125, 100 125 C100 125, 50 110, 50 75 C50 45, 70 35, 100 35 Z" stroke="#24333f" stroke-width="3" fill="#5d677d"/>
+      <circle cx="100" cy="70" r="10" stroke="#fff" stroke-width="2.5" fill="none"/>
+      <path d="M100 80 v15" stroke="#fff" stroke-width="2.5"/>
+    </svg>`
+  },
+  "purdue extension": {
+    subtitle: "assistant web developer | west lafayette, in (jun 2025 – present)",
+    bullets: [
+      "Developed web components for extension sites using WordPress and React.",
+      "Optimized site accessibility and load times, improving engagement by 20%.",
+      "Refactored database schema, boosting performance by 35% and query speed by 40%."
+    ],
+    tech: ["React", "WordPress", "CascadeCMS", "Databases"],
     svg: `<svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="200" height="150" rx="12" fill="rgba(36,51,63,0.06)"/>
       <rect x="35" y="35" width="130" height="80" rx="6" stroke="#24333f" stroke-width="3"/>
-      <path d="M35 47 h130 M45 41 h4 M53 41 h4" stroke="#24333f" stroke-width="2"/>
-      <path d="M65 65 l-10 10 l10 10 M135 65 l10 10 l-10 10 M90 85 l20 -20" stroke="#5d677d" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M35 50 h130" stroke="#24333f" stroke-width="2"/>
+      <rect x="45" y="60" width="35" height="45" rx="3" fill="#5d677d"/>
+      <rect x="90" y="60" width="65" height="18" rx="3" fill="#24333f"/>
+      <rect x="90" y="85" width="65" height="18" rx="3" fill="#5d677d"/>
     </svg>`
   },
-  "devops engineering": {
-    subtitle: "infrastructure as code & pipelines | desert scene",
+  "car auction market": {
+    subtitle: "real-time prediction market | python, node, express, react, pg",
     bullets: [
-      "Provisioned highly available AWS resources (VPCs, ECS clusters, RDS instances) strictly using modular Terraform configurations.",
-      "Configured automated multi-stage CI/CD pipelines in GitHub Actions to run linters, tests, and build Docker containers.",
-      "Containerized microservices using optimized Docker base distributions to minimize size and package vulnerabilities."
+      "Built a live prediction market aggregating real-time listings from Sotheby’s, Bring a Trailer, Gooding & Company, and Christie’s via custom Python scrapers.",
+      "Stored normalized listing data in PostgreSQL and powered a Node.js/Express market engine for user price forecast matching.",
+      "Built a React frontend surfacing live auction feeds, active markets, and pricing analytics, growing to 1,000+ monthly active users."
     ],
-    tech: ["Terraform", "GitHub Actions", "Docker", "AWS", "Linux"],
+    tech: ["Python", "Node.js", "Express", "React", "PostgreSQL", "Scraping"],
     svg: `<svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="200" height="150" rx="12" fill="rgba(36,51,63,0.06)"/>
-      <path d="M60 105 h80 M100 105 v-25" stroke="#24333f" stroke-width="3"/>
-      <rect x="40" y="45" width="40" height="35" rx="4" fill="#5d677d"/>
-      <rect x="120" y="45" width="40" height="35" rx="4" fill="#5d677d"/>
-      <path d="M60 62.5 h15 M140 62.5 h15" stroke="#fff" stroke-width="2"/>
+      <path d="M40 110 L75 80 L110 90 L160 45" stroke="#24333f" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="160" cy="45" r="6" fill="#e11d48"/>
+      <path d="M60 40 L85 65 M65 45 l-15 15" stroke="#5d677d" stroke-width="3"/>
     </svg>`
   },
-  "globe-3js": {
-    subtitle: "interactive 3d web experience | desert scene",
+  "extensionllm": {
+    subtitle: "llm-powered search & rag | langchain, vector db, react",
     bullets: [
-      "Engineered custom WebGL interactive rendering experiences using Three.js and custom math transforms.",
-      "Applied Draco and Meshopt decoders to optimize low-poly GLTF geometry transmission times.",
-      "Programmed linear easing, look-at target interpolation, and custom OrbitControls damping loops for cinematic camera work."
+      "Built an LLM-powered search interface aggregating internal and external webpages into a unified knowledge base.",
+      "Used LangChain to orchestrate RAG pipelines over a vector database of embedded documents.",
+      "Enabled educators to scope projects and discover subject-matter experts via natural language queries."
     ],
-    tech: ["Three.js", "WebGL", "Vite", "Vanilla JS", "CSS", "Blender"],
+    tech: ["Python", "LangChain", "Vector DB", "RAG", "React", "LLM"],
     svg: `<svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="200" height="150" rx="12" fill="rgba(36,51,63,0.06)"/>
-      <circle cx="100" cy="75" r="45" stroke="#24333f" stroke-width="2"/>
-      <ellipse cx="100" cy="75" rx="45" ry="18" stroke="#5d677d" stroke-width="2"/>
-      <ellipse cx="100" cy="75" rx="18" ry="45" stroke="#5d677d" stroke-width="2"/>
-      <line x1="100" y1="30" x2="100" y2="120" stroke="#24333f" stroke-width="2"/>
-      <line x1="55" y1="75" x2="145" y2="75" stroke="#24333f" stroke-width="2"/>
+      <rect x="40" y="40" width="75" height="50" rx="6" stroke="#24333f" stroke-width="2.5" fill="#5d677d"/>
+      <rect x="85" y="65" width="75" height="50" rx="6" stroke="#24333f" stroke-width="2.5" fill="#24333f"/>
+      <path d="M55 55 h30 M55 70 h20 M100 80 h30 M100 95 h20" stroke="#fff" stroke-width="2"/>
     </svg>`
   },
-  "api gateway": {
-    subtitle: "traffic routing & validation proxy | desert scene",
+  "spellkasten": {
+    subtitle: "word-graph semantic visualization | react, d3.js, express",
     bullets: [
-      "Developed a low-latency API reverse-proxy service in Go to route public client calls to localized microservices.",
-      "Built customizable rate-limiting middleware using Redis token buckets to protect background clusters from spikes.",
-      "Configured Prometheus logging metrics and Grafana dashboards to monitor latency statistics in real time."
+      "Built an interactive word-graph visualization mapping 10,000+ commonly used words as nodes, connected by semantic similarity.",
+      "Used D3.js force-directed graphs for interactive UI representation and Node.js/Express for backend data serving.",
+      "Implemented a shortest-path search across the word graph, allowing users to find the minimum chain of connected words in real time."
     ],
-    tech: ["Go", "Redis", "Prometheus", "Docker", "Linux"],
+    tech: ["React", "D3.js", "Node.js", "Express", "Algorithms", "Graph Theory"],
     svg: `<svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="200" height="150" rx="12" fill="rgba(36,51,63,0.06)"/>
-      <circle cx="45" cy="75" r="14" fill="#24333f"/>
-      <circle cx="155" cy="45" r="14" fill="#5d677d"/>
-      <circle cx="155" cy="105" r="14" fill="#5d677d"/>
-      <path d="M59 75 L141 45 M59 75 L141 105" stroke="#24333f" stroke-width="3"/>
-      <rect x="88" y="55" width="24" height="24" rx="4" fill="#24333f"/>
-      <path d="M100 62 v10 M97 67 h6" stroke="#fff" stroke-width="2"/>
+      <path d="M50 75 L100 45 M50 75 L100 105 M100 45 L150 75 M100 105 L150 75 M100 45 L100 105" stroke="#24333f" stroke-width="2"/>
+      <circle cx="50" cy="75" r="10" fill="#24333f"/>
+      <circle cx="100" cy="45" r="12" fill="#5d677d"/>
+      <circle cx="100" cy="105" r="12" fill="#5d677d"/>
+      <circle cx="150" cy="75" r="10" fill="#24333f"/>
+    </svg>`
+  },
+  "cooking": {
+    subtitle: "culinary interests & favorite methods",
+    bullets: [
+      "Favorite Cuisine: Thai Cuisine.",
+      "Favorite Dessert: Falooda.",
+      "Favorite Cooking Method: Flambéing."
+    ],
+    tech: ["Thai", "Falooda", "Flambéing"],
+    svg: `<svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="200" height="150" rx="12" fill="rgba(36,51,63,0.06)"/>
+      <path d="M50 85 h70 a3 3 0 0 1 3 3 v5 a20 20 0 0 1 -20 20 h-36 a20 20 0 0 1 -20 -20 Z" stroke="#24333f" stroke-width="3" fill="#5d677d"/>
+      <path d="M123 90 h40" stroke="#24333f" stroke-width="4" stroke-linecap="round"/>
+      <path d="M65 60 Q70 50 65 40 M85 60 Q90 50 85 40 M105 60 Q110 50 105 40" stroke="#24333f" stroke-width="2" stroke-linecap="round"/>
+    </svg>`
+  },
+  "tennis": {
+    subtitle: "recreational play, rallying & fitness",
+    bullets: [
+      "Active recreational tennis player enjoying rallies, singles, and doubles match play.",
+      "Utilized as a primary cardio activity, focusing on baseline play, serve consistency, and footwork."
+    ],
+    tech: ["Tennis", "Rallying", "Fitness"],
+    svg: `<svg viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="200" height="150" rx="12" fill="rgba(36,51,63,0.06)"/>
+      <ellipse cx="90" cy="65" rx="25" ry="32" stroke="#24333f" stroke-width="3" fill="none"/>
+      <path d="M75 65 h30 M80 50 h20 M80 80 h20 M90 40 v50 M80 43 v44 M100 43 v44" stroke="#5d677d" stroke-width="1.5"/>
+      <path d="M90 97 v32" stroke="#24333f" stroke-width="4.5"/>
+      <circle cx="138" cy="100" r="14" fill="#d9f99d" stroke="#24333f" stroke-width="2.5"/>
+      <path d="M128 100 A10 10 0 0 0 148 100" stroke="#24333f" stroke-width="1.5" fill="none"/>
     </svg>`
   }
 };
