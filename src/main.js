@@ -5509,78 +5509,71 @@ function exitMovieView() {
   return false; // not handled
 }
 
-/*
-const movieBtn = document.getElementById('movie-btn');
-if (movieBtn) {
-  movieBtn.addEventListener('click', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    console.log("Movie button clicked! Initiating camera transition...");
+function triggerMovieTransition() {
+  console.log("Movie easter egg triggered! Initiating camera transition...");
 
-    // Save background audio state and pause it
-    if (audio) {
-      wasBgAudioPlaying = !audio.paused;
-      const currentSrc = audio.getAttribute('src') || '';
-      if (!currentSrc.includes('/castle.mp3')) {
-        audio.src = '/castle.mp3';
-      }
-      audio.pause();
-      if (songNameEl) {
-        songNameEl.textContent = "howl's moving castle - hisaishi";
-        songNameEl.classList.remove('playing');
-      }
+  // Save background audio state and pause it
+  if (audio) {
+    wasBgAudioPlaying = !audio.paused;
+    const currentSrc = audio.getAttribute('src') || '';
+    if (!currentSrc.includes('/castle.mp3')) {
+      audio.src = '/castle.mp3';
     }
-
-    // Capture initial camera state
-    movieTransitionStartPos.copy(camera.position);
-    movieTransitionStartTarget.copy(controls.target);
-    movieTransitionStartUp.copy(camera.up);
-    movieTransitionStartQuat.copy(camera.quaternion);
-
-    // Compute target rotation quaternion
-    const targetEuler = new THREE.Euler(1.56, 0.02, -1.21, 'XYZ');
-    movieTransitionEndQuat.setFromEuler(targetEuler);
-
-    // Apply settings from screenshot
-    camGuiState.paused = true;
-    isOrbitAnimating = false;
-    camGuiState.followCam = true;
-    cameraFollowEnabled = true;
-    camGuiState.fov = 30;
-    camera.fov = 30;
-    camera.updateProjectionMatrix();
-    camGuiState.speed = 5;
-    orbitDegreesPerSecond = 5;
-    camGuiState.velocity = 8;
-    camGuiState.activeVehicle = 'Motorcycle';
-    camGuiState.camOffsetX = 2.5;
-    camGuiState.camOffsetY = 3.1;
-    camGuiState.camOffsetZ = -1.8;
-    camGuiState.lookOffsetX = 0;
-    camGuiState.lookOffsetY = 0;
-    camGuiState.lookOffsetZ = 0;
-
-    // Apply sequence updates for Motorcycle
-    const motorcycleSeq = orbitSequence.find(s => s.name === 'Motorcycle');
-    if (motorcycleSeq) {
-      motorcycleSeq.camOffset.set(2.5, 3.1, -1.8);
-      motorcycleSeq.lookOffset.set(0, 0, 0);
-      motorcycleSeq.params.speed = 8;
+    audio.pause();
+    if (songNameEl) {
+      songNameEl.textContent = "howl's moving castle - hisaishi";
+      songNameEl.classList.remove('playing');
     }
+  }
 
-    // Sync all dat.gui component displays
-    if (typeof updateGUIDisplays === 'function') {
-      updateGUIDisplays(gui);
-    }
+  // Capture initial camera state
+  movieTransitionStartPos.copy(camera.position);
+  movieTransitionStartTarget.copy(controls.target);
+  movieTransitionStartUp.copy(camera.up);
+  movieTransitionStartQuat.copy(camera.quaternion);
 
-    // Start movie transition state machine
-    isMovieTransitionActive = true;
-    movieTransitionState = 'lerping_camera_to_p1';
-    movieTransitionTimer = 0.0;
-    controls.enabled = false;
-  });
+  // Compute target rotation quaternion
+  const targetEuler = new THREE.Euler(1.56, 0.02, -1.21, 'XYZ');
+  movieTransitionEndQuat.setFromEuler(targetEuler);
+
+  // Apply settings from screenshot
+  camGuiState.paused = true;
+  isOrbitAnimating = false;
+  camGuiState.followCam = true;
+  cameraFollowEnabled = true;
+  camGuiState.fov = 30;
+  camera.fov = 30;
+  camera.updateProjectionMatrix();
+  camGuiState.speed = 5;
+  orbitDegreesPerSecond = 5;
+  camGuiState.velocity = 8;
+  camGuiState.activeVehicle = 'Motorcycle';
+  camGuiState.camOffsetX = 2.5;
+  camGuiState.camOffsetY = 3.1;
+  camGuiState.camOffsetZ = -1.8;
+  camGuiState.lookOffsetX = 0;
+  camGuiState.lookOffsetY = 0;
+  camGuiState.lookOffsetZ = 0;
+
+  // Apply sequence updates for Motorcycle
+  const motorcycleSeq = orbitSequence.find(s => s.name === 'Motorcycle');
+  if (motorcycleSeq) {
+    motorcycleSeq.camOffset.set(2.5, 3.1, -1.8);
+    motorcycleSeq.lookOffset.set(0, 0, 0);
+    motorcycleSeq.params.speed = 8;
+  }
+
+  // Sync all dat.gui component displays
+  if (typeof updateGUIDisplays === 'function') {
+    updateGUIDisplays(gui);
+  }
+
+  // Start movie transition state machine
+  isMovieTransitionActive = true;
+  movieTransitionState = 'lerping_camera_to_p1';
+  movieTransitionTimer = 0.0;
+  controls.enabled = false;
 }
-*/
 
 // --- Raycast Click on Cylinder (Globe) ---
 const _globeRaycaster = new THREE.Raycaster();
@@ -5925,33 +5918,47 @@ const themeToggle = document.getElementById('theme-toggle');
 if (themeToggle) {
   const emojiEl = themeToggle.querySelector('.theme-emoji');
 
-  const modesList = ['cycle', 'cobalt', 'clay'];
+  const isEasterEggEnabled = Math.random() < 0.1;
+  const modesList = isEasterEggEnabled ? ['cycle', 'cobalt', 'clay', 'easteregg'] : ['cycle', 'cobalt', 'clay'];
+
   const emojisMap = {
     cycle: '🌗',
     cobalt: '🌙',
-    clay: '☀️'
+    clay: '☀️',
+    easteregg: ''
   };
   const titlesMap = {
     cycle: 'Backdrop: Day-Night Cycle',
     cobalt: 'Backdrop: Dark Mode (Cobalt)',
-    clay: 'Backdrop: Light Mode (Beige)'
+    clay: 'Backdrop: Light Mode (Beige)',
+    easteregg: 'Backdrop: Easter Egg Mode'
   };
 
   themeToggle.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
 
-    // Cycle backdrop mode: cycle -> cobalt -> clay -> cycle
+    // Cycle backdrop mode
     const currentIdx = modesList.indexOf(activeBackdropMode);
     const nextIdx = (currentIdx + 1) % modesList.length;
     const nextMode = modesList[nextIdx];
 
     activeBackdropMode = nextMode;
 
-    // Update button text and title
-    if (emojiEl) emojiEl.textContent = emojisMap[nextMode];
+    // Update button display
+    if (emojiEl) {
+      if (nextMode === 'easteregg') {
+        emojiEl.innerHTML = '<img src="/easter-egg.png" style="width: 20px; height: 20px; vertical-align: middle; pointer-events: none;" alt="Easter Egg">';
+      } else {
+        emojiEl.textContent = emojisMap[nextMode];
+      }
+    }
     themeToggle.title = titlesMap[nextMode];
 
     console.log(`Backdrop mode cycled to: ${nextMode}`);
+
+    if (nextMode === 'easteregg') {
+      triggerMovieTransition();
+    }
   });
 }
