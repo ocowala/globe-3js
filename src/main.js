@@ -5795,8 +5795,8 @@ const releaseMobileNavDrag = () => {
         mobileNavSelectionTimeout = null;
       }, 500);
     } else {
-      // No sector selected, initiate a 2-second delay before auto-rotation resumes
-      mobileNavResumeDelayTimer = 2.0;
+      // No sector selected, initiate a 1.5-second delay before auto-rotation resumes
+      mobileNavResumeDelayTimer = 1.5;
     }
   }
 };
