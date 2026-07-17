@@ -5533,8 +5533,8 @@ window.addEventListener('click', (event) => {
       if (clickedEntryIdx !== -1) {
         const clickedEntry = navLabels[clickedEntryIdx];
         if (clickedEntry.config.label === 'Resume') {
-          console.log("3D Resume Nav Label clicked. Opening /resume_v1.pdf");
-          window.open('/resume_v1.pdf', '_blank');
+          console.log("3D Resume Nav Label clicked. Opening /Advitiya_Resume_Jul_12.pdf");
+          window.open('/Advitiya_Resume_Jul_12.pdf', '_blank');
         } else {
           console.log(`3D Nav Label ${clickedEntry.config.label} clicked. Navigating to index ${clickedEntryIdx}.`);
           triggerNavigation(clickedEntryIdx);
@@ -5719,8 +5719,8 @@ if (radialNavContainer) {
         if (navLabels[idx]) {
           const entry = navLabels[idx];
           if (entry.config.label === 'Resume') {
-            console.log("Radial Nav Resume clicked. Opening /resume_v1.pdf");
-            window.open('/resume_v1.pdf', '_blank');
+            console.log("Radial Nav Resume clicked. Opening /Advitiya_Resume_Jul_12.pdf");
+            window.open('/Advitiya_Resume_Jul_12.pdf', '_blank');
           } else {
             console.log(`Radial Nav clicked: ${entry.config.label}. Navigating to index ${idx}.`);
             triggerNavigation(idx);
