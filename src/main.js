@@ -286,6 +286,7 @@ let dragStartAngle = 0;
 let mobileNavSelectionTimeout = null;
 let dragOmegaSpeed = 0.4;
 let mobileNavDragHoldTimer = 0.0;
+let mobileNavResumeDelayTimer = 0.0;
 let activeWheelSpeedFactor = 1.0;
 let transitionStartGlobeOpacity = 1.0;
 let transitionStartOrbitOpacity = 0.45;
@@ -4347,10 +4348,13 @@ function animate() {
       const accelTime = 3.0; // 3 seconds acceleration
       const omegaMax = 0.4;  // max angular velocity (in rad/s)
 
-      if (!isDraggingMobileNav) {
-        dragOmegaSpeed = THREE.MathUtils.lerp(dragOmegaSpeed, omegaMax, 0.05);
-      } else {
+      if (isDraggingMobileNav) {
         dragOmegaSpeed = 0.0;
+      } else if (mobileNavResumeDelayTimer > 0) {
+        mobileNavResumeDelayTimer -= realDeltaTime;
+        dragOmegaSpeed = 0.0;
+      } else {
+        dragOmegaSpeed = THREE.MathUtils.lerp(dragOmegaSpeed, omegaMax, 0.05);
       }
 
       const currentOmega = dragOmegaSpeed * Math.min(postSeqTimer / accelTime, 1.0);
@@ -4579,8 +4583,8 @@ function animate() {
     // Position labels statically on the cylinder cap to rotate with the scene
     updateNavLabelPositions();
 
-    // If on mobile overview, calculate active highlights based on position/drag
-    if (isHandheldDevice && isPostSequence) {
+    // If on mobile overview, calculate active highlights based on position/drag ONLY when actively dragging or transitioning
+    if (isHandheldDevice && isPostSequence && (isDraggingMobileNav || mobileNavSelectionTimeout !== null)) {
       let closestIdx = -1;
       let minDiff = Infinity;
       const marginOfError = 0.26; // approx 15 degrees
@@ -4613,6 +4617,15 @@ function animate() {
           if (hoverScenes[entry.config.scene]) {
             hoverScenes[entry.config.scene].target = 0.0;
           }
+        }
+      });
+    } else if (isHandheldDevice && isPostSequence) {
+      // On mobile auto-rotation, reset all labels to default size and flat scene target to prevent protrusion
+      navLabels.forEach((entry) => {
+        entry.targetScale = 1.0;
+        entry.targetOpacity = 0.75;
+        if (hoverScenes[entry.config.scene]) {
+          hoverScenes[entry.config.scene].target = 0.0;
         }
       });
     }
@@ -5708,8 +5721,13 @@ window.addEventListener('pointerdown', (event) => {
       clearTimeout(mobileNavSelectionTimeout);
       mobileNavSelectionTimeout = null;
     }
+    // Pause/reset the 10-second automatic sequence delay
+    introFinaleActive = false;
+    introFinaleTimer = 0.0;
+
     dragOmegaSpeed = 0.0;
     mobileNavDragHoldTimer = 5.0; // Reset 5-second inactivity timeout
+    mobileNavResumeDelayTimer = 0.0; // Reset 2s resume timer
     return;
   }
 
@@ -5777,7 +5795,8 @@ const releaseMobileNavDrag = () => {
         mobileNavSelectionTimeout = null;
       }, 500);
     } else {
-      // No sector selected, auto-rotation will lerp back to speed
+      // No sector selected, initiate a 2-second delay before auto-rotation resumes
+      mobileNavResumeDelayTimer = 2.0;
     }
   }
 };
@@ -5801,7 +5820,7 @@ let isTextboxHovered = false;
 window.addEventListener('pointermove', (event) => {
   if (isDraggingMobileNav && isHandheldDevice) {
     const deltaX = event.clientX - dragStartPointerX;
-    postSeqAngle = dragStartAngle - deltaX * 0.005;
+    postSeqAngle = dragStartAngle - deltaX * 0.015;
     mobileNavDragHoldTimer = 5.0; // Reset inactivity timer on pointer motion
     return;
   }
