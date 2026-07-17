@@ -287,6 +287,9 @@ let mobileNavSelectionTimeout = null;
 let dragOmegaSpeed = 0.4;
 let mobileNavDragHoldTimer = 0.0;
 let mobileNavResumeDelayTimer = 0.0;
+let orbitSwipeStartPointerY = 0;
+let orbitSwipeStartPointerX = 0;
+let isTrackingOrbitSwipe = false;
 let activeWheelSpeedFactor = 1.0;
 let transitionStartGlobeOpacity = 1.0;
 let transitionStartOrbitOpacity = 0.45;
@@ -4770,6 +4773,8 @@ function initInfoTooltipDeviceSpecific() {
       <div class="info-row"><span class="key">drag to top</span> select</div>
       <div class="info-row"><span class="key">tap card</span> zoom in</div>
       <div class="info-row"><span class="key">tap out</span> zoom out</div>
+      <div class="info-row"><span class="key">swipe down</span> next scene</div>
+      <div class="info-row"><span class="key">swipe up</span> prev scene</div>
     `;
 
     let hideTimeout = null;
@@ -5724,6 +5729,13 @@ window.addEventListener('pointerdown', (event) => {
     return;
   }
 
+  // Active orbit mobile navigation: swipe detection when not in overview and using touch
+  if (!isPostSequence && isHandheldDevice) {
+    isTrackingOrbitSwipe = true;
+    orbitSwipeStartPointerY = event.clientY;
+    orbitSwipeStartPointerX = event.clientX;
+  }
+
   // Only run hold logic if orbit animation is active
   if (!isOrbitAnimating || introActive || isIntroTransitioning || isPostSequence) {
     return;
@@ -5794,17 +5806,49 @@ const releaseMobileNavDrag = () => {
   }
 };
 
-window.addEventListener('pointerup', () => {
+const releaseOrbitSwipe = (event) => {
+  if (isTrackingOrbitSwipe) {
+    isTrackingOrbitSwipe = false;
+
+    if (typeof event.clientY !== 'number' || typeof event.clientX !== 'number') return;
+
+    const deltaY = event.clientY - orbitSwipeStartPointerY;
+    const deltaX = event.clientX - orbitSwipeStartPointerX;
+
+    // Only detect swipe if primarily vertical and exceeds 60px
+    if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 60) {
+      let sectorIdx = getSectorIndexFromVehicleIndex(currentSeqIndex);
+      if (sectorIdx === -1) sectorIdx = 0;
+
+      if (deltaY > 60) {
+        // Swipe Down -> Next Scene
+        const nextSectorIdx = (sectorIdx + 1) % navLabelConfig.length;
+        console.log(`Swipe Down detected. Transitioning to next scene: ${nextSectorIdx}`);
+        triggerNavigation(nextSectorIdx);
+      } else if (deltaY < -60) {
+        // Swipe Up -> Previous Scene
+        const prevSectorIdx = (sectorIdx - 1 + navLabelConfig.length) % navLabelConfig.length;
+        console.log(`Swipe Up detected. Transitioning to previous scene: ${prevSectorIdx}`);
+        triggerNavigation(prevSectorIdx);
+      }
+    }
+  }
+};
+
+window.addEventListener('pointerup', (event) => {
   releaseVehicleHold();
   releaseMobileNavDrag();
+  releaseOrbitSwipe(event);
 });
-window.addEventListener('pointercancel', () => {
+window.addEventListener('pointercancel', (event) => {
   releaseVehicleHold();
   releaseMobileNavDrag();
+  releaseOrbitSwipe(event);
 });
-window.addEventListener('mouseleave', () => {
+window.addEventListener('mouseleave', (event) => {
   releaseVehicleHold();
   releaseMobileNavDrag();
+  releaseOrbitSwipe(event);
 });
 
 let isResumeHovered = false;
