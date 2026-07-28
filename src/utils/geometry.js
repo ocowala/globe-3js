@@ -74,13 +74,40 @@ export function buildCylinder(introActive = false, onBuildCallback = null) {
 }
 
 export function createRingSectorGeometry(innerR, outerR, thetaLength, segments = 32) {
-  const shape = new THREE.Shape();
+  const geometry = new THREE.BufferGeometry();
+  const vertices = [];
+  const uvs = [];
+  const indices = [];
+
   const halfTheta = thetaLength / 2;
 
-  shape.absarc(0, 0, outerR, -halfTheta, halfTheta, false);
-  shape.absarc(0, 0, innerR, halfTheta, -halfTheta, true);
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments;
+    const angle = halfTheta * (1 - 2 * t);
 
-  const geometry = new THREE.ShapeGeometry(shape, segments);
+    // Inner vertex
+    const xInner = innerR * Math.cos(angle);
+    const yInner = innerR * Math.sin(angle);
+    vertices.push(xInner, yInner, 0);
+    uvs.push(t, 0);
+
+    // Outer vertex
+    const xOuter = outerR * Math.cos(angle);
+    const yOuter = outerR * Math.sin(angle);
+    vertices.push(xOuter, yOuter, 0);
+    uvs.push(t, 1);
+  }
+
+  for (let i = 0; i < segments; i++) {
+    const vi = i * 2;
+    indices.push(vi, vi + 1, vi + 2);
+    indices.push(vi + 1, vi + 3, vi + 2);
+  }
+
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
   return geometry;
 }
 

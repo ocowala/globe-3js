@@ -8,12 +8,12 @@ import { car2Object, car2Params, updateCar2, racecarObject, racecarParams, updat
 import { airplaneGroup, airplaneParams, updateAirplane } from '../vehicles/airplane.js';
 
 export const orbitSequence = [
-  { name: 'Motorcycle', update: updateMotorcycle, params: motorcycleParams, start: 20, end: -30, getObject: () => motorcycleGroup, camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: 1.74 },
-  { name: 'Airplane', update: updateAirplane, params: airplaneParams, start: 20, end: -15, getObject: () => airplaneGroup, camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: 0.74 },
-  { name: 'Car V2', update: updateCar2, params: car2Params, start: 22, end: -12, getObject: () => car2Object, camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: -0.12 },
-  { name: 'Boat', update: updateBoat, params: boatParams, start: 20, end: -23, getObject: () => boatObject, camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: -0.94 },
-  { name: 'Bronco', update: updateBronco, params: broncoParams, start: 15, end: -40, getObject: () => broncoGroup, camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: -1.86 },
-  { name: 'Racecar', update: updateRacecar, params: racecarParams, start: 8, end: -40, getObject: () => racecarObject, camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: -3.05 }
+  { name: 'Motorcycle', update: (speed, cb) => updateMotorcycle(speed, cb), params: motorcycleParams, start: 20, end: -30, getObject: () => motorcycleGroup, camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: 1.74 },
+  { name: 'Airplane', update: (speed, cb) => updateAirplane(cb), params: airplaneParams, start: 20, end: -15, getObject: () => airplaneGroup, camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: 0.74 },
+  { name: 'Car V2', update: (speed, cb) => updateCar2(speed, cb), params: car2Params, start: 22, end: -12, getObject: () => car2Object, camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: -0.12 },
+  { name: 'Boat', update: (speed, cb) => updateBoat(cb), params: boatParams, start: 20, end: -23, getObject: () => boatObject, camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: -0.94 },
+  { name: 'Bronco', update: (speed, cb) => updateBronco(speed, cb), params: broncoParams, start: 15, end: -40, getObject: () => broncoGroup, camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: -1.86 },
+  { name: 'Racecar', update: (speed, cb) => updateRacecar(speed, cb), params: racecarParams, start: 8, end: -40, getObject: () => racecarObject, camOffset: new THREE.Vector3(2.5, 3.1, -1.8), lookOffset: new THREE.Vector3(0, 0, 0), refAngle: -3.05 }
 ];
 
 export let currentSeqIndex = 0;

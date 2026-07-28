@@ -555,7 +555,7 @@ function animate() {
     activeIndices.forEach(idx => {
       const seq = orbitSequence[idx];
       if (seq && seq.update) {
-        seq.update((name, angle, h, cache, fn, hover, p) => {
+        seq.update(activeWheelSpeedFactor, (name, angle, h, cache, fn, hover, p) => {
           updateSceneTextboxes(name, angle, h, cache, fn, hover, p);
         });
       }
