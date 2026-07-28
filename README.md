@@ -2,7 +2,14 @@
 
 An interactive 3D low-poly globe portfolio showcasing my work experience, education at Purdue, skills, projects, and hobbies through rotating 3D scenes.
 
-![Globe Portfolio Preview](./v0.5.png)
+## Design Journey: Concept to Reality
+
+### Early Concept Sketch
+![Early Concept Sketch](./drawing.png)
+
+### Final Implementation
+![Vehicle Orbit View](./vehicle-orbit-v1.0.png)
+![Finale Camera View](./finale-camera-v1.0.png)
 
 ## Tech Stack
 
