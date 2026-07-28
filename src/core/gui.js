@@ -39,6 +39,20 @@ export class DummyGUI {
   show() { }
 }
 
-export const dat = {
-  GUI: DummyGUI
-};
+export const dat = typeof window !== 'undefined' && window.dat ? window.dat : { GUI: DummyGUI };
+
+export const gui = (typeof dat !== 'undefined' && dat.GUI && dat.GUI !== DummyGUI)
+  ? new dat.GUI({ autoPlace: true })
+  : new DummyGUI();
+
+export function updateGUIDisplays(targetGui = gui) {
+  if (!targetGui) return;
+  if (targetGui.__controllers) {
+    targetGui.__controllers.forEach(c => {
+      if (c && typeof c.updateDisplay === 'function') c.updateDisplay();
+    });
+  }
+  if (targetGui.__folders) {
+    Object.values(targetGui.__folders).forEach(f => updateGUIDisplays(f));
+  }
+}

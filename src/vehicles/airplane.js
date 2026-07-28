@@ -86,3 +86,20 @@ export function loadAirplane(introActive = true) {
     console.error('Airplane load failed:', error);
   });
 }
+
+import { gui } from '../core/gui.js';
+import { addTextboxGUI } from '../ui/textboxManager.js';
+
+const planeFolder = gui.addFolder('Airplane');
+planeFolder.add(airplaneParams, 'distance', 1.0, 8.0).step(0.001).name('DistanceOffset').onChange(updateAirplane);
+planeFolder.add(airplaneParams, 'height', -10.0, 10.0).step(0.01).name('HeightOffset').onChange(updateAirplane);
+planeFolder.add(airplaneParams, 'angle', -Math.PI, Math.PI).step(0.01).name('Base Angle').onChange(updateAirplane);
+planeFolder.add(airplaneParams, 'orbitDegrees', -360, 360).step(1).name('Orbit (°)').onChange(updateAirplane);
+planeFolder.add(airplaneParams, 'scale', 0.001, 1.0).step(0.001).name('Scale').onChange(updateAirplane);
+planeFolder.add(airplaneParams, 'rotX', -Math.PI, Math.PI).step(0.01).name('Rotation X').onChange(updateAirplane);
+planeFolder.add(airplaneParams, 'rotY', -Math.PI, Math.PI).step(0.01).name('Rotation Y').onChange(updateAirplane);
+planeFolder.add(airplaneParams, 'rotZ', -Math.PI, Math.PI).step(0.01).name('Rotation Z').onChange(updateAirplane);
+planeFolder.add(airplaneParams, 'propellerSpeed', 0, 1.0).step(0.01).name('Propeller Speed');
+planeFolder.add(airplaneParams, 'speed', 1.0, 30.0).step(0.1).name('Speed').onChange(updateAirplane);
+addTextboxGUI(planeFolder, airplaneParams, updateAirplane, 'School');
+planeFolder.open();

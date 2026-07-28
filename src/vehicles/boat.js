@@ -133,3 +133,27 @@ export function loadBoat(introActive = true) {
     console.error('Boat load failed:', error);
   });
 }
+
+import { gui } from '../core/gui.js';
+import { addTextboxGUI } from '../ui/textboxManager.js';
+
+const boatFolder = gui.addFolder('Boat');
+boatFolder.add(boatParams, 'distance', 1.0, 8.0).step(0.001).name('DistanceOffset').onChange(() => {
+  if (boatObject) runBoatRaycast(boatParams.angle);
+});
+boatFolder.add(boatParams, 'height', -10.0, 10.0).step(0.01).name('HeightOffset').onChange(() => {
+  if (boatObject) runBoatRaycast(boatParams.angle);
+});
+boatFolder.add(boatParams, 'angle', -Math.PI, Math.PI).step(0.01).name('Base Angle').onChange(() => {
+  if (boatObject) runBoatRaycast(boatParams.angle);
+});
+boatFolder.add(boatParams, 'orbitDegrees', -360, 360).step(1).name('Orbit (°)').onChange(() => {
+  if (boatObject) runBoatRaycast(boatParams.angle);
+});
+boatFolder.add(boatParams, 'scale', 0.01, 5.0).step(0.01).name('Scale').onChange(updateBoat);
+boatFolder.add(boatParams, 'rotX', -Math.PI, Math.PI).step(0.01).name('Rotation X').onChange(updateBoat);
+boatFolder.add(boatParams, 'rotY', -Math.PI, Math.PI).step(0.01).name('Rotation Y').onChange(updateBoat);
+boatFolder.add(boatParams, 'rotZ', -Math.PI, Math.PI).step(0.01).name('Rotation Z').onChange(updateBoat);
+boatFolder.add(boatParams, 'speed', 1.0, 30.0).step(0.1).name('Speed').onChange(updateBoat);
+addTextboxGUI(boatFolder, boatParams, updateBoat, 'Beach');
+boatFolder.open();

@@ -116,20 +116,37 @@ export function updateNavLabelCanvas(entry, isHovered) {
   mesh.material.map.needsUpdate = true;
 }
 
+import { gui } from '../core/gui.js';
+
+const _navUp = new THREE.Vector3(0, 0, 1);
+const _navOutward = new THREE.Vector3();
+const _navTangent = new THREE.Vector3();
+const _navRotMatrix = new THREE.Matrix4();
+
 export function updateNavLabelPositions() {
   navLabels.forEach((entry) => {
-    const key = entry.config.key;
+    const key = entry.config.key || entry.config.scene.toLowerCase();
     const zProp = key + 'ZOffset';
     const aProp = key + 'Angle';
-    if (navLabelParams[zProp] !== undefined) {
-      entry.mesh.position.set(0, 0, navLabelParams[zProp]);
-      entry.mesh.rotation.set(0, 0, navLabelParams[aProp]);
-    } else {
-      entry.mesh.position.set(0, 0, 4.015);
-      entry.mesh.rotation.set(0, 0, entry.baseAngle);
-    }
+    const angle = navLabelParams[aProp] !== undefined ? navLabelParams[aProp] : entry.baseAngle;
+    const zPos = navLabelParams[zProp] !== undefined ? navLabelParams[zProp] : 4.015;
+
+    entry.mesh.position.set(0, 0, zPos);
+
+    _navOutward.set(Math.cos(angle), Math.sin(angle), 0);
+    _navTangent.set(-Math.sin(angle), Math.cos(angle), 0);
+    _navRotMatrix.makeBasis(_navOutward, _navTangent, _navUp);
+    entry.mesh.quaternion.setFromRotationMatrix(_navRotMatrix);
   });
 }
+
+const navLabelFolder = gui.addFolder('Nav Labels');
+navLabelConfig.forEach(config => {
+  const f = navLabelFolder.addFolder(config.label);
+  f.add(navLabelParams, config.key + 'ZOffset', 3.0, 5.0).step(0.005).name('Z Offset').onChange(updateNavLabelPositions);
+  f.add(navLabelParams, config.key + 'Angle', -Math.PI, Math.PI).step(0.01).name('Angle').onChange(updateNavLabelPositions);
+});
+navLabelFolder.open();
 
 export function initNavLabels() {
   navLabels.forEach(({ mesh }) => scene.remove(mesh));

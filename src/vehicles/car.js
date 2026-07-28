@@ -314,3 +314,50 @@ export function loadRacecar(introActive = true) {
     console.error('Racecar load failed:', error);
   });
 }
+
+import { gui } from '../core/gui.js';
+import { addTextboxGUI } from '../ui/textboxManager.js';
+
+const racecarFolder = gui.addFolder('Racecar');
+racecarFolder.add(racecarParams, 'distance', 1.0, 8.0).step(0.001).name('DistanceOffset').onChange(() => {
+  if (racecarObject) runRacecarRaycast(racecarParams.angle);
+});
+racecarFolder.add(racecarParams, 'height', -10.0, 10.0).step(0.01).name('HeightOffset').onChange(() => {
+  if (racecarObject) runRacecarRaycast(racecarParams.angle);
+});
+racecarFolder.add(racecarParams, 'angle', -Math.PI, Math.PI).step(0.01).name('Base Angle').onChange(() => {
+  if (racecarObject) runRacecarRaycast(racecarParams.angle);
+});
+racecarFolder.add(racecarParams, 'orbitDegrees', -360, 360).step(1).name('Orbit (°)').onChange(() => {
+  if (racecarObject) runRacecarRaycast(racecarParams.angle);
+});
+racecarFolder.add(racecarParams, 'scale', 0.001, 15.0).step(0.001).name('Scale').onChange(() => updateRacecar(1.0));
+racecarFolder.add(racecarParams, 'rotX', -Math.PI, Math.PI).step(0.01).name('Rotation X').onChange(() => updateRacecar(1.0));
+racecarFolder.add(racecarParams, 'rotY', -Math.PI, Math.PI).step(0.01).name('Rotation Y').onChange(() => updateRacecar(1.0));
+racecarFolder.add(racecarParams, 'rotZ', -Math.PI, Math.PI).step(0.01).name('Rotation Z').onChange(() => updateRacecar(1.0));
+racecarFolder.add(racecarParams, 'wheelSpeed', 0, 0.5).step(0.01).name('Wheel Speed');
+racecarFolder.add(racecarParams, 'speed', 1.0, 30.0).step(0.1).name('Speed').onChange(() => updateRacecar(1.0));
+addTextboxGUI(racecarFolder, racecarParams, () => updateRacecar(1.0), 'Cafe');
+racecarFolder.open();
+
+const car2Folder = gui.addFolder('Car V2');
+car2Folder.add(car2Params, 'distance', 1.0, 8.0).step(0.001).name('DistanceOffset').onChange(() => {
+  if (car2Object) runCar2Raycast(car2Params.angle);
+});
+car2Folder.add(car2Params, 'height', -10.0, 10.0).step(0.01).name('HeightOffset').onChange(() => {
+  if (car2Object) runCar2Raycast(car2Params.angle);
+});
+car2Folder.add(car2Params, 'angle', -Math.PI, Math.PI).step(0.01).name('Base Angle').onChange(() => {
+  if (car2Object) runCar2Raycast(car2Params.angle);
+});
+car2Folder.add(car2Params, 'orbitDegrees', -360, 360).step(1).name('Orbit (°)').onChange(() => {
+  if (car2Object) runCar2Raycast(car2Params.angle);
+});
+car2Folder.add(car2Params, 'scale', 0.001, 5.0).step(0.001).name('Scale').onChange(() => updateCar2(1.0));
+car2Folder.add(car2Params, 'rotX', -Math.PI, Math.PI).step(0.01).name('Rotation X').onChange(() => updateCar2(1.0));
+car2Folder.add(car2Params, 'rotY', -Math.PI, Math.PI).step(0.01).name('Rotation Y').onChange(() => updateCar2(1.0));
+car2Folder.add(car2Params, 'rotZ', -Math.PI, Math.PI).step(0.01).name('Rotation Z').onChange(() => updateCar2(1.0));
+car2Folder.add(car2Params, 'wheelSpeed', 0, 0.5).step(0.01).name('Wheel Speed');
+car2Folder.add(car2Params, 'speed', 1.0, 30.0).step(0.1).name('Speed').onChange(() => updateCar2(1.0));
+addTextboxGUI(car2Folder, car2Params, () => updateCar2(1.0), 'Landscape');
+car2Folder.open();

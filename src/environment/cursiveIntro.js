@@ -7,12 +7,19 @@ export let cursivePlane = null;
 export let cursiveCanvas = null;
 export let cursiveTexture = null;
 
+import { gui } from '../core/gui.js';
+
 export const introParams = {
-  writeTime: 1.4,
-  unwriteTime: 1.4,
+  writeDuration: 1.4,
+  unwriteDuration: 1.4,
   writePause: 0.15,
   unwritePause: 0.15
 };
+
+const introFolder = gui.addFolder('Intro Animation');
+introFolder.add(introParams, 'writeDuration', 0.5, 10.0).step(0.1).name('Write Time (s)');
+introFolder.add(introParams, 'unwriteDuration', 0.5, 10.0).step(0.1).name('Unwrite Time (s)');
+introFolder.open();
 
 export function initCursivePlane() {
   cursiveCanvas = document.createElement('canvas');

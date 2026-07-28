@@ -39,7 +39,7 @@ import {
   transitionProgress, setTransitionProgress, transitionDuration,
   transitionStartPos, transitionEndPos, transitionStartTarget, transitionEndTarget,
   transitionStartUp, transitionStartFOV, currentCamPos, currentCamTarget,
-  getVehicleCameraTransform, syncCamGuiFromSequence, camGuiState
+  getVehicleCameraTransform, syncCamGuiFromSequence, syncGUIFromCamera, camGuiState
 } from './camera/cameraManager.js';
 import { initAudioController } from './media/audioController.js';
 import {
@@ -1170,6 +1170,8 @@ function animate() {
       }
     }
   }
+
+  syncGUIFromCamera();
 
   renderer.render(scene, camera);
 }

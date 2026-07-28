@@ -160,3 +160,28 @@ export function loadBronco(introActive = true) {
     console.error('Bronco load failed:', error);
   });
 }
+
+import { gui } from '../core/gui.js';
+import { addTextboxGUI } from '../ui/textboxManager.js';
+
+const broncoFolder = gui.addFolder('Bronco');
+broncoFolder.add(broncoParams, 'distance', 1.0, 8.0).step(0.001).name('DistanceOffset').onChange(() => {
+  if (broncoGroup) runBroncoRaycast(broncoParams.angle);
+});
+broncoFolder.add(broncoParams, 'height', -10.0, 10.0).step(0.01).name('HeightOffset').onChange(() => {
+  if (broncoGroup) runBroncoRaycast(broncoParams.angle);
+});
+broncoFolder.add(broncoParams, 'angle', -Math.PI, Math.PI).step(0.01).name('Base Angle').onChange(() => {
+  if (broncoGroup) runBroncoRaycast(broncoParams.angle);
+});
+broncoFolder.add(broncoParams, 'orbitDegrees', -360, 360).step(1).name('Orbit (°)').onChange(() => {
+  if (broncoGroup) runBroncoRaycast(broncoParams.angle);
+});
+broncoFolder.add(broncoParams, 'scale', 0.01, 2.0).step(0.01).name('Scale').onChange(() => updateBronco(1.0));
+broncoFolder.add(broncoParams, 'rotX', -Math.PI, Math.PI).step(0.01).name('Rotation X').onChange(() => updateBronco(1.0));
+broncoFolder.add(broncoParams, 'rotY', -Math.PI, Math.PI).step(0.01).name('Rotation Y').onChange(() => updateBronco(1.0));
+broncoFolder.add(broncoParams, 'rotZ', -Math.PI, Math.PI).step(0.01).name('Rotation Z').onChange(() => updateBronco(1.0));
+broncoFolder.add(broncoParams, 'wheelSpeed', 0, 0.5).step(0.01).name('Wheel Speed');
+broncoFolder.add(broncoParams, 'speed', 1.0, 30.0).step(0.1).name('Speed').onChange(() => updateBronco(1.0));
+addTextboxGUI(broncoFolder, broncoParams, () => updateBronco(1.0), 'Desert');
+broncoFolder.open();

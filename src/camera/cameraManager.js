@@ -113,3 +113,90 @@ export function getVehicleCameraTransform(seq) {
 
   return _camTransformResult;
 }
+
+import { gui } from '../core/gui.js';
+
+export const cameraRecordedState = {
+  fov: 38,
+  posX: 0.0,
+  posY: 0.0,
+  posZ: 0.0,
+  rotX: 0.0,
+  rotY: 0.0,
+  rotZ: 0.0,
+  lookX: 0.0,
+  lookY: 0.0,
+  lookZ: 0.0
+};
+
+let isUpdatingFromGUI = false;
+
+export function updateCameraFromGUI() {
+  if (isUpdatingFromGUI) return;
+  isUpdatingFromGUI = true;
+
+  camera.fov = cameraRecordedState.fov;
+  camera.updateProjectionMatrix();
+
+  camera.position.set(cameraRecordedState.posX, cameraRecordedState.posY, cameraRecordedState.posZ);
+  controls.target.set(cameraRecordedState.lookX, cameraRecordedState.lookY, cameraRecordedState.lookZ);
+  controls.update();
+
+  isUpdatingFromGUI = false;
+}
+
+export function syncGUIFromCamera() {
+  if (isUpdatingFromGUI) return;
+  isUpdatingFromGUI = true;
+
+  cameraRecordedState.fov = Math.round(camera.fov * 100) / 100;
+  cameraRecordedState.posX = Math.round(camera.position.x * 100) / 100;
+  cameraRecordedState.posY = Math.round(camera.position.y * 100) / 100;
+  cameraRecordedState.posZ = Math.round(camera.position.z * 100) / 100;
+
+  cameraRecordedState.rotX = Math.round(camera.rotation.x * 100) / 100;
+  cameraRecordedState.rotY = Math.round(camera.rotation.y * 100) / 100;
+  cameraRecordedState.rotZ = Math.round(camera.rotation.z * 100) / 100;
+
+  cameraRecordedState.lookX = Math.round(controls.target.x * 100) / 100;
+  cameraRecordedState.lookY = Math.round(controls.target.y * 100) / 100;
+  cameraRecordedState.lookZ = Math.round(controls.target.z * 100) / 100;
+
+  isUpdatingFromGUI = false;
+}
+
+const camFolder = gui.addFolder('Camera Follow');
+camFolder.add(camGuiState, 'paused').name('⏸ Pause').onChange((val) => {
+  isOrbitAnimating = !val;
+});
+camFolder.add(camGuiState, 'followCam').name('Follow Camera').onChange((val) => {
+  cameraFollowEnabled = val;
+});
+camFolder.add(camGuiState, 'fov', 10, 120).step(1).name('FOV').onChange((val) => {
+  camera.fov = val;
+  camera.updateProjectionMatrix();
+});
+camFolder.add(camGuiState, 'speed', 1, 60).step(1).name('Orbit Speed').onChange((val) => {
+  orbitDegreesPerSecond = val;
+});
+camFolder.add(camGuiState, 'velocity', 1, 60).step(1).name('Velocity').onChange(applyCamGuiToSequence).listen();
+camFolder.add(camGuiState, 'activeVehicle').name('Vehicle').listen();
+camFolder.add(camGuiState, 'camOffsetX', -10, 10).step(0.1).name('Radial Out').onChange(applyCamGuiToSequence).listen();
+camFolder.add(camGuiState, 'camOffsetY', -10, 10).step(0.1).name('Height Up').onChange(applyCamGuiToSequence).listen();
+camFolder.add(camGuiState, 'camOffsetZ', -10, 10).step(0.1).name('Forward').onChange(applyCamGuiToSequence).listen();
+camFolder.add(camGuiState, 'lookOffsetX', -10, 10).step(0.1).name('Look Radial').onChange(applyCamGuiToSequence);
+camFolder.add(camGuiState, 'lookOffsetY', -10, 10).step(0.1).name('Look Height').onChange(applyCamGuiToSequence).listen();
+camFolder.add(camGuiState, 'lookOffsetZ', -10, 10).step(0.1).name('Look Forward').onChange(applyCamGuiToSequence).listen();
+camFolder.open();
+
+const recordedFolder = camFolder.addFolder('Recorded Transform');
+recordedFolder.add(cameraRecordedState, 'posX').step(0.01).name('Pos X').onChange(updateCameraFromGUI).listen();
+recordedFolder.add(cameraRecordedState, 'posY').step(0.01).name('Pos Y').onChange(updateCameraFromGUI).listen();
+recordedFolder.add(cameraRecordedState, 'posZ').step(0.01).name('Pos Z').onChange(updateCameraFromGUI).listen();
+recordedFolder.add(cameraRecordedState, 'rotX').step(0.01).name('Rot X').onChange(updateCameraFromGUI).listen();
+recordedFolder.add(cameraRecordedState, 'rotY').step(0.01).name('Rot Y').onChange(updateCameraFromGUI).listen();
+recordedFolder.add(cameraRecordedState, 'rotZ').step(0.01).name('Rot Z').onChange(updateCameraFromGUI).listen();
+recordedFolder.add(cameraRecordedState, 'lookX').step(0.01).name('Look At X').onChange(updateCameraFromGUI).listen();
+recordedFolder.add(cameraRecordedState, 'lookY').step(0.01).name('Look At Y').onChange(updateCameraFromGUI).listen();
+recordedFolder.add(cameraRecordedState, 'lookZ').step(0.01).name('Look At Z').onChange(updateCameraFromGUI).listen();
+recordedFolder.open();

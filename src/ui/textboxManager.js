@@ -304,3 +304,18 @@ export function deselectTextbox() {
   textboxFocusTimer = 0.0;
   controls.enabled = false;
 }
+
+export function addTextboxGUI(folder, params, updateFn, sceneName) {
+  const textboxes = sceneTextboxes[sceneName];
+  if (!textboxes) return;
+  textboxes.forEach((tb, i) => {
+    const tbFolder = folder.addFolder(`Textbox ${i + 1}`);
+    tbFolder.add(tb, 'posX', -10, 10).step(0.01).name('Pos X').onChange(updateFn);
+    tbFolder.add(tb, 'posY', -10, 10).step(0.01).name('Pos Y').onChange(updateFn);
+    tbFolder.add(tb, 'posZ', -10, 10).step(0.01).name('Pos Z').onChange(updateFn);
+    tbFolder.add(tb, 'baseScale', 0.1, 5.0).step(0.01).name('Scale').onChange(updateFn);
+    tbFolder.add(tb, 'rotX', -Math.PI, Math.PI).step(0.01).name('Rot X').onChange(updateFn);
+    tbFolder.add(tb, 'rotY', -Math.PI, Math.PI).step(0.01).name('Rot Y').onChange(updateFn);
+    tbFolder.add(tb, 'rotZ', -Math.PI, Math.PI).step(0.01).name('Rot Z').onChange(updateFn);
+  });
+}

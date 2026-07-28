@@ -73,6 +73,14 @@ export function buildCylinder(introActive = false, onBuildCallback = null) {
   }
 }
 
+import { gui } from '../core/gui.js';
+
+const cylFolder = gui.addFolder('Cylinder Background');
+cylFolder.add(cylinderParams, 'radius', 1.0, 10.0).step(0.05).name('Outer Radius').onChange(() => buildCylinder(false));
+cylFolder.add(cylinderParams, 'wallRatio', 0.1, 0.99).step(0.01).name('Wall Ratio').onChange(() => buildCylinder(false));
+cylFolder.add(cylinderParams, 'height', 0.1, 10.0).step(0.05).name('Height').onChange(() => buildCylinder(false));
+cylFolder.open();
+
 export function createRingSectorGeometry(innerR, outerR, thetaLength, segments = 32) {
   const geometry = new THREE.BufferGeometry();
   const vertices = [];

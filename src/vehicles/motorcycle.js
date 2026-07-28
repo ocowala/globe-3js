@@ -141,3 +141,28 @@ export function loadMotorcycle(introActive = true) {
     console.error('Motorcycle load failed:', error);
   });
 }
+
+import { gui } from '../core/gui.js';
+import { addTextboxGUI } from '../ui/textboxManager.js';
+
+const motoFolder = gui.addFolder('Motorcycle');
+motoFolder.add(motorcycleParams, 'distance', 1.0, 8.0).step(0.001).name('DistanceOffset').onChange(() => {
+  if (motorcycleGroup) runMotorcycleRaycast(motorcycleParams.angle);
+});
+motoFolder.add(motorcycleParams, 'height', -10.0, 10.0).step(0.01).name('HeightOffset').onChange(() => {
+  if (motorcycleGroup) runMotorcycleRaycast(motorcycleParams.angle);
+});
+motoFolder.add(motorcycleParams, 'angle', -Math.PI, Math.PI).step(0.01).name('Base Angle').onChange(() => {
+  if (motorcycleGroup) runMotorcycleRaycast(motorcycleParams.angle);
+});
+motoFolder.add(motorcycleParams, 'orbitDegrees', -360, 360).step(1).name('Orbit (°)').onChange(() => {
+  if (motorcycleGroup) runMotorcycleRaycast(motorcycleParams.angle);
+});
+motoFolder.add(motorcycleParams, 'scale', 0.001, 1.0).step(0.001).name('Scale').onChange(() => updateMotorcycle(1.0));
+motoFolder.add(motorcycleParams, 'rotX', -Math.PI, Math.PI).step(0.01).name('Rotation X').onChange(() => updateMotorcycle(1.0));
+motoFolder.add(motorcycleParams, 'rotY', -Math.PI, Math.PI).step(0.01).name('Rotation Y').onChange(() => updateMotorcycle(1.0));
+motoFolder.add(motorcycleParams, 'rotZ', -Math.PI, Math.PI).step(0.01).name('Rotation Z').onChange(() => updateMotorcycle(1.0));
+motoFolder.add(motorcycleParams, 'wheelSpeed', 0, 0.5).step(0.01).name('Wheel Speed');
+motoFolder.add(motorcycleParams, 'speed', 1.0, 30.0).step(0.1).name('Speed').onChange(() => updateMotorcycle(1.0));
+addTextboxGUI(motoFolder, motorcycleParams, () => updateMotorcycle(1.0), 'City');
+motoFolder.open();
