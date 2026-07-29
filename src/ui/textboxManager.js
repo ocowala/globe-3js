@@ -4,6 +4,7 @@ import { cylinderParams, SECTOR_NAMES, SECTOR_PASTEL_COLORS } from '../core/cons
 import { getSnappedData } from '../utils/geometry.js';
 import { getFocusFOV } from '../utils/responsive.js';
 import { drawTextBoxCanvas } from './textboxCanvas.js';
+import { camGuiState, setIsOrbitAnimating } from '../camera/cameraManager.js';
 
 export let selectedTextbox = null;
 export let textboxFocusState = 'idle'; // 'idle' | 'entering' | 'focused' | 'exiting'
@@ -218,6 +219,9 @@ export function selectTextbox(tb, cameraFollowState = {}) {
   textboxFocusPreTarget.copy(currentTarget);
   textboxFocusPreUp.copy(camera.up);
   textboxFocusPreFOV = camera.fov;
+
+  camGuiState.paused = true;
+  setIsOrbitAnimating(false);
 
   const aspect = window.innerWidth / window.innerHeight;
   const isMobile = aspect < 1.0;

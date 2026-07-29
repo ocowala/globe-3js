@@ -1,12 +1,24 @@
 import { isHandheldDevice } from '../core/context.js';
 
 export function initInfoTooltipDeviceSpecific() {
-  const tooltip = document.querySelector('.info-tooltip');
-  const infoBtn = document.querySelector('.info-btn');
-  if (!tooltip || !infoBtn) return;
+  const infoBtn = document.getElementById('info-btn') || document.querySelector('.info-btn');
+  const infoTooltip = document.getElementById('info-tooltip') || document.querySelector('.info-tooltip');
+  if (!infoBtn || !infoTooltip) return;
 
+  // Desktop click toggle
+  infoBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    infoTooltip.classList.toggle('show');
+  });
+
+  window.addEventListener('click', () => {
+    infoTooltip.classList.remove('show');
+  });
+
+  // Mobile device customized instruction markup & auto-dismiss
   if (isHandheldDevice) {
-    tooltip.innerHTML = `
+    infoTooltip.innerHTML = `
       <div class="info-row"><span class="key">drag</span> rotate/browse</div>
       <div class="info-row"><span class="key">drag to top</span> select</div>
       <div class="info-row"><span class="key">tap card</span> zoom in</div>
@@ -19,22 +31,22 @@ export function initInfoTooltipDeviceSpecific() {
 
     infoBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const isShowing = tooltip.classList.contains('show-mobile');
+      const isShowing = infoTooltip.classList.contains('show-mobile');
 
       if (isShowing) {
-        tooltip.classList.remove('show-mobile');
+        infoTooltip.classList.remove('show-mobile');
         if (hideTimeout) clearTimeout(hideTimeout);
       } else {
-        tooltip.classList.add('show-mobile');
+        infoTooltip.classList.add('show-mobile');
         if (hideTimeout) clearTimeout(hideTimeout);
         hideTimeout = setTimeout(() => {
-          tooltip.classList.remove('show-mobile');
+          infoTooltip.classList.remove('show-mobile');
         }, 5000);
       }
     });
 
     window.addEventListener('click', () => {
-      tooltip.classList.remove('show-mobile');
+      infoTooltip.classList.remove('show-mobile');
       if (hideTimeout) clearTimeout(hideTimeout);
     });
   }

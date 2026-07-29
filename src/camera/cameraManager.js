@@ -200,3 +200,11 @@ recordedFolder.add(cameraRecordedState, 'lookX').step(0.01).name('Look At X').on
 recordedFolder.add(cameraRecordedState, 'lookY').step(0.01).name('Look At Y').onChange(updateCameraFromGUI).listen();
 recordedFolder.add(cameraRecordedState, 'lookZ').step(0.01).name('Look At Z').onChange(updateCameraFromGUI).listen();
 recordedFolder.open();
+
+if (controls && typeof controls.addEventListener === 'function') {
+  controls.addEventListener('change', () => {
+    if (controls.enabled) {
+      syncGUIFromCamera();
+    }
+  });
+}

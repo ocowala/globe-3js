@@ -4,6 +4,8 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 import { scene, renderer, _tempQuat1, _tempQuat2, _tempEuler, _tempAxisZ, _tempAxisX } from '../core/context.js';
+import { gui } from '../core/gui.js';
+import { addTextboxGUI } from '../ui/textboxManager.js';
 
 export const loader = new GLTFLoader();
 export const dracoLoader = new DRACOLoader();
@@ -164,6 +166,20 @@ export function loadModelWithGUI(name, url, defaults) {
     scene.add(model);
     loadedEnvironments[name] = { model, update, params };
     incrementLoadedCount();
+
+    const folder = gui.addFolder(name);
+    folder.add(params, 'distance', 1.0, 8.0).step(0.001).name('DistanceOffset').onChange(update);
+    folder.add(params, 'posZ', -10.0, 10.0).step(0.01).name('HeightOffset').onChange(update);
+    folder.add(params, 'angle', -Math.PI, Math.PI).step(0.01).name('Angle').onChange(update);
+    folder.add(params, 'scale', 0.0001, 10.0).step(0.0001).name('Scale').onChange(update);
+    folder.add(params, 'rotX', -Math.PI, Math.PI).step(0.01).name('Rotation X').onChange(update);
+    folder.add(params, 'rotY', -Math.PI, Math.PI).step(0.01).name('Rotation Y').onChange(update);
+    folder.add(params, 'rotZ', -Math.PI, Math.PI).step(0.01).name('Rotation Z').onChange(update);
+    if (params.cylinderAlign !== undefined) {
+      folder.add(params, 'cylinderAlign').name('Cylinder Align').onChange(update);
+    }
+    addTextboxGUI(folder, params, update, name);
+    folder.open();
   }, undefined, (error) => {
     console.error(`${name} load failed:`, error);
   });
