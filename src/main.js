@@ -1261,18 +1261,6 @@ function createTextBox(data, pastelColor = '#ffffff') {
   return mesh;
 }
 
-function updateVehicleTextbox(group, params) {
-  if (!group) return;
-  const textbox = group.getObjectByName('textbox');
-  if (!textbox) return;
-
-  textbox.position.set(params.textboxOffsetX, params.textboxOffsetY, params.textboxOffsetZ);
-  textbox.rotation.set(params.textboxRotX, params.textboxRotY, params.textboxRotZ);
-
-  const s = (1.0 / Math.max(params.scale, 0.0001)) * params.textboxScale;
-  textbox.scale.set(s, s, s);
-}
-
 // --- Static Multi-Textbox Registry and Configurations ---
 const sceneTextboxes = {
   'City': [],
@@ -2574,12 +2562,11 @@ function runCar2Raycast(angle, skipUpdateMatrix = false) {
       const rayOrigin = new THREE.Vector3(0, 0, pathZ);
       const rayDir = radialDir.clone().normalize();
 
-      const _rc = new THREE.Raycaster();
-      _rc.set(rayOrigin, rayDir);
-      _rc.far = 15.0;
-      _rc.near = 0;
+      _car2Raycaster.set(rayOrigin, rayDir);
+      _car2Raycaster.far = 15.0;
+      _car2Raycaster.near = 0;
 
-      const hits = _rc.intersectObjects(landscapeMeshes, false);
+      const hits = _car2Raycaster.intersectObjects(landscapeMeshes, false);
       if (hits.length > 0) {
         const hit = hits[0];
         const hitRadius = Math.sqrt(hit.point.x * hit.point.x + hit.point.y * hit.point.y);
@@ -2670,6 +2657,8 @@ let racecarWheelFR = null;
 let racecarWheelBL = null;
 let racecarWheelBR = null;
 
+const _racecarRaycaster = new THREE.Raycaster();
+
 const racecarParams = {
   distance: 2.51,      // distance offset (aligned near nascar track)
   height: 3.7,      // height offset along Z axis
@@ -2703,12 +2692,11 @@ function runRacecarRaycast(angle, skipUpdateMatrix = false) {
       const rayOrigin = new THREE.Vector3(0, 0, pathZ);
       const rayDir = radialDir.clone().normalize();
 
-      const _rc = new THREE.Raycaster();
-      _rc.set(rayOrigin, rayDir);
-      _rc.far = 15.0;
-      _rc.near = 0;
+      _racecarRaycaster.set(rayOrigin, rayDir);
+      _racecarRaycaster.far = 15.0;
+      _racecarRaycaster.near = 0;
 
-      const hits = _rc.intersectObjects(cafeMeshes, false);
+      const hits = _racecarRaycaster.intersectObjects(cafeMeshes, false);
       if (hits.length > 0) {
         const hit = hits[0];
         const hitRadius = Math.sqrt(hit.point.x * hit.point.x + hit.point.y * hit.point.y);
@@ -5285,6 +5273,8 @@ function triggerNavigation(navIdx) {
 
 // Keyboard event handlers
 window.addEventListener('keydown', (e) => {
+  // Ignore all navigation/interaction input until assets are fully loaded and cached
+  if (!allAssetsLoaded) return;
 
   // Escape — dismiss focused textbox first, then movie, then finale
   if (e.key === 'Escape') {
@@ -5309,6 +5299,12 @@ window.addEventListener('keydown', (e) => {
       controls.update();
     }
     return;
+  }
+
+  // Arrow keys interrupt the intro/transition sequence in a way pointerdown already
+  // guards against (see the vehicle click-and-hold guard below) — match that here.
+  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+    if (introActive || isIntroTransitioning) return;
   }
 
   if (e.key === 'ArrowRight') {
@@ -5426,6 +5422,29 @@ if (audio) {
 
 if (audio && audioToggle) {
   let audioClickTimer = null;
+
+  // Initialize Web Audio context on first click interaction to comply with browser safety rules.
+  // Shared by both the single-click and double-click paths so a fast double-click as someone's
+  // very first interaction still gets audioCtx/analyser set up instead of silently doing nothing.
+  function ensureAudioContext() {
+    if (!audioCtx) {
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 128; // small FFT size for 4 bars
+        const source = audioCtx.createMediaElementSource(audio);
+        source.connect(analyser);
+        analyser.connect(audioCtx.destination);
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+      } catch (err) {
+        console.warn("Failed to initialize Web Audio context:", err);
+      }
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  }
+
   audioToggle.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -5449,7 +5468,14 @@ if (audio && audioToggle) {
       }
       console.log("Cycled to next song:", nextSong);
 
-      if (!audio.paused) {
+      // On a genuinely first-ever interaction, audio.paused is true and audioCtx doesn't exist
+      // yet — without this, the song silently changes but never plays. Otherwise, preserve the
+      // existing behavior of only continuing playback if it was already playing.
+      const isFirstInteraction = !audioCtx;
+      if (isFirstInteraction) {
+        ensureAudioContext();
+      }
+      if (!audio.paused || isFirstInteraction) {
         audio.play().catch(err => console.error("Audio playback failed:", err));
       }
     } else {
@@ -5457,24 +5483,7 @@ if (audio && audioToggle) {
       audioClickTimer = setTimeout(() => {
         audioClickTimer = null;
 
-        // Initialize Web Audio context on first click interaction to comply with browser safety rules
-        if (!audioCtx) {
-          try {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            analyser = audioCtx.createAnalyser();
-            analyser.fftSize = 128; // small FFT size for 4 bars
-            const source = audioCtx.createMediaElementSource(audio);
-            source.connect(analyser);
-            analyser.connect(audioCtx.destination);
-            dataArray = new Uint8Array(analyser.frequencyBinCount);
-          } catch (err) {
-            console.warn("Failed to initialize Web Audio context:", err);
-          }
-        }
-
-        if (audioCtx && audioCtx.state === 'suspended') {
-          audioCtx.resume();
-        }
+        ensureAudioContext();
 
         if (audio.paused) {
           audio.play().catch(err => {
@@ -5598,6 +5607,9 @@ window.addEventListener('click', (event) => {
     return;
   }
 
+  // Ignore 3D-scene clicks until assets are fully loaded and cached
+  if (!allAssetsLoaded) return;
+
   // Calculate mouse position in normalized device coordinates (-1 to +1)
   _mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   _mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -5709,6 +5721,9 @@ window.addEventListener('pointerdown', (event) => {
     event.target.closest('.mobile-nav-container')) {
     return;
   }
+
+  // Ignore vehicle-hold / drag-nav / swipe input until assets are fully loaded and cached
+  if (!allAssetsLoaded) return;
 
   // Mobile drag-to-select logic: only in overview (isPostSequence) on mobile/touch
   if (isPostSequence && isHandheldDevice) {
