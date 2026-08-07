@@ -4638,6 +4638,16 @@ function animate() {
     }
   }
 
+  // Toggle Dedicated Exit Button (Top-Right)
+  const exitBtnEl = document.getElementById('exit-orbit-btn');
+  if (exitBtnEl) {
+    if (!isPostSequence || selectedTextbox) {
+      exitBtnEl.classList.add('show');
+    } else {
+      exitBtnEl.classList.remove('show');
+    }
+  }
+
   // --- Update 3D Nav Labels (runs in both post-sequence and orbit) ---
   // Nav label animation runs outside the camera if/else chain so it persists during orbit animation
   if (isPostSequence || navLabelsVisible) {
@@ -5638,29 +5648,32 @@ function triggerMovieTransition() {
   controls.enabled = false;
 }
 
-// --- Raycast Click on Cylinder (Globe) ---
+// --- Unified Raycast Click & Touch Tap Handler ---
 const _globeRaycaster = new THREE.Raycaster();
 const _mouse = new THREE.Vector2();
 const _hoverRaycaster = new THREE.Raycaster();
 const _hoverMouse = new THREE.Vector2();
 
-window.addEventListener('click', (event) => {
-  // Ignore clicks on HTML UI elements (tabs, buttons, text, dat.GUI etc.)
-  if (event.target.tagName === 'BUTTON' ||
-    event.target.closest('button') ||
-    event.target.closest('.dg') ||
-    event.target.id === 'audio-toggle' ||
-    event.target.closest('#audio-toggle')/* ||
-    event.target.id === 'movie-btn' ||
-    event.target.closest('#movie-btn')*/) {
-    return;
+let pointerDownTime = 0;
+let pointerDownX = 0;
+let pointerDownY = 0;
+
+function handleCanvasClick(clientX, clientY, targetEl) {
+  // Ignore clicks/taps on HTML UI elements
+  if (targetEl && (
+    targetEl.tagName === 'BUTTON' ||
+    targetEl.closest('button') ||
+    targetEl.closest('.dg') ||
+    targetEl.id === 'audio-toggle' ||
+    targetEl.closest('#audio-toggle') ||
+    targetEl.id === 'exit-orbit-btn' ||
+    targetEl.closest('#exit-orbit-btn')
+  )) {
+    return false;
   }
 
-  // Calculate mouse position in normalized device coordinates (-1 to +1)
-  _mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  _mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-  // Set the raycaster from the camera
+  _mouse.x = (clientX / window.innerWidth) * 2 - 1;
+  _mouse.y = -(clientY / window.innerHeight) * 2 + 1;
   _globeRaycaster.setFromCamera(_mouse, camera);
 
   // 0. Raycast against visible textboxes (takes priority over globe/nav-label clicks)
@@ -5677,19 +5690,19 @@ window.addEventListener('click', (event) => {
         const clickedTb = Object.values(sceneTextboxes).flat().find(tb => tb.mesh === clickedMesh);
         if (clickedTb) {
           if (selectedTextbox === clickedTb) {
-            deselectTextbox(); // second click = dismiss
+            deselectTextbox(); // second tap/click = dismiss
           } else {
             selectTextbox(clickedTb);
           }
-          return; // don't fall through to globe/nav-label logic
+          return true;
         }
       }
     }
 
-    // Clicking anywhere else while a textbox is focused deselects it
+    // Clicking/tapping anywhere else while a textbox is focused deselects it
     if (selectedTextbox && textboxFocusState === 'focused') {
       deselectTextbox();
-      return;
+      return true;
     }
   }
 
@@ -5703,7 +5716,7 @@ window.addEventListener('click', (event) => {
       if (clickedEntryIdx !== -1) {
         console.log(`3D Nav Label ${navLabels[clickedEntryIdx].config.label} clicked. Navigating to index ${clickedEntryIdx}.`);
         triggerNavigation(clickedEntryIdx);
-        return;
+        return true;
       }
     }
   }
@@ -5712,8 +5725,6 @@ window.addEventListener('click', (event) => {
   if (globe) {
     const intersects = _globeRaycaster.intersectObject(globe);
     if (intersects.length > 0) {
-      // User clicked the empty beige background of the cylinder!
-      // Immediately transition to the final camera view (isPostSequence)
       if (!isPostSequence) {
         introActive = false;
         isIntroTransitioning = false;
@@ -5724,16 +5735,13 @@ window.addEventListener('click', (event) => {
         sequenceEverCompleted = true;
         postSeqTimer = 0;
 
-        // Restore cylinder and orbit ring visibility
         if (globe) globe.visible = true;
         if (orbitRing) orbitRing.visible = true;
 
-        // Capture current camera state for smooth transition start
         transitionStartPos.copy(camera.position);
         transitionStartTarget.copy(currentCamTarget);
         transitionStartUp.copy(camera.up);
 
-        // Prepare cursive plane
         if (cursivePlane) {
           cursivePlane.visible = true;
           cursivePlane.rotation.set(0, 0, 0);
@@ -5743,13 +5751,22 @@ window.addEventListener('click', (event) => {
         }
 
         console.log("Cylinder background clicked — transitioning to post-sequence final view.");
+        return true;
       }
     }
   }
+
+  return false;
+}
+
+window.addEventListener('click', (event) => {
+  handleCanvasClick(event.clientX, event.clientY, event.target);
 });
 
-// --- Raycast Click-and-Hold on Active Vehicle ---
 window.addEventListener('pointerdown', (event) => {
+  pointerDownTime = Date.now();
+  pointerDownX = event.clientX;
+  pointerDownY = event.clientY;
   // Ignore pointerdown on HTML UI elements (tabs, buttons, text, dat.GUI etc.)
   if (event.target.tagName === 'BUTTON' ||
     event.target.closest('.dg') ||
@@ -5890,6 +5907,15 @@ window.addEventListener('pointerup', (event) => {
   releaseVehicleHold();
   releaseMobileNavDrag();
   releaseOrbitSwipe(event);
+
+  // Mobile/Touch Tap raycast detector (handles card taps on phone touchscreens)
+  const dt = Date.now() - pointerDownTime;
+  const dx = Math.abs(event.clientX - pointerDownX);
+  const dy = Math.abs(event.clientY - pointerDownY);
+
+  if (dt < 350 && dx < 12 && dy < 12) {
+    handleCanvasClick(event.clientX, event.clientY, event.target);
+  }
 });
 window.addEventListener('pointercancel', (event) => {
   releaseVehicleHold();
@@ -6081,6 +6107,46 @@ if (themeToggle) {
 
     if (nextMode === 'easteregg') {
       triggerMovieTransition();
+    }
+  });
+}
+
+// --- Dedicated Orbit View Exit Button Controller ---
+const exitOrbitBtn = document.getElementById('exit-orbit-btn');
+if (exitOrbitBtn) {
+  exitOrbitBtn.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (selectedTextbox) {
+      deselectTextbox();
+    }
+
+    if (!isPostSequence) {
+      introActive = false;
+      isIntroTransitioning = false;
+      introFinaleActive = false;
+      isPostSequence = true;
+      isOrbitAnimating = false;
+      isTransitioning = false;
+      sequenceEverCompleted = true;
+      postSeqTimer = 0;
+
+      if (globe) globe.visible = true;
+      if (orbitRing) orbitRing.visible = true;
+
+      transitionStartPos.copy(camera.position);
+      transitionStartTarget.copy(currentCamTarget);
+      transitionStartUp.copy(camera.up);
+
+      if (cursivePlane) {
+        cursivePlane.visible = true;
+        cursivePlane.rotation.set(0, 0, 0);
+        cursivePlane.position.set(0, 0, getCylinderMiddleZ());
+        cursivePlane.material.opacity = 0.0;
+        drawCursiveName(1.0, 0.0);
+      }
+      console.log("Dedicated Exit Button clicked — returning to overview ring.");
     }
   });
 }

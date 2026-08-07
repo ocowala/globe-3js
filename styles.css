@@ -106,6 +106,60 @@ body.dark .orbit-instruction {
   color: #e2e8f0;
 }
 
+/* ── Dedicated Orbit Exit Button (Top-Right, Pastel Red) ── */
+.exit-orbit-btn {
+  position: fixed;
+  top: 18px;
+  right: 28px;
+  z-index: 35;
+  background: rgba(255, 179, 186, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(235, 130, 140, 0.4);
+  border-radius: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 14px;
+  height: 36px;
+  font-family: "Instrument Serif", Georgia, serif;
+  font-size: 15px;
+  color: #5a2628;
+  letter-spacing: -0.01em;
+  box-shadow: 0 4px 14px rgba(235, 130, 140, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease, transform 0.2s ease, background 0.3s ease;
+  user-select: none;
+  outline: none;
+}
+
+.exit-orbit-btn.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.exit-orbit-btn:hover {
+  background: rgba(255, 155, 165, 0.95);
+  transform: scale(1.05);
+}
+
+.exit-orbit-btn:active {
+  transform: scale(0.95);
+}
+
+.exit-icon {
+  font-size: 13px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.exit-text {
+  text-transform: lowercase;
+}
+
 #audio-toggle .music-emoji {
   font-size: 16px;
   line-height: 1;
@@ -500,6 +554,10 @@ body.dark #song-name.playing {
   .social-links {
     top: 12px;
     left: 16px;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
     gap: 8px;
   }
   
@@ -514,35 +572,29 @@ body.dark #song-name.playing {
     font-size: 13px;
   }
   
-  .info-btn {
-    width: 18px;
-    height: 18px;
-    font-size: 11px;
-  }
-
-  .info-tooltip {
-    top: calc(100% + 8px) !important;
-    bottom: auto !important;
-    left: -10px;
-    width: 125px;
-    padding: 8px 10px;
+  .exit-orbit-btn {
+    top: 12px;
+    right: 16px;
+    height: 32px;
+    padding: 0 11px;
+    font-size: 13px;
+    border-radius: 16px;
   }
   
   #audio-toggle {
-    bottom: calc(20px + env(safe-area-inset-bottom));
-    right: calc(16px + env(safe-area-inset-right));
     font-size: 12px;
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
     padding: 0;
-    padding-left: 11px; /* centers the 14px emoji exactly */
+    padding-left: 10px;
     gap: 0;
+    flex-shrink: 0;
   }
 
   #audio-toggle:hover {
-    width: 240px; /* slightly narrower expanded state on mobile */
-    padding-left: 14px;
-    padding-right: 14px;
+    width: 200px;
+    padding-left: 12px;
+    padding-right: 12px;
     gap: 8px;
   }
 
