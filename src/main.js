@@ -6178,6 +6178,10 @@ const homeReturnBtn = document.getElementById('home-return-btn');
 let pendingRoute = null;
 
 function resetToFinaleOverviewPerspective() {
+  if (selectedTextbox) {
+    deselectTextbox();
+  }
+
   introActive = false;
   isTakeoffTransitioning = false;
   isPostSequence = true;
@@ -6186,7 +6190,6 @@ function resetToFinaleOverviewPerspective() {
   postSeqTimer = 0.0;
   isOrbitAnimating = false;
   isTransitioning = false;
-  selectedTextbox = null;
 
   if (globe) globe.visible = true;
   if (orbitRing) orbitRing.visible = true;
@@ -6205,7 +6208,7 @@ function resetToFinaleOverviewPerspective() {
     if (model) model.visible = true;
   });
 
-  // Hide vehicles during overview mode
+  // Hide all vehicle meshes when returning to overview mode
   orbitSequence.forEach(seq => {
     const obj = seq.getObject();
     if (obj) setOpacity(obj, 0.0);
@@ -6223,6 +6226,10 @@ function resetToFinaleOverviewPerspective() {
 }
 
 function startCursiveIntroSequence() {
+  if (selectedTextbox) {
+    deselectTextbox();
+  }
+
   introActive = true;
   isTakeoffTransitioning = false;
   isPostSequence = false;
@@ -6331,8 +6338,9 @@ if (homeReturnBtn) {
       e.preventDefault();
       e.stopPropagation();
     }
+    resetToFinaleOverviewPerspective();
     navigateTo('/home');
-    console.log("Home Return Button clicked — returned to 2D home landing (/home)");
+    console.log("Home Return Button clicked — exited vehicle orbit and returned to homepage (/home)");
   });
 }
 
