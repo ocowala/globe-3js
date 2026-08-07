@@ -155,10 +155,10 @@ body.dark .orbit-instruction {
   font-weight: bold;
 }
 
-/* ── Top-Right Home Return Button ── */
+/* ── Bottom-Right Home Return Button ── */
 .home-return-btn {
   position: fixed;
-  top: 18px;
+  bottom: 24px;
   right: 28px;
   z-index: 35;
   background: rgba(255, 255, 255, 0.88);
