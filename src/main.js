@@ -73,7 +73,7 @@ if (!isHandheldDevice && radialNavOnLoad) {
 const targetDPR = isHandheldDevice ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2.0);
 renderer.setPixelRatio(targetDPR);
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 container.appendChild(renderer.domElement);
 
 let canvasRect = null;
@@ -267,6 +267,7 @@ let introActive = true;
 let introTimer = 0;
 let unwriteTimer = 0;
 let loadedCount = 0;
+let preCacheStartTime = 0;
 let allAssetsLoaded = false;
 let fullyOptimized = false;
 let isPostSequence = false;
@@ -355,6 +356,7 @@ const introParams = {
 
 // Camera intro transition targets
 let isIntroTransitioning = false;
+let isTakeoffTransitioning = false;
 let introTransitionProgress = 0;
 const introTransitionStartPos = new THREE.Vector3();
 const introTransitionStartTarget = new THREE.Vector3();
@@ -3702,7 +3704,14 @@ function animate() {
 
   // --- Incremental Pre-Caching ---
   if (loadedCount === 12 && !fullyOptimized) {
+    if (preCacheStartTime === 0) preCacheStartTime = performance.now();
     try {
+      // Safety net: vehicle-position pre-caching is a background perf optimization, not a
+      // hard requirement (getSnappedData falls back to raycasting on-demand for any angle
+      // that isn't cached yet). Never let a slow device block the "enter ring" CTA forever.
+      if (performance.now() - preCacheStartTime > 6000) {
+        cacheVehicleIdx = 5;
+      }
       const city = scene.getObjectByName('City');
       const beach = scene.getObjectByName('Beach');
       const desert = scene.getObjectByName('Desert');
@@ -3832,12 +3841,15 @@ function animate() {
           princeBtn.classList.add('loaded');
         }
 
-        // If direct navigation to /ring was requested, launch cursive intro sequence now
-        if (pendingRoute === '/ring_direct' || (window.location.pathname.includes('/ring') && introActive)) {
-          startCursiveIntroSequence();
-          pendingRoute = null;
-        } else if (pendingRoute === '/ring' || window.location.pathname.includes('/ring')) {
-          launchWorldRingFromHome();
+        // If loading finished while sitting on /ring, resolve the deferred entry now.
+        // '/ring_direct' (typed URL / page refresh) plays the cursive intro; anything else
+        // (little-prince click, i.e. '/ring_finale') always lands straight in the finale sequence.
+        if (window.location.pathname.includes('/ring')) {
+          if (pendingRoute === '/ring_direct') {
+            startCursiveIntroSequence();
+          } else {
+            launchWorldRingFromHome();
+          }
           pendingRoute = null;
         }
       }
@@ -4658,10 +4670,11 @@ function animate() {
     }
   }
 
-  // Toggle Dedicated Exit Button (Top-Right)
+  // Toggle Dedicated Exit Button (Top-Right) — only ever inside the /ring experience
   const exitBtnEl = document.getElementById('exit-orbit-btn');
   if (exitBtnEl) {
-    if (!isPostSequence || selectedTextbox) {
+    const inRingRoute = document.documentElement.classList.contains('route-ring');
+    if (inRingRoute && (!isPostSequence || selectedTextbox)) {
       exitBtnEl.classList.add('show');
     } else {
       exitBtnEl.classList.remove('show');
@@ -6288,19 +6301,27 @@ function handleRouting() {
 
     if (allAssetsLoaded) {
       if (loaderOverlay) loaderOverlay.classList.add('fade-out');
-      if (pendingRoute === '/ring_direct' || introActive) {
+      // '/ring_direct' (typed URL / page refresh) plays the cursive intro; everything else
+      // — including a little-prince click ('/ring_finale') — always lands in the finale sequence.
+      if (pendingRoute === '/ring_direct') {
         startCursiveIntroSequence();
       } else {
         launchWorldRingFromHome();
       }
+      pendingRoute = null;
     } else {
-      pendingRoute = '/ring_direct';
+      // Don't clobber an explicit '/ring_finale' request (little-prince clicked before
+      // loading finished) with the direct-access default.
+      if (pendingRoute !== '/ring_finale') {
+        pendingRoute = '/ring_direct';
+      }
       if (loaderOverlay) loaderOverlay.classList.remove('fade-out');
     }
   } else {
     document.documentElement.classList.remove('route-ring');
     if (homeViewEl) homeViewEl.classList.remove('hide');
     if (homeReturnBtn) homeReturnBtn.classList.remove('show');
+    pendingRoute = null;
     if (allAssetsLoaded) {
       resetToFinaleOverviewPerspective();
     }
@@ -6320,6 +6341,9 @@ if (littlePrinceBtn) {
       e.preventDefault();
       e.stopPropagation();
     }
+    // Always land in the finale overview sequence, never the cursive-writing intro —
+    // that intro is reserved for typing/refreshing directly on /ring.
+    pendingRoute = '/ring_finale';
     navigateTo('/ring');
     console.log("Little Prince clicked — launched 3D world ring experience (/ring)");
   };
@@ -6333,11 +6357,19 @@ if (littlePrinceBtn) {
 }
 
 if (homeReturnBtn) {
+  // Bound to both 'pointerdown' (snappier response on touch/mouse) and 'click' (keyboard
+  // activation via Enter/Space fires 'click' only, never 'pointerdown'). A single physical
+  // tap/click fires both events in sequence, so we debounce to avoid double-triggering
+  // the route change and the finale-overview reset on every interaction.
+  let lastHomeReturnTrigger = 0;
   const triggerHomeReturn = (e) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
+    const now = performance.now();
+    if (now - lastHomeReturnTrigger < 500) return;
+    lastHomeReturnTrigger = now;
     console.log("Home Return Button triggered — returning to homepage (/home)...");
     resetToFinaleOverviewPerspective();
     navigateTo('/home');

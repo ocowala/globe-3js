@@ -537,7 +537,9 @@ body.theme-dark #loading-overlay {
   text-shadow: 0 2px 8px rgba(255, 251, 244, 0.6);
 }
 
-/* ── Social Links (Top Left) ── */
+/* ── Social Links (Top Left) ──
+   3D-ring-only controls (backdrop theme + music). Hidden on the ultra-minimal
+   homepage, where GitHub/LinkedIn are already covered by the top nav. */
 .social-links {
   position: fixed;
   top: 18px;
@@ -546,6 +548,13 @@ body.theme-dark #loading-overlay {
   display: flex;
   gap: 12px;
   align-items: center;
+  transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+
+html:not(.route-ring) .social-links {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .social-icon {
