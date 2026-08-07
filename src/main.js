@@ -6153,3 +6153,38 @@ if (exitOrbitBtn) {
     }
   });
 }
+
+// --- 2D Home Landing Router & Little Prince Click Controller ---
+const homeViewEl = document.getElementById('home-view');
+const littlePrinceBtn = document.getElementById('little-prince-btn');
+
+function handleRouting() {
+  const hash = window.location.hash;
+  if (hash === '#ring' || hash === '#/ring') {
+    if (homeViewEl) homeViewEl.classList.add('hide');
+  } else {
+    if (homeViewEl) homeViewEl.classList.remove('hide');
+  }
+}
+
+if (littlePrinceBtn) {
+  const enter3DWorldRing = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    window.location.hash = 'ring';
+    if (homeViewEl) homeViewEl.classList.add('hide');
+    console.log("Little Prince clicked — launched 3D world ring experience (/ring)");
+  };
+
+  littlePrinceBtn.addEventListener('click', enter3DWorldRing);
+  littlePrinceBtn.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      enter3DWorldRing(e);
+    }
+  });
+}
+
+window.addEventListener('hashchange', handleRouting);
+handleRouting();

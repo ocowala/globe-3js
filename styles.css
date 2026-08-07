@@ -242,6 +242,172 @@ body.dark .orbit-instruction {
   display: none;
 }
 
+/* ── 2D Minimalist Home View (/home) ── */
+.home-view {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(circle at top, #fdf8e7 0%, #f4e9d0 45%, #e1d3b3 100%);
+  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.6s ease;
+  pointer-events: auto;
+}
+
+.home-view.hide {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Dark mode theme for 2D home view */
+body.theme-dark .home-view {
+  background: radial-gradient(circle at top, #181d24 0%, #0f1217 50%, #080a0c 100%);
+}
+
+/* Top-Left Resume Link */
+.home-resume-link {
+  position: fixed;
+  top: 24px;
+  left: 28px;
+  font-family: "Instrument Serif", Georgia, serif;
+  font-size: 24px;
+  letter-spacing: -0.01em;
+  color: #24333f;
+  text-decoration: none;
+  border-bottom: 1.5px dashed rgba(36, 51, 63, 0.4);
+  padding-bottom: 2px;
+  z-index: 1001;
+  transition: color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.home-resume-link:hover {
+  color: #000000;
+  border-bottom-style: solid;
+  border-color: #000000;
+  transform: translateY(-1px);
+}
+
+body.theme-dark .home-resume-link {
+  color: #f1f5f9;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+body.theme-dark .home-resume-link:hover {
+  color: #ffffff;
+  border-color: #ffffff;
+}
+
+/* Top-Right Sneaking Little Prince Button */
+.little-prince-btn {
+  position: fixed;
+  top: -12px;
+  right: 28px;
+  width: 72px;
+  height: 72px;
+  z-index: 1001;
+  cursor: pointer;
+  user-select: none;
+  animation: prince-creep-down 3.5s ease-in-out infinite alternate;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.little-prince-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.18));
+  transition: filter 0.3s ease;
+}
+
+.little-prince-btn:hover {
+  transform: translateY(18px) scale(1.12) rotate(4deg);
+  animation-play-state: paused;
+}
+
+.little-prince-btn:hover .little-prince-img {
+  filter: drop-shadow(0 10px 20px rgba(163, 230, 53, 0.4));
+}
+
+.little-prince-btn:active {
+  transform: translateY(16px) scale(0.96);
+}
+
+@keyframes prince-creep-down {
+  0% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(14px) rotate(-2deg);
+  }
+  100% {
+    transform: translateY(22px) rotate(2deg);
+  }
+}
+
+/* Center Bio Card */
+.home-bio-card {
+  position: relative;
+  width: calc(100% - 48px);
+  max-width: 620px;
+  padding: 32px 36px;
+  background: rgba(28, 32, 38, 0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  color: #f1f5f9;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+  text-align: left;
+  user-select: text;
+}
+
+.home-greeting {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-size: 26px;
+  font-weight: 500;
+  color: #ffffff;
+  margin-bottom: 14px;
+}
+
+.home-body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: #cbd5e1;
+  margin-bottom: 20px;
+  letter-spacing: -0.005em;
+}
+
+.home-body strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.home-links {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #94a3b8;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 14px;
+}
+
+.home-links a {
+  color: #a3e635;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease, text-decoration 0.2s ease;
+}
+
+.home-links a:hover {
+  color: #bef264;
+  text-decoration: underline;
+}
+
 /* ── Loading Overlay ── */
 #loading-overlay {
   position: fixed;
