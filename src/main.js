@@ -146,8 +146,8 @@ let starsMaterial = null;
 let starsPoints = null;
 let activeBackdropMode = 'cycle';
 
-// Interpolated state variables for smooth transitions (solid white light mode)
-let currentBg = { r1: 255, g1: 255, b1: 255, r2: 255, g2: 255, b2: 255, r3: 255, g3: 255, b3: 255 };
+// Interpolated state variables for smooth transitions (solid #F2F0EF light mode)
+let currentBg = { r1: 242, g1: 240, b1: 239, r2: 242, g2: 240, b2: 239, r3: 242, g3: 240, b3: 239 };
 let currentAmbientColor = new THREE.Color(0xffffff);
 let currentAmbientIntensity = 0.8;
 let currentDirColor = new THREE.Color(0xffffff);
@@ -3320,7 +3320,7 @@ function updateBackgroundVisibility() {
 // --- Theme Gradients Configuration for Day-Night Cycle ---
 const themeGradients = {
   clay: {
-    day: { r1: 255, g1: 255, b1: 255, r2: 255, g2: 255, b2: 255, r3: 255, g3: 255, b3: 255, ambient: 0xffffff },
+    day: { r1: 242, g1: 240, b1: 239, r2: 242, g2: 240, b2: 239, r3: 242, g3: 240, b3: 239, ambient: 0xffffff },
     night: { r1: 20, g1: 28, b1: 36, r2: 13, g2: 19, b2: 26, r3: 5, g3: 8, b3: 12, ambient: 0x3a4f66 }
   },
   cobalt: {
@@ -3351,9 +3351,9 @@ const sceneTimeConfigs = {
     dark: false
   },
   // Index 1: School / Academic
-  // Day (Solid White daylight)
+  // Day (Solid #F2F0EF daylight)
   1: {
-    bg: { r1: 255, g1: 255, b1: 255, r2: 255, g2: 255, b2: 255, r3: 255, g3: 255, b3: 255 },
+    bg: { r1: 242, g1: 240, b1: 239, r2: 242, g2: 240, b2: 239, r3: 242, g3: 240, b3: 239 },
     ambient: 0xffffff,
     ambientIntensity: 0.8,
     dir: 0xffffff,
@@ -6158,17 +6158,30 @@ if (exitOrbitBtn) {
   });
 }
 
-// --- 2D Home Landing Router & Little Prince Click Controller ---
+// --- Clean HTML5 History Router (/home, /ring, /resume) & Button Controllers ---
 const homeViewEl = document.getElementById('home-view');
 const littlePrinceBtn = document.getElementById('little-prince-btn');
+const homeReturnBtn = document.getElementById('home-return-btn');
 
 function handleRouting() {
+  const path = window.location.pathname;
   const hash = window.location.hash;
-  if (hash === '#ring' || hash === '#/ring') {
+  const isRingRoute = path.includes('/ring') || hash === '#ring' || hash === '#/ring';
+
+  if (isRingRoute) {
     if (homeViewEl) homeViewEl.classList.add('hide');
+    if (homeReturnBtn) homeReturnBtn.classList.add('show');
   } else {
     if (homeViewEl) homeViewEl.classList.remove('hide');
+    if (homeReturnBtn) homeReturnBtn.classList.remove('show');
   }
+}
+
+function navigateTo(routePath) {
+  if (window.location.pathname !== routePath) {
+    window.history.pushState(null, '', routePath);
+  }
+  handleRouting();
 }
 
 if (littlePrinceBtn) {
@@ -6177,8 +6190,7 @@ if (littlePrinceBtn) {
       e.preventDefault();
       e.stopPropagation();
     }
-    window.location.hash = 'ring';
-    if (homeViewEl) homeViewEl.classList.add('hide');
+    navigateTo('/ring');
     console.log("Little Prince clicked — launched 3D world ring experience (/ring)");
   };
 
@@ -6190,5 +6202,31 @@ if (littlePrinceBtn) {
   });
 }
 
+if (homeReturnBtn) {
+  homeReturnBtn.addEventListener('click', (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    navigateTo('/home');
+    console.log("Home Return Button clicked — returned to 2D home landing (/home)");
+  });
+}
+
+// Intercept top navigation links for clean routing
+document.querySelectorAll('.home-nav .nav-link').forEach(link => {
+  link.addEventListener('click', (e) => {
+    const route = link.getAttribute('data-route') || link.getAttribute('href');
+    if (route === '/home') {
+      e.preventDefault();
+      navigateTo('/home');
+    } else if (route === '/ring') {
+      e.preventDefault();
+      navigateTo('/ring');
+    }
+  });
+});
+
+window.addEventListener('popstate', handleRouting);
 window.addEventListener('hashchange', handleRouting);
 handleRouting();

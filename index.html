@@ -47,8 +47,8 @@
     <div class="home-container">
       <!-- Top Navigation Bar (Noah Trupin Style) -->
       <nav class="home-nav">
-        <a href="#home" class="nav-link active">Home</a>
-        <a href="/advi-aug6.pdf" target="_blank" rel="noopener noreferrer" class="nav-link">Resume</a>
+        <a href="/home" class="nav-link active" data-route="/home">Home</a>
+        <a href="/advi-aug6.pdf" target="_blank" rel="noopener noreferrer" class="nav-link" data-route="/resume">Resume</a>
         <a href="https://github.com/ocowala" target="_blank" rel="noopener noreferrer" class="nav-link">GitHub</a>
         <a href="https://linkedin.com/in/advitiyajadhav" target="_blank" rel="noopener noreferrer" class="nav-link">LinkedIn</a>
         <a href="mailto:jadhav31@purdue.edu" class="nav-link">Email</a>
@@ -112,6 +112,12 @@
   <button id="exit-orbit-btn" class="exit-orbit-btn" title="Exit to Overview" aria-label="Exit to Overview">
     <span class="exit-icon">✕</span>
     <span class="exit-text">exit</span>
+  </button>
+
+  <!-- Top-Right Home Return Button -->
+  <button id="home-return-btn" class="home-return-btn" title="Return to Home" aria-label="Return to Home">
+    <span class="home-icon">🏠</span>
+    <span class="home-text">Home</span>
   </button>
 
   <!-- Vehicle Orbit Animation Instructions (Bottom-Left) -->
