@@ -111,7 +111,7 @@ body.dark .orbit-instruction {
   position: fixed;
   top: 18px;
   right: 28px;
-  z-index: 35;
+  z-index: 2000;
   background: rgba(255, 179, 186, 0.88);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -160,7 +160,7 @@ body.dark .orbit-instruction {
   position: fixed;
   bottom: 24px;
   right: 28px;
-  z-index: 35;
+  z-index: 2000;
   background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -542,7 +542,7 @@ body.theme-dark #loading-overlay {
   position: fixed;
   top: 18px;
   left: 28px;
-  z-index: 30;
+  z-index: 2000;
   display: flex;
   gap: 12px;
   align-items: center;

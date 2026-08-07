@@ -6333,15 +6333,18 @@ if (littlePrinceBtn) {
 }
 
 if (homeReturnBtn) {
-  homeReturnBtn.addEventListener('click', (e) => {
+  const triggerHomeReturn = (e) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
+    console.log("Home Return Button triggered — returning to homepage (/home)...");
     resetToFinaleOverviewPerspective();
     navigateTo('/home');
-    console.log("Home Return Button clicked — exited vehicle orbit and returned to homepage (/home)");
-  });
+  };
+
+  homeReturnBtn.addEventListener('click', triggerHomeReturn);
+  homeReturnBtn.addEventListener('pointerdown', triggerHomeReturn);
 }
 
 // Intercept top navigation links for clean routing
