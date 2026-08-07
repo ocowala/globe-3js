@@ -6163,6 +6163,36 @@ const homeViewEl = document.getElementById('home-view');
 const littlePrinceBtn = document.getElementById('little-prince-btn');
 const homeReturnBtn = document.getElementById('home-return-btn');
 
+function launchWorldRingFromHome() {
+  introActive = false;
+  isTakeoffTransitioning = false;
+  isPostSequence = true;
+  introFinaleActive = true;
+  introFinaleTimer = 0.0;
+  postSeqTimer = 0.0;
+  isOrbitAnimating = false;
+  isTransitioning = false;
+
+  if (globe) globe.visible = true;
+  if (orbitRing) orbitRing.visible = true;
+  if (cursivePlane) {
+    cursivePlane.visible = true;
+    cursivePlane.rotation.set(0, 0, 0);
+    cursivePlane.position.set(0, 0, getCylinderMiddleZ());
+    cursivePlane.material.opacity = 1.0;
+    drawCursiveName(1.0, 0.0);
+  }
+
+  const aspect = window.innerWidth / window.innerHeight;
+  const targetFOV = getResponsiveFOV();
+  const finaleDist = aspect < 1.0 ? (1.8 / (aspect * Math.tan(THREE.MathUtils.degToRad(targetFOV / 2)))) : 1.8;
+  camera.position.set(0, -finaleDist, getCylinderMiddleZ() + 2.275);
+  camera.lookAt(0, 0, getCylinderMiddleZ() + 2.275);
+  camera.up.set(0, 0, 1);
+
+  console.log("Launched World Ring from Home into Finale Overview mode (10s hold -> Motorcycle transition).");
+}
+
 function handleRouting() {
   const path = window.location.pathname;
   const hash = window.location.hash;
@@ -6171,6 +6201,7 @@ function handleRouting() {
   if (isRingRoute) {
     if (homeViewEl) homeViewEl.classList.add('hide');
     if (homeReturnBtn) homeReturnBtn.classList.add('show');
+    launchWorldRingFromHome();
   } else {
     if (homeViewEl) homeViewEl.classList.remove('hide');
     if (homeReturnBtn) homeReturnBtn.classList.remove('show');
