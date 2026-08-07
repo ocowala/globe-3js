@@ -362,7 +362,7 @@ const introTransitionStartUp = new THREE.Vector3();
 function initCursivePlane() {
   cursiveCanvas = document.createElement('canvas');
   cursiveCanvas.width = 2048;
-  cursiveCanvas.height = 1024;
+  cursiveCanvas.height = 2048;
 
   cursiveTexture = new THREE.CanvasTexture(cursiveCanvas);
   cursiveTexture.minFilter = THREE.LinearFilter;
@@ -374,13 +374,62 @@ function initCursivePlane() {
     depthTest: false
   });
 
-  const geometry = new THREE.PlaneGeometry(3.6, 1.8);
+  const geometry = new THREE.PlaneGeometry(4.0, 4.0);
   cursivePlane = new THREE.Mesh(geometry, material);
   cursivePlane.position.set(0, 0, getCylinderMiddleZ());
   // Face Y = -1.8 direction
   cursivePlane.rotation.x = Math.PI / 2;
   cursivePlane.renderOrder = 999;
   scene.add(cursivePlane);
+}
+
+function drawArcedInstruction(ctx, centerX, centerY, radius, color) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 7;
+  ctx.lineCap = 'round';
+
+  const startAngle = -Math.PI / 2 - Math.PI / 6; // -120 deg
+  const endAngle = -Math.PI / 2 + Math.PI / 6;   // -60 deg
+
+  // Curved arc matching top inner ring curvature (60 degree span)
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius, startAngle, endAngle, false);
+  ctx.stroke();
+
+  // Left Arrowhead (-120 deg)
+  const x1 = centerX + radius * Math.cos(startAngle);
+  const y1 = centerY + radius * Math.sin(startAngle);
+  const t1Angle = startAngle - Math.PI / 2;
+  const headLength = 26;
+  const headAngle = 0.45;
+
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - headLength * Math.cos(t1Angle - headAngle), y1 - headLength * Math.sin(t1Angle - headAngle));
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - headLength * Math.cos(t1Angle + headAngle), y1 - headLength * Math.sin(t1Angle + headAngle));
+  ctx.stroke();
+
+  // Right Arrowhead (-60 deg)
+  const x2 = centerX + radius * Math.cos(endAngle);
+  const y2 = centerY + radius * Math.sin(endAngle);
+  const t2Angle = endAngle + Math.PI / 2;
+
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - headLength * Math.cos(t2Angle - headAngle), y2 - headLength * Math.sin(t2Angle - headAngle));
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - headLength * Math.cos(t2Angle + headAngle), y2 - headLength * Math.sin(t2Angle + headAngle));
+  ctx.stroke();
+
+  // Short Instruction Text right below top arc
+  ctx.font = '72px "Instrument Serif", Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('drag ring to browse', centerX, centerY - radius + 90);
+  ctx.restore();
 }
 
 function drawCursiveName(writeProgress, unwriteProgress) {
@@ -392,7 +441,7 @@ function drawCursiveName(writeProgress, unwriteProgress) {
   const name2 = "jadhav";
 
   // Use the Serif 210 font (Instrument Serif)
-  ctx.font = '210px "Instrument Serif", Georgia, serif';
+  ctx.font = '200px "Instrument Serif", Georgia, serif';
   ctx.textBaseline = 'top';
   ctx.fillStyle = currentCursiveColor; // Dynamically updated based on active theme/dark phase
 
@@ -403,20 +452,18 @@ function drawCursiveName(writeProgress, unwriteProgress) {
   const startX1 = (2048 - w1) / 2;
   const startX2 = (2048 - w2) / 2;
 
-  // Vertical placement — centered and larger
-  const y1 = 240;
-  const y2 = 500;
-  const rowHeight = 280;
+  // Vertical placement — centered
+  const y1 = 780;
+  const y2 = 1040;
+  const rowHeight = 260;
 
   // --- Draw First Name ("advitiya") ---
   ctx.save();
   ctx.beginPath();
   if (unwriteProgress > 0) {
-    // Unwrite left-to-right (beginning to end): clip X moves right
     const clipX = startX1 + unwriteProgress * w1;
     ctx.rect(clipX, y1, w1 * (1.0 - unwriteProgress), rowHeight);
   } else {
-    // Write left-to-right (beginning to end): clip width increases
     ctx.rect(startX1, y1, w1 * writeProgress, rowHeight);
   }
   ctx.clip();
@@ -427,15 +474,18 @@ function drawCursiveName(writeProgress, unwriteProgress) {
   ctx.save();
   ctx.beginPath();
   if (unwriteProgress > 0) {
-    // Unwrite right-to-left (end to beginning): clip width decreases from the right
     ctx.rect(startX2, y2, w2 * (1.0 - unwriteProgress), rowHeight);
   } else {
-    // Write left-to-right (beginning to end): clip width increases
     ctx.rect(startX2, y2, w2 * writeProgress, rowHeight);
   }
   ctx.clip();
   ctx.fillText(name2, startX2, y2);
   ctx.restore();
+
+  // --- Draw 3D Integrated Arced Instruction ---
+  if (writeProgress >= 0.8 && unwriteProgress <= 0.2) {
+    drawArcedInstruction(ctx, 1024, 1024, 955, currentCursiveColor);
+  }
 
   cursiveTexture.needsUpdate = true;
 }
@@ -4578,7 +4628,15 @@ function animate() {
     }
   }
 
-
+  // Toggle Vehicle Orbit Animation Instructions (Bottom-Left)
+  const orbitInstEl = document.getElementById('orbit-instruction');
+  if (orbitInstEl) {
+    if (!isPostSequence && isOrbitAnimating && !introActive && !isIntroTransitioning && !selectedTextbox) {
+      orbitInstEl.classList.add('show');
+    } else {
+      orbitInstEl.classList.remove('show');
+    }
+  }
 
   // --- Update 3D Nav Labels (runs in both post-sequence and orbit) ---
   // Nav label animation runs outside the camera if/else chain so it persists during orbit animation
@@ -4586,8 +4644,8 @@ function animate() {
     // Position labels statically on the cylinder cap to rotate with the scene
     updateNavLabelPositions();
 
-    // If on mobile overview, calculate active highlights based on position/drag ONLY when actively dragging or transitioning
-    if (isHandheldDevice && isPostSequence && (isDraggingMobileNav || mobileNavSelectionTimeout !== null)) {
+    // Calculate active highlights based on position/drag ONLY when actively dragging or transitioning
+    if (isPostSequence && (isDraggingMobileNav || mobileNavSelectionTimeout !== null)) {
       let closestIdx = -1;
       let minDiff = Infinity;
       const marginOfError = 0.26; // approx 15 degrees
@@ -4622,8 +4680,8 @@ function animate() {
           }
         }
       });
-    } else if (isHandheldDevice && isPostSequence) {
-      // On mobile auto-rotation, reset all labels to default size and flat scene target to prevent protrusion
+    } else if (isPostSequence) {
+      // On auto-rotation, reset all labels to default size and flat scene target to prevent protrusion
       navLabels.forEach((entry) => {
         entry.targetScale = 1.0;
         entry.targetOpacity = 0.75;
@@ -5636,7 +5694,6 @@ window.addEventListener('click', (event) => {
   }
 
   // 1. Raycast against 3D navigation labels if in the post-sequence finale view
-
   if (isPostSequence) {
     const labelMeshes = navLabels.map(entry => entry.mesh);
     const intersectsLabels = _globeRaycaster.intersectObjects(labelMeshes);
@@ -5644,14 +5701,8 @@ window.addEventListener('click', (event) => {
       const clickedMesh = intersectsLabels[0].object;
       const clickedEntryIdx = navLabels.findIndex(entry => entry.mesh === clickedMesh);
       if (clickedEntryIdx !== -1) {
-        const clickedEntry = navLabels[clickedEntryIdx];
-        if (clickedEntry.config.label === 'Resume') {
-          console.log("3D Resume Nav Label clicked. Opening /Advitiya_Resume_Jul_12.pdf");
-          window.open('/Advitiya_Resume_Jul_12.pdf', '_blank');
-        } else {
-          console.log(`3D Nav Label ${clickedEntry.config.label} clicked. Navigating to index ${clickedEntryIdx}.`);
-          triggerNavigation(clickedEntryIdx);
-        }
+        console.log(`3D Nav Label ${navLabels[clickedEntryIdx].config.label} clicked. Navigating to index ${clickedEntryIdx}.`);
+        triggerNavigation(clickedEntryIdx);
         return;
       }
     }
@@ -5710,8 +5761,8 @@ window.addEventListener('pointerdown', (event) => {
     return;
   }
 
-  // Mobile drag-to-select logic: only in overview (isPostSequence) on mobile/touch
-  if (isPostSequence && isHandheldDevice) {
+  // Drag-to-select logic: overview mode (isPostSequence)
+  if (isPostSequence) {
     isDraggingMobileNav = true;
     dragStartPointerX = event.clientX;
     dragStartAngle = postSeqAngle;
@@ -5729,8 +5780,8 @@ window.addEventListener('pointerdown', (event) => {
     return;
   }
 
-  // Active orbit mobile navigation: swipe detection when not in overview and using touch
-  if (!isPostSequence && isHandheldDevice) {
+  // Active orbit navigation: swipe/drag detection when in vehicle orbit perspective
+  if (!isPostSequence) {
     isTrackingOrbitSwipe = true;
     orbitSwipeStartPointerY = event.clientY;
     orbitSwipeStartPointerX = event.clientX;
@@ -5769,7 +5820,7 @@ const releaseVehicleHold = () => {
 };
 
 const releaseMobileNavDrag = () => {
-  if (isDraggingMobileNav && isHandheldDevice) {
+  if (isDraggingMobileNav) {
     isDraggingMobileNav = false;
 
     // Find the closest sector to the top (12 o'clock, which is Math.PI / 2)
@@ -5851,11 +5902,44 @@ window.addEventListener('mouseleave', (event) => {
   releaseOrbitSwipe(event);
 });
 
+// --- Mac Touchpad & Mouse Wheel Vertical Swipe Support (Instant Response) ---
+let lastWheelSwipeTime = 0;
+
+window.addEventListener('wheel', (event) => {
+  if (isPostSequence || !isOrbitAnimating || introActive || isIntroTransitioning || selectedTextbox || isTransitioning) {
+    return;
+  }
+
+  const now = Date.now();
+  if (now - lastWheelSwipeTime < 450) {
+    return;
+  }
+
+  if (Math.abs(event.deltaY) >= 6) {
+    let sectorIdx = getSectorIndexFromVehicleIndex(currentSeqIndex);
+    if (sectorIdx === -1) sectorIdx = 0;
+
+    if (event.deltaY > 0) {
+      // Instant Touchpad/Mouse Swipe Down -> Next Scene
+      lastWheelSwipeTime = now;
+      const nextSectorIdx = (sectorIdx + 1) % navLabelConfig.length;
+      console.log(`Instant Touchpad Swipe Down. Transitioning to next scene: ${nextSectorIdx}`);
+      triggerNavigation(nextSectorIdx);
+    } else if (event.deltaY < 0) {
+      // Instant Touchpad/Mouse Swipe Up -> Previous Scene
+      lastWheelSwipeTime = now;
+      const prevSectorIdx = (sectorIdx - 1 + navLabelConfig.length) % navLabelConfig.length;
+      console.log(`Instant Touchpad Swipe Up. Transitioning to previous scene: ${prevSectorIdx}`);
+      triggerNavigation(prevSectorIdx);
+    }
+  }
+}, { passive: true });
+
 let isResumeHovered = false;
 let isTextboxHovered = false;
 
 window.addEventListener('pointermove', (event) => {
-  if (isDraggingMobileNav && isHandheldDevice) {
+  if (isDraggingMobileNav) {
     const deltaX = event.clientX - dragStartPointerX;
     postSeqAngle = dragStartAngle - deltaX * 0.015;
     mobileNavDragHoldTimer = 5.0; // Reset inactivity timer on pointer motion
@@ -5886,36 +5970,27 @@ window.addEventListener('pointermove', (event) => {
       isTextboxHovered = false;
     }
 
-    if (tbHit) return; // don't also run resume hover when over a card
+    if (tbHit) return; // don't also run hover when over a card
   }
 
-  // --- Resume label hover (post-sequence only) ---
-  if (!isPostSequence) {
-    if (isResumeHovered) {
-      document.body.style.cursor = 'default';
-      const resumeEntry = navLabels.find(entry => entry.config.label === 'Resume');
-      if (resumeEntry) updateNavLabelCanvas(resumeEntry, false);
-      isResumeHovered = false;
-    }
-    if (!isTextboxHovered) document.body.style.cursor = 'default';
-    return;
-  }
-
-  const resumeEntry = navLabels.find(entry => entry.config.label === 'Resume');
-  if (resumeEntry) {
-    const intersects = _globeRaycaster.intersectObject(resumeEntry.mesh);
+  // --- 3D Nav labels hover & pointer cursor (post-sequence overview) ---
+  if (isPostSequence) {
+    const labelMeshes = navLabels.map(entry => entry.mesh);
+    const intersects = _globeRaycaster.intersectObjects(labelMeshes);
     if (intersects.length > 0) {
-      if (!isResumeHovered) {
-        document.body.style.cursor = 'pointer';
-        updateNavLabelCanvas(resumeEntry, true);
-        isResumeHovered = true;
+      document.body.style.cursor = 'pointer';
+      const hoveredMesh = intersects[0].object;
+      const hoveredIdx = navLabels.findIndex(entry => entry.mesh === hoveredMesh);
+      if (!isDraggingMobileNav) {
+        navLabels.forEach((entry, idx) => {
+          if (idx === hoveredIdx) {
+            entry.targetScale = 1.3;
+            entry.targetOpacity = 1.0;
+          }
+        });
       }
-    } else {
-      if (isResumeHovered) {
-        document.body.style.cursor = 'default';
-        updateNavLabelCanvas(resumeEntry, false);
-        isResumeHovered = false;
-      }
+    } else if (!isDraggingMobileNav && !isTextboxHovered) {
+      document.body.style.cursor = 'default';
     }
   }
 });
@@ -5960,16 +6035,22 @@ if (radialNavContainer) {
 // --- Customizable Themes Toggle Controller ---
 const themeToggle = document.getElementById('theme-toggle');
 if (themeToggle) {
-  const emojiEl = themeToggle.querySelector('.theme-emoji');
+  const iconEl = themeToggle.querySelector('.theme-icon') || themeToggle.querySelector('img');
 
   const isEasterEggEnabled = Math.random() < 0.1;
   const modesList = isEasterEggEnabled ? ['cycle', 'cobalt', 'clay', 'easteregg'] : ['cycle', 'cobalt', 'clay'];
 
-  const emojisMap = {
-    cycle: '🌗',
-    cobalt: '🌙',
-    clay: '☀️',
-    easteregg: ''
+  const iconsMap = {
+    cycle: '/day-night.png',
+    cobalt: '/dark-mode.png',
+    clay: '/light-mode.png',
+    easteregg: '/easter-egg.png'
+  };
+  const altsMap = {
+    cycle: 'Day-Night Cycle',
+    cobalt: 'Dark Mode',
+    clay: 'Light Mode',
+    easteregg: 'Easter Egg'
   };
   const titlesMap = {
     cycle: 'Backdrop: Day-Night Cycle',
@@ -5989,13 +6070,10 @@ if (themeToggle) {
 
     activeBackdropMode = nextMode;
 
-    // Update button display
-    if (emojiEl) {
-      if (nextMode === 'easteregg') {
-        emojiEl.innerHTML = '<img src="/easter-egg.png" style="width: 20px; height: 20px; vertical-align: middle; pointer-events: none;" alt="Easter Egg">';
-      } else {
-        emojiEl.textContent = emojisMap[nextMode];
-      }
+    // Update button display icon image
+    if (iconEl) {
+      iconEl.src = iconsMap[nextMode];
+      iconEl.alt = altsMap[nextMode];
     }
     themeToggle.title = titlesMap[nextMode];
 
