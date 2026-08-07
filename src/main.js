@@ -3832,8 +3832,11 @@ function animate() {
           princeBtn.classList.add('loaded');
         }
 
-        // If direct navigation to /ring was requested, launch world ring now
-        if (pendingRoute === '/ring' || window.location.pathname.includes('/ring')) {
+        // If direct navigation to /ring was requested, launch cursive intro sequence now
+        if (pendingRoute === '/ring_direct' || (window.location.pathname.includes('/ring') && introActive)) {
+          startCursiveIntroSequence();
+          pendingRoute = null;
+        } else if (pendingRoute === '/ring' || window.location.pathname.includes('/ring')) {
           launchWorldRingFromHome();
           pendingRoute = null;
         }
@@ -6219,6 +6222,47 @@ function resetToFinaleOverviewPerspective() {
   console.log("3D World Ring reset to Finale Overview perspective behind homepage.");
 }
 
+function startCursiveIntroSequence() {
+  introActive = true;
+  isTakeoffTransitioning = false;
+  isPostSequence = false;
+  introFinaleActive = false;
+  introTimer = 0.0;
+  writePauseTimer = 0.0;
+  unwriteTimer = 0.0;
+  unwritePauseTimer = 0.0;
+  introFinaleTimer = 0.0;
+  postSeqTimer = 0.0;
+  isOrbitAnimating = false;
+  isTransitioning = false;
+
+  if (globe) globe.visible = false;
+  if (orbitRing) orbitRing.visible = false;
+  if (cursivePlane) {
+    cursivePlane.visible = true;
+    cursivePlane.rotation.set(0, 0, 0);
+    cursivePlane.position.set(0, 0, getCylinderMiddleZ());
+    cursivePlane.material.opacity = 1.0;
+    drawCursiveName(0.0, 0.0);
+  }
+
+  // Hide 3D sector models during writing
+  const bgNames = ['City', 'School', 'Landscape', 'Beach', 'Desert', 'Cafe'];
+  bgNames.forEach(name => {
+    const model = scene.getObjectByName(name);
+    if (model) model.visible = false;
+  });
+
+  const aspect = window.innerWidth / window.innerHeight;
+  const targetFOV = getResponsiveFOV();
+  const introDist = aspect < 1.0 ? (1.8 / (aspect * Math.tan(THREE.MathUtils.degToRad(targetFOV / 2)))) : 1.8;
+  camera.position.set(0, -introDist, 2.275);
+  camera.lookAt(0, 0, 2.275);
+  camera.up.set(0, 0, 1);
+
+  console.log("Started 3D Cursive Writing & Unwriting sequence on direct /ring access.");
+}
+
 function launchWorldRingFromHome() {
   resetToFinaleOverviewPerspective();
   console.log("Launched World Ring from Home into Finale Overview mode (10s hold -> Motorcycle transition).");
@@ -6231,17 +6275,23 @@ function handleRouting() {
   const loaderOverlay = document.getElementById('loading-overlay');
 
   if (isRingRoute) {
+    document.documentElement.classList.add('route-ring');
     if (homeViewEl) homeViewEl.classList.add('hide');
     if (homeReturnBtn) homeReturnBtn.classList.add('show');
 
     if (allAssetsLoaded) {
       if (loaderOverlay) loaderOverlay.classList.add('fade-out');
-      launchWorldRingFromHome();
+      if (pendingRoute === '/ring_direct' || introActive) {
+        startCursiveIntroSequence();
+      } else {
+        launchWorldRingFromHome();
+      }
     } else {
-      pendingRoute = '/ring';
+      pendingRoute = '/ring_direct';
       if (loaderOverlay) loaderOverlay.classList.remove('fade-out');
     }
   } else {
+    document.documentElement.classList.remove('route-ring');
     if (homeViewEl) homeViewEl.classList.remove('hide');
     if (homeReturnBtn) homeReturnBtn.classList.remove('show');
     if (allAssetsLoaded) {
