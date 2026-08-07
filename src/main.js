@@ -3823,9 +3823,19 @@ function animate() {
         if (pctEl) {
           pctEl.innerText = '100%';
         }
+        const loaderOverlay = document.getElementById('loading-overlay');
+        if (loaderOverlay) {
+          loaderOverlay.classList.add('fade-out');
+        }
         const princeBtn = document.getElementById('little-prince-btn');
         if (princeBtn) {
           princeBtn.classList.add('loaded');
+        }
+
+        // If direct navigation to /ring was requested, launch world ring now
+        if (pendingRoute === '/ring' || window.location.pathname.includes('/ring')) {
+          launchWorldRingFromHome();
+          pendingRoute = null;
         }
       }
     } catch (err) {
@@ -6162,8 +6172,9 @@ if (exitOrbitBtn) {
 const homeViewEl = document.getElementById('home-view');
 const littlePrinceBtn = document.getElementById('little-prince-btn');
 const homeReturnBtn = document.getElementById('home-return-btn');
+let pendingRoute = null;
 
-function launchWorldRingFromHome() {
+function resetToFinaleOverviewPerspective() {
   introActive = false;
   isTakeoffTransitioning = false;
   isPostSequence = true;
@@ -6172,6 +6183,7 @@ function launchWorldRingFromHome() {
   postSeqTimer = 0.0;
   isOrbitAnimating = false;
   isTransitioning = false;
+  selectedTextbox = null;
 
   if (globe) globe.visible = true;
   if (orbitRing) orbitRing.visible = true;
@@ -6183,6 +6195,20 @@ function launchWorldRingFromHome() {
     drawCursiveName(1.0, 0.0);
   }
 
+  // Restore 3D sector models visibility
+  const bgNames = ['City', 'School', 'Landscape', 'Beach', 'Desert', 'Cafe'];
+  bgNames.forEach(name => {
+    const model = scene.getObjectByName(name);
+    if (model) model.visible = true;
+  });
+
+  // Hide vehicles during overview mode
+  orbitSequence.forEach(seq => {
+    const obj = seq.getObject();
+    if (obj) setOpacity(obj, 0.0);
+  });
+
+  // Position camera at finale overview position
   const aspect = window.innerWidth / window.innerHeight;
   const targetFOV = getResponsiveFOV();
   const finaleDist = aspect < 1.0 ? (1.8 / (aspect * Math.tan(THREE.MathUtils.degToRad(targetFOV / 2)))) : 1.8;
@@ -6190,6 +6216,11 @@ function launchWorldRingFromHome() {
   camera.lookAt(0, 0, getCylinderMiddleZ() + 2.275);
   camera.up.set(0, 0, 1);
 
+  console.log("3D World Ring reset to Finale Overview perspective behind homepage.");
+}
+
+function launchWorldRingFromHome() {
+  resetToFinaleOverviewPerspective();
   console.log("Launched World Ring from Home into Finale Overview mode (10s hold -> Motorcycle transition).");
 }
 
@@ -6197,14 +6228,25 @@ function handleRouting() {
   const path = window.location.pathname;
   const hash = window.location.hash;
   const isRingRoute = path.includes('/ring') || hash === '#ring' || hash === '#/ring';
+  const loaderOverlay = document.getElementById('loading-overlay');
 
   if (isRingRoute) {
     if (homeViewEl) homeViewEl.classList.add('hide');
     if (homeReturnBtn) homeReturnBtn.classList.add('show');
-    launchWorldRingFromHome();
+
+    if (allAssetsLoaded) {
+      if (loaderOverlay) loaderOverlay.classList.add('fade-out');
+      launchWorldRingFromHome();
+    } else {
+      pendingRoute = '/ring';
+      if (loaderOverlay) loaderOverlay.classList.remove('fade-out');
+    }
   } else {
     if (homeViewEl) homeViewEl.classList.remove('hide');
     if (homeReturnBtn) homeReturnBtn.classList.remove('show');
+    if (allAssetsLoaded) {
+      resetToFinaleOverviewPerspective();
+    }
   }
 }
 

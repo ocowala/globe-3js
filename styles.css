@@ -482,8 +482,12 @@ body.theme-dark .home-bio-content strong {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
-  transition: opacity 0.6s ease;
+  background: #F2F0EF;
+  transition: opacity 0.6s ease, visibility 0.6s ease;
+}
+
+body.theme-dark #loading-overlay {
+  background: #0f1217;
 }
 
 #loading-overlay.fade-out {
