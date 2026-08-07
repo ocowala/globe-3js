@@ -146,9 +146,9 @@ let starsMaterial = null;
 let starsPoints = null;
 let activeBackdropMode = 'cycle';
 
-// Interpolated state variables for smooth transitions
-let currentBg = { r1: 253, g1: 248, b1: 231, r2: 244, g2: 233, b2: 208, r3: 225, g3: 211, b3: 179 };
-let currentAmbientColor = new THREE.Color(0xfff6ea);
+// Interpolated state variables for smooth transitions (solid white light mode)
+let currentBg = { r1: 255, g1: 255, b1: 255, r2: 255, g2: 255, b2: 255, r3: 255, g3: 255, b3: 255 };
+let currentAmbientColor = new THREE.Color(0xffffff);
 let currentAmbientIntensity = 0.8;
 let currentDirColor = new THREE.Color(0xffffff);
 let currentDirIntensity = 0.7;
@@ -3320,7 +3320,7 @@ function updateBackgroundVisibility() {
 // --- Theme Gradients Configuration for Day-Night Cycle ---
 const themeGradients = {
   clay: {
-    day: { r1: 253, g1: 248, b1: 231, r2: 244, g2: 233, b2: 208, r3: 225, g3: 211, b3: 179, ambient: 0xfff6ea },
+    day: { r1: 255, g1: 255, b1: 255, r2: 255, g2: 255, b2: 255, r3: 255, g3: 255, b3: 255, ambient: 0xffffff },
     night: { r1: 20, g1: 28, b1: 36, r2: 13, g2: 19, b2: 26, r3: 5, g3: 8, b3: 12, ambient: 0x3a4f66 }
   },
   cobalt: {
@@ -3351,10 +3351,10 @@ const sceneTimeConfigs = {
     dark: false
   },
   // Index 1: School / Academic
-  // Day (Clay Beige daylight)
+  // Day (Solid White daylight)
   1: {
-    bg: { r1: 253, g1: 248, b1: 231, r2: 244, g2: 233, b2: 208, r3: 225, g3: 211, b3: 179 },
-    ambient: 0xfff6ea,
+    bg: { r1: 255, g1: 255, b1: 255, r2: 255, g2: 255, b2: 255, r3: 255, g3: 255, b3: 255 },
+    ambient: 0xffffff,
     ambientIntensity: 0.8,
     dir: 0xffffff,
     dirIntensity: 0.7,
@@ -3816,12 +3816,16 @@ function animate() {
         if (cafe) cafe.visible = false;
         if (school) school.visible = false;
 
-        // Caching and shader pre-compilation is finished, we can now hide loading screen
+        // Caching and shader pre-compilation is finished, we can now hide loading screen and reveal Little Prince button
         allAssetsLoaded = true;
         loaderFinishedTime = performance.now();
         const pctEl = document.getElementById('loader-percent');
         if (pctEl) {
           pctEl.innerText = '100%';
+        }
+        const princeBtn = document.getElementById('little-prince-btn');
+        if (princeBtn) {
+          princeBtn.classList.add('loaded');
         }
       }
     } catch (err) {

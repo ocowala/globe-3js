@@ -39,22 +39,35 @@
 
   <!-- 2D Minimalist Home Landing View (/home) -->
   <div id="home-view" class="home-view">
-    <!-- Top-Left Resume Link (/resume) -->
-    <a href="/advi-aug6.pdf" target="_blank" rel="noopener noreferrer" class="home-resume-link" title="Open Resume PDF">resume</a>
-
-    <!-- Top-Right Sneaking Little Prince Icon Button -->
+    <!-- Top-Right Sneaking Little Prince Icon Button (Inverted) -->
     <div id="little-prince-btn" class="little-prince-btn" role="button" tabindex="0" title="Launch 3D World Ring Experience">
-      <img src="/little-prince.png" alt="Little Prince" class="little-prince-img" />
+      <img src="/little-prince.png" alt="Little Prince" class="little-prince-img inverted" />
     </div>
 
-    <!-- Center Bio Card -->
-    <div class="home-bio-card">
-      <div class="home-greeting">Hi!</div>
-      <div class="home-body">
-        I'm <strong>Advitiya</strong>, a student pursuing Computer Engineering @ <span class="highlight-purdue">Purdue University</span> interested in building user-driven software products and intelligent systems. Currently, I'm an AI Product Engineer intern at Milliman where I built an LLM drug lookup in LangChain saving 25% cost, and I previously developed responsive React tools for Purdue Extension. My engineering coursework spans Data Structures, Advanced C Programming, Python for Data Science, Digital System Design, Discrete Math, Linear Algebra, and Multivariable Calculus.
-      </div>
-      <div class="home-links">
-        Find me on <a href="https://github.com/ocowala" target="_blank" rel="noopener noreferrer">GitHub</a>, <a href="https://linkedin.com/in/advitiyajadhav" target="_blank" rel="noopener noreferrer">LinkedIn</a>, or email me at <a href="mailto:jadhav31@purdue.edu">jadhav31@purdue.edu</a>.
+    <div class="home-container">
+      <!-- Top Navigation Bar (Noah Trupin Style) -->
+      <nav class="home-nav">
+        <a href="#home" class="nav-link active">Home</a>
+        <a href="/advi-aug6.pdf" target="_blank" rel="noopener noreferrer" class="nav-link">Resume</a>
+        <a href="https://github.com/ocowala" target="_blank" rel="noopener noreferrer" class="nav-link">GitHub</a>
+        <a href="https://linkedin.com/in/advitiyajadhav" target="_blank" rel="noopener noreferrer" class="nav-link">LinkedIn</a>
+        <a href="mailto:jadhav31@purdue.edu" class="nav-link">Email</a>
+      </nav>
+
+      <!-- Heading -->
+      <h1 class="home-heading">Advitiya Jadhav</h1>
+
+      <!-- Bio Body -->
+      <div class="home-bio-content">
+        <p>
+          I am a Computer Engineering student @ <span class="highlight-purdue">Purdue University</span> building user-driven software products and intelligent systems.
+        </p>
+        <p>
+          Currently, I am an AI Product Engineer intern at <strong>Milliman</strong> where I built an LLM drug lookup in LangChain saving 25% cost, and I previously developed responsive React tools for <strong>Purdue Extension</strong>.
+        </p>
+        <p>
+          My engineering coursework spans Data Structures, Advanced C Programming, Python for Data Science, Digital System Design, Discrete Math, Linear Algebra, and Multivariable Calculus.
+        </p>
       </div>
     </div>
   </div>
