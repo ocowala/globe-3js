@@ -6234,6 +6234,20 @@ function resetToFinaleOverviewPerspective() {
   camera.position.set(0, -finaleDist, getCylinderMiddleZ() + 2.275);
   camera.lookAt(0, 0, getCylinderMiddleZ() + 2.275);
   camera.up.set(0, 0, 1);
+  camera.fov = targetFOV;
+  camera.updateProjectionMatrix();
+
+  // The isPostSequence branch in animate() lerps the camera every frame from
+  // transitionStart*/currentCamPos/currentCamTarget toward the settled overview pose,
+  // starting at t=0 (postSeqTimer was just reset above). Without syncing those here, the
+  // very next frame overwrites this clean snap with whatever stale pose was left over from
+  // an interrupted vehicle-orbit exit — visible as a flash back into the vehicle/world view.
+  currentCamPos.copy(camera.position);
+  currentCamTarget.set(0, 0, getCylinderMiddleZ() + 2.275);
+  transitionStartPos.copy(camera.position);
+  transitionStartTarget.copy(currentCamTarget);
+  transitionStartUp.copy(camera.up);
+  transitionStartFOV = targetFOV;
 
   console.log("3D World Ring reset to Finale Overview perspective behind homepage.");
 }
