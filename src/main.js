@@ -70,7 +70,8 @@ if (!isHandheldDevice && radialNavOnLoad) {
   radialNavOnLoad.style.display = 'none';
 }
 
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2.0));
+const targetDPR = isHandheldDevice ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2.0);
+renderer.setPixelRatio(targetDPR);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputEncoding = THREE.sRGBEncoding;
 container.appendChild(renderer.domElement);
@@ -2100,6 +2101,8 @@ function onWindowResize() {
   camera.fov = getResponsiveFOV();
 
   camera.updateProjectionMatrix();
+  const resDPR = isHandheldDevice ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2.0);
+  renderer.setPixelRatio(resDPR);
   renderer.setSize(window.innerWidth, window.innerHeight);
   updateCanvasRect();
 }
