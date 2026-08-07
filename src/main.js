@@ -212,7 +212,7 @@ const createThickCylinderGeometry = (innerRadius, outerRadius, height) => {
 
 // Globe and orbit ring materials
 const globeMaterial = new THREE.MeshStandardMaterial({
-  color: 0xe8d9c4,
+  color: 0xf2f0ef,
   roughness: 0.85,
   metalness: 0.05,
   transparent: true,
@@ -220,7 +220,7 @@ const globeMaterial = new THREE.MeshStandardMaterial({
   emissive: 0x271d1a,
   emissiveIntensity: 0.02
 });
-const orbitMaterial = new THREE.MeshBasicMaterial({ color: 0xf3e3d6, transparent: true, opacity: 0.0, side: THREE.DoubleSide });
+const orbitMaterial = new THREE.MeshBasicMaterial({ color: 0xf2f0ef, transparent: true, opacity: 0.0, side: THREE.DoubleSide });
 
 let globe = null;
 let orbitRing = null;
@@ -3633,7 +3633,7 @@ function animate() {
 
   // 7. Update cylinder material color dynamically based on dark mode
   if (globeMaterial) {
-    const targetCylinderColor = targets.dark ? new THREE.Color(0x141c24) : new THREE.Color(0xe8d9c4);
+    const targetCylinderColor = targets.dark ? new THREE.Color(0x141c24) : new THREE.Color(0xf2f0ef);
     const targetEmissiveColor = targets.dark ? new THREE.Color(0x05080c) : new THREE.Color(0x271d1a);
     globeMaterial.color.lerp(targetCylinderColor, transitionSpeed);
     globeMaterial.emissive.lerp(targetEmissiveColor, transitionSpeed);
