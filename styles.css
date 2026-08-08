@@ -188,11 +188,32 @@ body.theme-dark .home-return-btn:hover {
   text-transform: lowercase;
 }
 
-#audio-toggle .music-emoji {
-  font-size: 16px;
-  line-height: 1;
+/* ── Vinyl Record Music Icon ── */
+@keyframes vinyl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+#audio-toggle .music-vinyl {
+  width: 17px;
+  height: 17px;
+  display: block;
   pointer-events: none;
   flex-shrink: 0;
+  /* The record is always on the platter; it only turns while audio is playing. */
+  animation: vinyl-spin 3s linear infinite;
+  animation-play-state: paused;
+}
+
+#audio-toggle.playing .music-vinyl {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #audio-toggle .music-vinyl {
+    animation: none;
+  }
 }
 
 #song-name {
@@ -265,20 +286,6 @@ body.theme-dark .home-return-btn:hover {
 #audio-toggle.playing {
   animation: pastel-rainbow-glow 4s linear infinite;
   border-width: 1.5px;
-}
-
-#audio-toggle .audio-visualizer {
-  display: none;
-}
-
-#audio-toggle.playing .music-emoji {
-  display: none !important;
-}
-
-#audio-toggle.playing .audio-visualizer {
-  display: flex !important;
-  opacity: 1 !important;
-  max-width: 20px !important;
 }
 
 #bg-audio {
@@ -372,6 +379,18 @@ body.theme-dark .home-return-btn:hover {
   gap: 8px;
 }
 
+/* Music button belongs to the full-screen ring, not the minimal homepage — except
+   while a track is playing, when it has to stay reachable so the user can turn the
+   music off from the homepage. Pausing drops .playing and it disappears again. */
+.controls-bar #audio-toggle {
+  display: none;
+}
+
+body.canvas-fullscreen .controls-bar #audio-toggle,
+.controls-bar #audio-toggle.playing {
+  display: flex;
+}
+
 .expand-ring-btn {
   position: relative;
   z-index: 30;
@@ -461,12 +480,44 @@ body.theme-dark .bio-card strong {
   font-weight: 500;
 }
 
+/* Inline links. :visited is pinned to the same colour on purpose — without it the
+   UA default repaints visited links purple, which is what made them unreadable
+   against the dark backdrop. */
+.inline-link,
+.inline-link:visited {
+  color: #2f5d8a;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+  transition: color 0.25s ease;
+}
+
+.inline-link:hover {
+  color: #1d425f;
+}
+
+body.dark .inline-link,
+body.dark .inline-link:visited,
+body.theme-dark .inline-link,
+body.theme-dark .inline-link:visited {
+  color: #7cc4ff;
+}
+
+body.dark .inline-link:hover,
+body.theme-dark .inline-link:hover {
+  color: #a9d8ff;
+}
+
 /* Fullscreen Expanded Mode */
 body.canvas-fullscreen .ring-hero-card {
   position: fixed !important;
   inset: 0 !important;
   z-index: 1400 !important;
   width: 100vw !important;
+  /* The <=960px media query caps the card at 440px; max-width outranks width no
+     matter how important, so it has to be lifted explicitly or full-screen stays
+     clamped to the mini-viewer size on narrow windows. */
+  max-width: none !important;
   height: 100vh !important;
   border-radius: 0 !important;
   border: none !important;
@@ -479,6 +530,12 @@ body.canvas-fullscreen .controls-bar {
   left: 28px;
   bottom: auto;
   z-index: 1450;
+}
+
+/* The exit button (top-right) now handles leaving full-screen, so the resizer
+   button is redundant there — keep it only in the embedded homepage view. */
+body.canvas-fullscreen .controls-bar .expand-ring-btn {
+  display: none;
 }
 
 /* Hide Overlay UI Buttons on Embedded Homepage (Only show when Expanded) */
@@ -1071,8 +1128,9 @@ body.dark #song-name.playing {
     gap: 8px;
   }
 
-  #audio-toggle .music-emoji {
-    font-size: 14px;
+  #audio-toggle .music-vinyl {
+    width: 15px;
+    height: 15px;
   }
 }
 
@@ -1225,41 +1283,6 @@ body.dark .radial-node {
 
 body.dark .radial-node.active {
   border-color: #f1f5f9;
-}
-
-/* ── Audio Visualizer (Music Pill Icon) ── */
-.audio-visualizer {
-  display: flex;
-  align-items: flex-end;
-  gap: 2.5px;
-  width: 16px;
-  height: 14px;
-  flex-shrink: 0;
-  pointer-events: none;
-  opacity: 0;
-  max-width: 0;
-  overflow: hidden;
-  transition: opacity 0.2s ease, max-width 0.3s ease;
-}
-
-#audio-toggle:hover .audio-visualizer {
-  opacity: 1;
-  max-width: 20px;
-}
-
-.audio-visualizer .bar {
-  width: 2px;
-  height: 100%;
-  background: #24333f;
-  transform-origin: bottom;
-  transform: scaleY(0.15);
-  /* flat when idle */
-  transition: transform 0.1s ease;
-  border-radius: 1px;
-}
-
-body.dark .audio-visualizer .bar {
-  background: #f1f5f9;
 }
 
 /* ── Responsive adjustments for Radial Nav on mobile ── */

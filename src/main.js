@@ -4,10 +4,17 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
-// import * as dat from 'dat.gui'; 
+// import * as dat from 'dat.gui';
 
 // comment out dat.gui to remove the debug panel
 // uncomment import AND comment DummyGUI class to bring back dat.gui dev
+
+// Scene/state tracing is useful while developing but is just noise in a visitor's
+// console. warn and error are deliberately left intact so real failures surface.
+if (!import.meta.env.DEV) {
+  console.log = () => { };
+  console.debug = () => { };
+}
 
 class DummyGUI {
   constructor() {
@@ -3351,7 +3358,9 @@ function updateBackgroundVisibility() {
       if (textboxes) {
         textboxes.forEach((tb) => {
           const isSelected = (tb === selectedTextbox);
-          tb.mesh.visible = ((model.visible || isClose) && !introActive && (isOrbitAnimating || isSelected));
+          // Never show cards over the finale overview — every scene model is visible
+          // there, so without the isPostSequence guard all of them would pop on at once.
+          tb.mesh.visible = ((model.visible || isClose) && !introActive && !isPostSequence && (isOrbitAnimating || isSelected));
         });
       }
     }
@@ -3381,15 +3390,16 @@ const themeGradients = {
 // --- Scene-Tied Times of Day Configuration ---
 const sceneTimeConfigs = {
   // Index 0: City at Night / Resume
-  // Starts night-ish (midnight cobalt) and transitions to Crimson Dusk
+  // Holds Cobalt Midnight for the whole segment — the city reads as a night scene,
+  // so the backdrop stays dark instead of sunrising into an off-white mid-orbit.
   0: {
-    bg: { r1: 253, g1: 242, b1: 238, r2: 245, g2: 223, b2: 213, r3: 229, g3: 196, b3: 182 }, // Crimson Dusk
-    ambient: 0xffefe8,
-    ambientIntensity: 0.65,
-    dir: 0xffaa90,
-    dirIntensity: 0.6,
-    stars: 0.0,
-    dark: false
+    bg: { r1: 20, g1: 28, b1: 36, r2: 13, g2: 19, b2: 26, r3: 5, g3: 8, b3: 12 },
+    ambient: 0x3a4f66,
+    ambientIntensity: 0.45,
+    dir: 0xd4e3ff,
+    dirIntensity: 0.28,
+    stars: 1.0,
+    dark: true
   },
   // Index 1: School / Academic
   // Day (Solid #F2F0EF daylight)
@@ -3510,50 +3520,6 @@ function getDayNightTargets(currentTime) {
 
     // Get target config for this scene index
     let config = sceneTimeConfigs[activeIdx] || sceneTimeConfigs[1];
-
-    // Dynamic Dawn transition logic for City (Index 0)
-    if (activeIdx === 0 && isOrbitAnimating) {
-      const seq = orbitSequence[0];
-      if (seq && seq.params) {
-        const startDeg = seq.start; // 20
-        const endDeg = seq.end; // -30
-        const currentDeg = seq.params.orbitDegrees;
-        const totalDist = Math.abs(startDeg - endDeg);
-        const currentDist = Math.abs(startDeg - currentDeg);
-
-        // Progress goes from 0.0 (start) to 1.0 (end)
-        const progress = Math.min(Math.max(currentDist / totalDist, 0.0), 1.0);
-
-        // Transition from Midnight (Cobalt) to Dawn (Crimson Dusk)
-        const midnight = themeGradients.cobalt.night;
-        const dawn = themeGradients.crimson.day;
-
-        const r1 = THREE.MathUtils.lerp(midnight.r1, dawn.r1, progress);
-        const g1 = THREE.MathUtils.lerp(midnight.g1, dawn.g1, progress);
-        const b1 = THREE.MathUtils.lerp(midnight.b1, dawn.b1, progress);
-
-        const r2 = THREE.MathUtils.lerp(midnight.r2, dawn.r2, progress);
-        const g2 = THREE.MathUtils.lerp(midnight.g2, dawn.g2, progress);
-        const b2 = THREE.MathUtils.lerp(midnight.b2, dawn.b2, progress);
-
-        const r3 = THREE.MathUtils.lerp(midnight.r3, dawn.r3, progress);
-        const g3 = THREE.MathUtils.lerp(midnight.g3, dawn.g3, progress);
-        const b3 = THREE.MathUtils.lerp(midnight.b3, dawn.b3, progress);
-
-        const colorAmbient = new THREE.Color(midnight.ambient || 0x223344).lerp(new THREE.Color(dawn.ambient), progress);
-        const colorDir = new THREE.Color(0xd4e3ff).lerp(new THREE.Color(0xffaa90), progress);
-
-        return {
-          bg: { r1, g1, b1, r2, g2, b2, r3, g3, b3 },
-          ambient: colorAmbient.getHex(),
-          ambientIntensity: THREE.MathUtils.lerp(0.45, 0.65, progress),
-          dir: colorDir.getHex(),
-          dirIntensity: THREE.MathUtils.lerp(0.28, 0.6, progress),
-          stars: THREE.MathUtils.lerp(0.8, 0.0, progress),
-          dark: progress < 0.5 // UI items go light mode in the latter half of sunrise
-        };
-      }
-    }
 
     return {
       bg: config.bg,
@@ -4520,9 +4486,9 @@ function animate() {
       controls.autoRotate = false;
     }
 
-    // Fade in cursive text and cylinder (full opacity for embedded mini view visibility)
-    globeMaterial.opacity = THREE.MathUtils.lerp(globeMaterial.opacity, 1.0, 0.02);
-    orbitMaterial.opacity = THREE.MathUtils.lerp(orbitMaterial.opacity, 1.0, 0.02);
+    // Fade in cursive text and cylinder
+    globeMaterial.opacity = THREE.MathUtils.lerp(globeMaterial.opacity, 0.35, 0.02);
+    orbitMaterial.opacity = THREE.MathUtils.lerp(orbitMaterial.opacity, 0.45, 0.02);
 
     // Fade in the cursive name and apply counter-rotation to keep it static/horizontal
     if (cursivePlane) {
@@ -4530,12 +4496,15 @@ function animate() {
       cursivePlane.rotation.z = postSeqAngle;
     }
 
-    // Fade out all vehicles
+    // Fade out all vehicles. Driven off postSeqTimer rather than read back off the
+    // mesh: children[0] is a Group with no .material, so the old readback always fell
+    // through to 1.0 and the fade never converged — leaving the vehicle parked on
+    // screen through the whole finale. setOpacity() hides the object once it hits 0.
+    const vehicleFade = Math.max(0, 1.0 - (postSeqTimer / 0.8));
     orbitSequence.forEach(seq => {
       const obj = seq.getObject();
       if (obj && obj.visible) {
-        const currentOpacity = obj.children[0]?.material?.opacity || 1.0;
-        setOpacity(obj, Math.max(0, currentOpacity - 0.02));
+        setOpacity(obj, vehicleFade);
       }
     });
 
@@ -4882,8 +4851,13 @@ function animate() {
 
       if (t >= 1.0) {
         textboxFocusState = 'idle';
-        camGuiState.paused = false; // orbit was paused on select; always resume on deselect
-        isOrbitAnimating = true;
+        // Only resume the vehicle orbit if we are still in it. Exiting a card and
+        // leaving for the finale at the same time would otherwise re-arm the orbit
+        // here ~0.6s later, which re-shows every scene's textboxes over the overview.
+        if (!isPostSequence) {
+          camGuiState.paused = false; // orbit was paused on select; always resume on deselect
+          isOrbitAnimating = true;
+        }
         controls.enableDamping = false;
         controls.update(); // instantly update internal angles to pre-focus state
         controls.enableDamping = true;
@@ -5295,6 +5269,9 @@ function deselectTextbox() {
 function returnToFinale() {
   if (isPostSequence) return; // already there
 
+  // Cancel any in-flight card focus lerp so it cannot fight the finale camera sweep.
+  textboxFocusState = 'idle';
+
   introActive = false;
   isIntroTransitioning = false;
   introFinaleActive = false;
@@ -5510,38 +5487,6 @@ let audioCtx = null;
 let analyser = null;
 let dataArray = null;
 
-function updateVisualizer() {
-  if (!analyser || audio.paused) {
-    const bars = document.querySelectorAll('.audio-visualizer .bar');
-    bars.forEach(bar => {
-      bar.style.transform = 'scaleY(0.15)';
-    });
-    return;
-  }
-
-  requestAnimationFrame(updateVisualizer);
-
-  analyser.getByteFrequencyData(dataArray);
-
-  const bars = document.querySelectorAll('.audio-visualizer .bar');
-  if (bars.length === 4) {
-    const b0 = dataArray[4] || 0;
-    const b1 = dataArray[12] || 0;
-    const b2 = dataArray[24] || 0;
-    const b3 = dataArray[40] || 0;
-
-    const scale0 = Math.max(0.15, b0 / 255);
-    const scale1 = Math.max(0.15, b1 / 255);
-    const scale2 = Math.max(0.15, b2 / 255);
-    const scale3 = Math.max(0.15, b3 / 255);
-
-    bars[0].style.transform = `scaleY(${scale0})`;
-    bars[1].style.transform = `scaleY(${scale1})`;
-    bars[2].style.transform = `scaleY(${scale2})`;
-    bars[3].style.transform = `scaleY(${scale3})`;
-  }
-}
-
 if (audio) {
   const songKeys = Object.keys(songMap);
   const randomSong = songKeys[Math.floor(Math.random() * songKeys.length)];
@@ -5558,7 +5503,6 @@ if (audio) {
     if (audioCtx && audioCtx.state === 'suspended') {
       audioCtx.resume();
     }
-    updateVisualizer();
   });
   audio.addEventListener('pause', () => {
     if (songNameEl) songNameEl.classList.remove('playing');
@@ -5860,6 +5804,7 @@ window.addEventListener('pointerdown', (event) => {
   pointerDownY = event.clientY;
   // Ignore pointerdown on HTML UI elements (tabs, buttons, text, dat.GUI etc.)
   if (event.target.tagName === 'BUTTON' ||
+    event.target.closest('button') ||
     event.target.closest('.dg') ||
     event.target.id === 'audio-toggle' ||
     event.target.closest('#audio-toggle') ||
@@ -6153,30 +6098,65 @@ if (radialNavContainer) {
 
 // --- Customizable Themes Toggle Controller ---
 const themeToggle = document.getElementById('theme-toggle');
-if (themeToggle) {
-  const iconEl = themeToggle.querySelector('.theme-icon') || themeToggle.querySelector('img');
 
+const backdropIconsMap = {
+  cycle: '/day-night.png',
+  cobalt: '/dark-mode.png',
+  clay: '/light-mode.png',
+  easteregg: '/easter-egg.png'
+};
+const backdropAltsMap = {
+  cycle: 'Day-Night Cycle',
+  cobalt: 'Dark Mode',
+  clay: 'Light Mode',
+  easteregg: 'Easter Egg'
+};
+const backdropTitlesMap = {
+  cycle: 'Backdrop: Day-Night Cycle',
+  cobalt: 'Backdrop: Dark Mode (Cobalt)',
+  clay: 'Backdrop: Light Mode (Beige)',
+  easteregg: 'Backdrop: Easter Egg Mode'
+};
+
+const prefersDarkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+function getSystemBackdropMode() {
+  return (prefersDarkQuery && prefersDarkQuery.matches) ? 'cobalt' : 'clay';
+}
+
+// The embedded homepage follows the OS light/dark setting; full-screen always runs
+// the day-night cycle. This remembers what the homepage should return to, so an
+// expand/collapse round trip doesn't strand the page in cycle mode.
+let homepageBackdropMode = getSystemBackdropMode();
+let userPickedBackdrop = false;
+
+function applyBackdropMode(mode) {
+  activeBackdropMode = mode;
+  if (themeToggle) {
+    const iconEl = themeToggle.querySelector('.theme-icon') || themeToggle.querySelector('img');
+    if (iconEl) {
+      iconEl.src = backdropIconsMap[mode];
+      iconEl.alt = backdropAltsMap[mode];
+    }
+    themeToggle.title = backdropTitlesMap[mode];
+  }
+}
+
+applyBackdropMode(homepageBackdropMode);
+
+// Track OS changes until the visitor expresses their own preference.
+if (prefersDarkQuery && prefersDarkQuery.addEventListener) {
+  prefersDarkQuery.addEventListener('change', () => {
+    if (userPickedBackdrop) return;
+    homepageBackdropMode = getSystemBackdropMode();
+    if (!document.body.classList.contains('canvas-fullscreen')) {
+      applyBackdropMode(homepageBackdropMode);
+    }
+  });
+}
+
+if (themeToggle) {
   const isEasterEggEnabled = Math.random() < 0.1;
   const modesList = isEasterEggEnabled ? ['cycle', 'cobalt', 'clay', 'easteregg'] : ['cycle', 'cobalt', 'clay'];
-
-  const iconsMap = {
-    cycle: '/day-night.png',
-    cobalt: '/dark-mode.png',
-    clay: '/light-mode.png',
-    easteregg: '/easter-egg.png'
-  };
-  const altsMap = {
-    cycle: 'Day-Night Cycle',
-    cobalt: 'Dark Mode',
-    clay: 'Light Mode',
-    easteregg: 'Easter Egg'
-  };
-  const titlesMap = {
-    cycle: 'Backdrop: Day-Night Cycle',
-    cobalt: 'Backdrop: Dark Mode (Cobalt)',
-    clay: 'Backdrop: Light Mode (Beige)',
-    easteregg: 'Backdrop: Easter Egg Mode'
-  };
 
   themeToggle.addEventListener('click', (event) => {
     event.preventDefault();
@@ -6187,14 +6167,11 @@ if (themeToggle) {
     const nextIdx = (currentIdx + 1) % modesList.length;
     const nextMode = modesList[nextIdx];
 
-    activeBackdropMode = nextMode;
-
-    // Update button display icon image
-    if (iconEl) {
-      iconEl.src = iconsMap[nextMode];
-      iconEl.alt = altsMap[nextMode];
+    userPickedBackdrop = true;
+    applyBackdropMode(nextMode);
+    if (!document.body.classList.contains('canvas-fullscreen')) {
+      homepageBackdropMode = nextMode;
     }
-    themeToggle.title = titlesMap[nextMode];
 
     console.log(`Backdrop mode cycled to: ${nextMode}`);
 
@@ -6219,16 +6196,9 @@ function toggleRingExpand(expandState) {
       const icon = expandRingBtn.querySelector('.expand-icon');
       if (icon) icon.textContent = '⤓';
     }
-    // In fullscreen: size renderer to full window
-    setTimeout(() => {
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      camera.aspect = w / Math.max(h, 1);
-      camera.fov = getResponsiveFOV();
-      camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
-      updateCanvasRect();
-    }, 50);
+    // The world ring is the whole point of full-screen — run the day-night cycle
+    // so each sector lands in its own time of day.
+    applyBackdropMode('cycle');
   } else {
     document.body.classList.remove('canvas-fullscreen');
     if (expandRingBtn) {
@@ -6237,18 +6207,24 @@ function toggleRingExpand(expandState) {
       const icon = expandRingBtn.querySelector('.expand-icon');
       if (icon) icon.textContent = '⤢';
     }
-    // In embedded: size renderer to container (440x440) and reset to overview
-    setTimeout(() => {
-      resetToFinaleOverviewPerspective();
-      const w = container ? container.clientWidth : window.innerWidth;
-      const h = container ? container.clientHeight : window.innerHeight;
-      camera.aspect = w / Math.max(h, 1);
-      camera.fov = getResponsiveFOV();
-      camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
-      updateCanvasRect();
-    }, 50);
+    // Back to the embedded mini viewer — always land on the finale overview, and
+    // hand the backdrop back to the OS setting (or whatever the visitor picked).
+    applyBackdropMode(homepageBackdropMode);
+    resetToFinaleOverviewPerspective();
   }
+
+  // The viewer card animates between 440px and fullscreen over 0.4s, so measuring
+  // once here would capture a mid-transition size. onWindowResize is already
+  // fullscreen-aware, and the ResizeObserver below re-runs it until the box settles.
+  onWindowResize();
+}
+
+// Keep the renderer locked to the canvas box across the expand/collapse transition.
+// Collapsing does not change the window size, so the window 'resize' event never
+// fires — leaving a stale renderer size and a stale canvasRect (which also offsets
+// raycast/click targeting) if we relied on it alone.
+if (typeof ResizeObserver !== 'undefined' && container) {
+  new ResizeObserver(() => onWindowResize()).observe(container);
 }
 
 if (expandRingBtn) {
@@ -6266,13 +6242,25 @@ if (exitOrbitBtn) {
     event.preventDefault();
     event.stopPropagation();
 
+    // Already sitting at the finale overview (not mid vehicle-orbit) — exit means
+    // leave the full-screen ring entirely and go back to the homepage layout.
+    const alreadyAtFinale = isPostSequence && !isOrbitAnimating;
+
     if (selectedTextbox) {
       deselectTextbox();
     }
 
-    // Exit vehicle orbit animation → finale camera perspective (do NOT collapse fullscreen)
-    resetToFinaleOverviewPerspective();
-    console.log("Dedicated Exit Button clicked — returning to finale overview perspective.");
+    if (alreadyAtFinale) {
+      toggleRingExpand(false);
+      console.log("Dedicated Exit Button clicked — already at finale, collapsing back to homepage.");
+    } else {
+      // Exit vehicle orbit animation → smoothly lerp back to the finale camera
+      // perspective (stay fullscreen). returnToFinale seeds postSeqTimer = 0 and
+      // captures the current camera as the lerp start, so the post-sequence branch
+      // sweeps over ~3s instead of hard-cutting the way resetTo... would.
+      returnToFinale();
+      console.log("Dedicated Exit Button clicked — lerping back to finale overview perspective.");
+    }
   });
 }
 
@@ -6286,9 +6274,13 @@ function resetToFinaleOverviewPerspective() {
   if (selectedTextbox) {
     deselectTextbox();
   }
+  // Kill any in-flight card focus lerp — it would otherwise keep pulling the camera
+  // back toward the pre-focus vehicle pose after we have settled on the finale.
+  textboxFocusState = 'idle';
 
   introActive = false;
   isTakeoffTransitioning = false;
+  isIntroTransitioning = false;
   isPostSequence = true;
   introFinaleActive = false;
   introFinaleTimer = 0.0;
@@ -6299,9 +6291,8 @@ function resetToFinaleOverviewPerspective() {
   if (globe) globe.visible = true;
   if (orbitRing) orbitRing.visible = true;
 
-  // Full opacity so the ring is visible in the embedded mini viewer
-  if (typeof globeMaterial !== 'undefined') globeMaterial.opacity = 1.0;
-  if (typeof orbitMaterial !== 'undefined') orbitMaterial.opacity = 1.0;
+  if (typeof globeMaterial !== 'undefined') globeMaterial.opacity = 0.35;
+  if (typeof orbitMaterial !== 'undefined') orbitMaterial.opacity = 0.45;
 
   if (cursivePlane) {
     cursivePlane.visible = true;
