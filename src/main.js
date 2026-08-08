@@ -6212,8 +6212,8 @@ const themeToggle = document.getElementById('theme-toggle');
 
 const backdropIconsMap = {
   cycle: '/day-night.png',
-  cobalt: '/dark-mode.png',
-  clay: '/light-mode.png',
+  cobalt: '/night-mode.png',
+  clay: '/day-mode.png',
   easteregg: '/easter-egg.png'
 };
 const backdropAltsMap = {
