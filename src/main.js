@@ -5487,6 +5487,47 @@ let audioCtx = null;
 let analyser = null;
 let dataArray = null;
 
+function cycleToNextSong(forcePlay = false) {
+  const songKeys = Object.keys(songMap);
+  let currentIdx = songKeys.indexOf(audio.getAttribute('src'));
+  if (currentIdx === -1) {
+    currentIdx = songKeys.findIndex(k => audio.src.endsWith(k));
+  }
+  const nextIdx = (currentIdx + 1) % songKeys.length;
+  const nextSong = songKeys[nextIdx];
+
+  audio.src = nextSong;
+  if (songNameEl) {
+    songNameEl.textContent = songMap[nextSong];
+  }
+  console.log("Cycled to next song:", nextSong);
+
+  if (forcePlay || !audio.paused) {
+    audio.play().catch(err => console.error("Audio playback failed:", err));
+  }
+  return nextSong;
+}
+
+function ensureAudioContextReady() {
+  // Initialize Web Audio context on first interaction to comply with browser autoplay/safety rules
+  if (!audioCtx) {
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 128;
+      const source = audioCtx.createMediaElementSource(audio);
+      source.connect(analyser);
+      analyser.connect(audioCtx.destination);
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+    } catch (err) {
+      console.warn("Failed to initialize Web Audio context:", err);
+    }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+
 if (audio) {
   const songKeys = Object.keys(songMap);
   const randomSong = songKeys[Math.floor(Math.random() * songKeys.length)];
@@ -5520,47 +5561,13 @@ if (audio && audioToggle) {
       // Double click detected! Clear timer and cycle song
       clearTimeout(audioClickTimer);
       audioClickTimer = null;
-
-      const songKeys = Object.keys(songMap);
-      let currentIdx = songKeys.indexOf(audio.getAttribute('src'));
-      if (currentIdx === -1) {
-        currentIdx = songKeys.findIndex(k => audio.src.endsWith(k));
-      }
-      const nextIdx = (currentIdx + 1) % songKeys.length;
-      const nextSong = songKeys[nextIdx];
-
-      audio.src = nextSong;
-      if (songNameEl) {
-        songNameEl.textContent = songMap[nextSong];
-      }
-      console.log("Cycled to next song:", nextSong);
-
-      if (!audio.paused) {
-        audio.play().catch(err => console.error("Audio playback failed:", err));
-      }
+      ensureAudioContextReady();
+      cycleToNextSong();
     } else {
       // Single click timer
       audioClickTimer = setTimeout(() => {
         audioClickTimer = null;
-
-        // Initialize Web Audio context on first click interaction to comply with browser safety rules
-        if (!audioCtx) {
-          try {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            analyser = audioCtx.createAnalyser();
-            analyser.fftSize = 128; // small FFT size for 4 bars
-            const source = audioCtx.createMediaElementSource(audio);
-            source.connect(analyser);
-            analyser.connect(audioCtx.destination);
-            dataArray = new Uint8Array(analyser.frequencyBinCount);
-          } catch (err) {
-            console.warn("Failed to initialize Web Audio context:", err);
-          }
-        }
-
-        if (audioCtx && audioCtx.state === 'suspended') {
-          audioCtx.resume();
-        }
+        ensureAudioContextReady();
 
         if (audio.paused) {
           audio.play().catch(err => {
@@ -5572,6 +5579,110 @@ if (audio && audioToggle) {
       }, 250); // 250ms delay to wait for a potential second click
     }
   });
+}
+
+// --- Hold Vinyl to Change Song ---
+// Pressing and holding the vinyl icon spins it counterclockwise for 2s, then
+// swaps to the next track. A quick press/release still falls through to the
+// button's normal single/double-click handling above (play-pause / cycle).
+const musicVinylEl = audioToggle ? audioToggle.querySelector('.music-vinyl') : null;
+if (audio && audioToggle && musicVinylEl) {
+  const HOLD_THRESHOLD_MS = 350;
+  const HOLD_SPIN_DURATION_MS = 2000;
+  let vinylHoldTimer = null;
+  let vinylHoldTriggered = false;
+
+  const clearVinylHoldTimer = () => {
+    if (vinylHoldTimer !== null) {
+      clearTimeout(vinylHoldTimer);
+      vinylHoldTimer = null;
+    }
+  };
+
+  musicVinylEl.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    vinylHoldTriggered = false;
+    clearVinylHoldTimer();
+    vinylHoldTimer = setTimeout(() => {
+      vinylHoldTimer = null;
+      vinylHoldTriggered = true;
+      ensureAudioContextReady();
+      musicVinylEl.classList.add('spin-reverse');
+      console.log("Vinyl held — spinning counterclockwise to change song.");
+      setTimeout(() => {
+        musicVinylEl.classList.remove('spin-reverse');
+        cycleToNextSong(true); // force play — a deliberate song-change gesture should always end with music playing
+      }, HOLD_SPIN_DURATION_MS);
+    }, HOLD_THRESHOLD_MS);
+  });
+
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(evtName => {
+    musicVinylEl.addEventListener(evtName, clearVinylHoldTimer);
+  });
+
+  // A held-then-released press still fires a native click on release; swallow
+  // it once it has already been consumed as a hold so the button doesn't also
+  // toggle play/pause or advance the double-click counter.
+  musicVinylEl.addEventListener('click', (event) => {
+    if (vinylHoldTriggered) {
+      event.preventDefault();
+      event.stopPropagation();
+      vinylHoldTriggered = false;
+    }
+  });
+}
+
+// --- Gentle Auto-Start On First Full-Screen Entry ---
+// The first time the visitor expands the ring and music isn't already playing,
+// wait 3s (so entering full screen doesn't also blast audio at them) and then
+// fade playback in from silent up to whatever volume the visitor/device has the
+// <audio> element set to, rather than snapping straight to full volume.
+let hasAutoStartedMusicOnce = false;
+let musicFadeRAF = null;
+
+function cancelMusicFade() {
+  if (musicFadeRAF !== null) {
+    cancelAnimationFrame(musicFadeRAF);
+    musicFadeRAF = null;
+  }
+}
+
+function fadeAudioVolumeTo(targetVolume, durationMs) {
+  cancelMusicFade();
+  const startVolume = audio.volume;
+  const startTime = performance.now();
+
+  function step(now) {
+    const t = Math.min((now - startTime) / durationMs, 1.0);
+    const eased = t * t * (3 - 2 * t); // smoothstep
+    audio.volume = startVolume + (targetVolume - startVolume) * eased;
+    if (t < 1.0) {
+      musicFadeRAF = requestAnimationFrame(step);
+    } else {
+      musicFadeRAF = null;
+    }
+  }
+  musicFadeRAF = requestAnimationFrame(step);
+}
+
+function attemptGentleAutoStartOnFullscreen() {
+  if (!audio || hasAutoStartedMusicOnce) return;
+  hasAutoStartedMusicOnce = true;
+  if (!audio.paused) return; // visitor already started it themselves
+
+  setTimeout(() => {
+    if (!audio.paused) return; // started manually while we were waiting
+    const targetVolume = audio.volume;
+    ensureAudioContextReady();
+    audio.volume = 0;
+    audio.play().then(() => {
+      fadeAudioVolumeTo(targetVolume, 3000);
+    }).catch(err => {
+      console.warn("Gentle auto-start of music was blocked or failed:", err);
+      audio.volume = targetVolume;
+    });
+  }, 3000);
 }
 
 // --- Movie Player Overlay Handling ---
@@ -6199,6 +6310,7 @@ function toggleRingExpand(expandState) {
     // The world ring is the whole point of full-screen — run the day-night cycle
     // so each sector lands in its own time of day.
     applyBackdropMode('cycle');
+    attemptGentleAutoStartOnFullscreen();
   } else {
     document.body.classList.remove('canvas-fullscreen');
     if (expandRingBtn) {

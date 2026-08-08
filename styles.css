@@ -195,11 +195,20 @@ body.theme-dark .home-return-btn:hover {
   }
 }
 
+@keyframes vinyl-spin-reverse {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
 #audio-toggle .music-vinyl {
   width: 17px;
   height: 17px;
   display: block;
-  pointer-events: none;
+  /* Needs its own hit target so a press-and-hold can be scoped to the record
+     itself rather than the whole pill (see the hold-to-change-song handler). */
+  pointer-events: auto;
+  cursor: pointer;
   flex-shrink: 0;
   /* The record is always on the platter; it only turns while audio is playing. */
   animation: vinyl-spin 3s linear infinite;
@@ -210,9 +219,20 @@ body.theme-dark .home-return-btn:hover {
   animation-play-state: running;
 }
 
+/* One-shot counterclockwise spin while a hold-to-change-song gesture is pending;
+   overrides the ambient forward spin/pause for its duration. */
+#audio-toggle .music-vinyl.spin-reverse {
+  animation: vinyl-spin-reverse 2s linear 1 !important;
+  animation-play-state: running !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   #audio-toggle .music-vinyl {
     animation: none;
+  }
+
+  #audio-toggle .music-vinyl.spin-reverse {
+    animation: none !important;
   }
 }
 
