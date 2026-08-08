@@ -3043,7 +3043,7 @@ let isOrbitAnimating = true;
 
 // --- Camera Follow State ---
 let cameraFollowEnabled = true;
-const defaultCamPos = new THREE.Vector3(7.5, 0.8, 1.2);
+const defaultCamPos = new THREE.Vector3(0, 0, 16.5);
 const defaultCamTarget = new THREE.Vector3(0, 0, 0);
 
 // Transition state
@@ -6325,9 +6325,9 @@ function resetToFinaleOverviewPerspective() {
     }
   });
 
-  // Position camera at finale overview settled position: (0, 0, 18) looking at (0, 0, 0)
+  // Position camera at finale overview settled position: (0, 0, 16.5) looking at (0, 0, 0)
   const targetFOV = getResponsiveFOV();
-  camera.position.set(0, 0, 18);
+  camera.position.set(0, 0, 16.5);
   camera.lookAt(0, 0, 0);
   camera.up.set(0, 1, 0);
   camera.fov = targetFOV;
@@ -6336,7 +6336,7 @@ function resetToFinaleOverviewPerspective() {
   controls.target.set(0, 0, 0);
   controls.update();
 
-  currentCamPos.copy(camera.position);
+  currentCamPos.set(0, 0, 16.5);
   currentCamTarget.set(0, 0, 0);
   transitionStartPos.copy(camera.position);
   transitionStartTarget.copy(currentCamTarget);
