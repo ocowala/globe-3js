@@ -5,6 +5,13 @@
   font-style: normal;
 }
 
+@font-face {
+  font-family: 'Signifier';
+  src: url('/signifier.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -12,7 +19,7 @@
 body {
   margin: 0;
   min-height: 100dvh;
-  font-family: "Instrument Serif", Georgia, serif;
+  font-family: 'Signifier', Georgia, serif;
   background: radial-gradient(circle at top, #fdeecf 0%, #f1e3d8 45%, #c9d7e2 100%);
   color: #24333f;
 }
@@ -158,49 +165,12 @@ body.dark .orbit-instruction {
   font-weight: bold;
 }
 
-/* ── Bottom-Right Home Return Button ── */
+/* ── Bottom-Right Home Return Button (HIDDEN on 1-page layout) ── */
 .home-return-btn {
-  position: fixed;
-  bottom: 24px;
-  right: 28px;
-  z-index: 2000;
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 20px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 14px;
-  height: 36px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 13.5px;
-  font-weight: 500;
-  color: #24333f;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.4s ease, transform 0.2s ease, background 0.3s ease, color 0.2s ease;
-  user-select: none;
-  outline: none;
-}
-
-.home-return-btn.show {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.home-return-btn:hover {
-  background: #ffffff;
-  color: #8b5cf6;
-  transform: scale(1.05);
-}
-
-.home-return-btn:active {
-  transform: scale(0.95);
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 body.theme-dark .home-return-btn {
@@ -344,7 +314,7 @@ body.theme-dark .home-return-btn:hover {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  font-family: 'Inconsolata', monospace, sans-serif;
+  font-family: 'Signifier', Georgia, serif;
 }
 
 .single-page-grid {
@@ -391,10 +361,10 @@ body.theme-dark .home-return-btn:hover {
   position: relative;
 }
 
-/* Controls Bar inside bottom-left of 3D canvas */
+/* Controls Bar inside top-left of 3D canvas */
 .controls-bar {
   position: absolute;
-  bottom: 18px;
+  top: 18px;
   left: 18px;
   z-index: 35;
   display: flex;
@@ -442,7 +412,7 @@ body.dark .expand-ring-btn {
   color: #f1f5f9;
 }
 
-/* Right Column: Integrated Bio Text & Inconsolata Typography */
+/* Right Column: Integrated Bio Text & Signifier Typography */
 .bio-card {
   background: transparent;
   border: none;
@@ -451,11 +421,11 @@ body.dark .expand-ring-btn {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  font-family: 'Inconsolata', monospace, sans-serif;
+  font-family: 'Signifier', Georgia, serif;
 }
 
 .bio-card p {
-  font-family: 'Inconsolata', monospace, sans-serif;
+  font-family: 'Signifier', Georgia, serif;
   font-size: 17px;
   line-height: 1.7;
   color: #2d3748;
@@ -505,14 +475,14 @@ body.canvas-fullscreen .ring-hero-card {
 
 body.canvas-fullscreen .controls-bar {
   position: fixed;
-  bottom: 24px;
+  top: 24px;
   left: 28px;
+  bottom: auto;
   z-index: 1450;
 }
 
 /* Hide Overlay UI Buttons on Embedded Homepage (Only show when Expanded) */
 .exit-orbit-btn,
-.home-return-btn,
 .orbit-instruction {
   display: none !important;
   opacity: 0 !important;
@@ -527,12 +497,6 @@ body.canvas-fullscreen .bio-card {
 }
 
 body.canvas-fullscreen .exit-orbit-btn {
-  display: flex !important;
-  opacity: 1 !important;
-  pointer-events: auto !important;
-}
-
-body.canvas-fullscreen .home-return-btn {
   display: flex !important;
   opacity: 1 !important;
   pointer-events: auto !important;

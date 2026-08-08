@@ -6237,8 +6237,9 @@ function toggleRingExpand(expandState) {
       const icon = expandRingBtn.querySelector('.expand-icon');
       if (icon) icon.textContent = '⤢';
     }
-    // In embedded: size renderer to container (440x440)
+    // In embedded: size renderer to container (440x440) and reset to overview
     setTimeout(() => {
+      resetToFinaleOverviewPerspective();
       const w = container ? container.clientWidth : window.innerWidth;
       const h = container ? container.clientHeight : window.innerHeight;
       camera.aspect = w / Math.max(h, 1);
@@ -6265,40 +6266,13 @@ if (exitOrbitBtn) {
     event.preventDefault();
     event.stopPropagation();
 
-    if (isRingExpanded) {
-      toggleRingExpand(false);
-    }
-
     if (selectedTextbox) {
       deselectTextbox();
     }
 
-    if (!isPostSequence) {
-      introActive = false;
-      isIntroTransitioning = false;
-      introFinaleActive = false;
-      isPostSequence = true;
-      isOrbitAnimating = false;
-      isTransitioning = false;
-      sequenceEverCompleted = true;
-      postSeqTimer = 0;
-
-      if (globe) globe.visible = true;
-      if (orbitRing) orbitRing.visible = true;
-
-      transitionStartPos.copy(camera.position);
-      transitionStartTarget.copy(currentCamTarget);
-      transitionStartUp.copy(camera.up);
-
-      if (cursivePlane) {
-        cursivePlane.visible = true;
-        cursivePlane.rotation.set(0, 0, 0);
-        cursivePlane.position.set(0, 0, getCylinderMiddleZ());
-        cursivePlane.material.opacity = 0.0;
-        drawCursiveName(1.0, 0.0);
-      }
-      console.log("Dedicated Exit Button clicked — returning to overview ring.");
-    }
+    // Exit vehicle orbit animation → finale camera perspective (do NOT collapse fullscreen)
+    resetToFinaleOverviewPerspective();
+    console.log("Dedicated Exit Button clicked — returning to finale overview perspective.");
   });
 }
 
