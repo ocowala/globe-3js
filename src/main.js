@@ -111,6 +111,16 @@ function updateCanvasRect() {
   }
 }
 updateCanvasRect();
+
+function getNormalizedMouseCoords(clientX, clientY) {
+  const rect = (canvasRect && canvasRect.width > 0)
+    ? canvasRect
+    : (container ? container.getBoundingClientRect() : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight });
+  return {
+    x: ((clientX - rect.left) / rect.width) * 2 - 1,
+    y: -((clientY - rect.top) / rect.height) * 2 + 1
+  };
+}
 document.body.classList.remove('dark');
 document.body.style.background = '';
 
@@ -2098,7 +2108,9 @@ loadModelWithGUI('Cafe', new URL('../assets/models/cafe_meshopt.glb', import.met
 window.addEventListener('resize', onWindowResize, false);
 
 function onWindowResize() {
-  const aspect = window.innerWidth / window.innerHeight;
+  const width = container ? container.clientWidth : window.innerWidth;
+  const height = container ? container.clientHeight : window.innerHeight;
+  const aspect = width / Math.max(height, 1);
   camera.aspect = aspect;
 
   // Dynamically open camera FOV on narrow/portrait screens to fit the cylinder without clipping
@@ -2107,7 +2119,7 @@ function onWindowResize() {
   camera.updateProjectionMatrix();
   const resDPR = isHandheldDevice ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2.0);
   renderer.setPixelRatio(resDPR);
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(width, height);
   updateCanvasRect();
 }
 
@@ -5726,8 +5738,9 @@ function handleCanvasClick(clientX, clientY, targetEl) {
     return false;
   }
 
-  _mouse.x = (clientX / window.innerWidth) * 2 - 1;
-  _mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+  const norm = getNormalizedMouseCoords(clientX, clientY);
+  _mouse.x = norm.x;
+  _mouse.y = norm.y;
   _globeRaycaster.setFromCamera(_mouse, camera);
 
   // 0. Raycast against visible textboxes (takes priority over globe/nav-label clicks)
@@ -5873,8 +5886,9 @@ window.addEventListener('pointerdown', (event) => {
   }
 
   // Calculate mouse position in normalized device coordinates (-1 to +1)
-  _mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  _mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  const norm = getNormalizedMouseCoords(event.clientX, event.clientY);
+  _mouse.x = norm.x;
+  _mouse.y = norm.y;
 
   _globeRaycaster.setFromCamera(_mouse, camera);
 
@@ -6036,8 +6050,9 @@ window.addEventListener('pointermove', (event) => {
   }
 
   // Calculate mouse position in normalized device coordinates (-1 to +1)
-  _mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  _mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  const norm = getNormalizedMouseCoords(event.clientX, event.clientY);
+  _mouse.x = norm.x;
+  _mouse.y = norm.y;
   _globeRaycaster.setFromCamera(_mouse, camera);
 
   // --- Textbox hover cursor (works during orbit and post-sequence) ---
@@ -6174,12 +6189,54 @@ if (themeToggle) {
   });
 }
 
+// --- Expand 3D World Ring Controller ---
+const expandRingBtn = document.getElementById('expand-ring-btn');
+let isRingExpanded = false;
+
+function toggleRingExpand(expandState) {
+  isRingExpanded = typeof expandState === 'boolean' ? expandState : !isRingExpanded;
+
+  if (isRingExpanded) {
+    document.body.classList.add('canvas-fullscreen');
+    if (expandRingBtn) {
+      expandRingBtn.title = "Collapse to 1-Page Layout";
+      expandRingBtn.setAttribute('aria-label', "Collapse to 1-Page Layout");
+      const icon = expandRingBtn.querySelector('.expand-icon');
+      if (icon) icon.textContent = '⤓';
+    }
+  } else {
+    document.body.classList.remove('canvas-fullscreen');
+    if (expandRingBtn) {
+      expandRingBtn.title = "Expand 3D World Ring to Full Screen";
+      expandRingBtn.setAttribute('aria-label', "Expand 3D World Ring");
+      const icon = expandRingBtn.querySelector('.expand-icon');
+      if (icon) icon.textContent = '⤢';
+    }
+  }
+
+  setTimeout(() => {
+    onWindowResize();
+  }, 40);
+}
+
+if (expandRingBtn) {
+  expandRingBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleRingExpand();
+  });
+}
+
 // --- Dedicated Orbit View Exit Button Controller ---
 const exitOrbitBtn = document.getElementById('exit-orbit-btn');
 if (exitOrbitBtn) {
   exitOrbitBtn.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
+
+    if (isRingExpanded) {
+      toggleRingExpand(false);
+    }
 
     if (selectedTextbox) {
       deselectTextbox();

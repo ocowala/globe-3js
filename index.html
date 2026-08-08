@@ -59,28 +59,61 @@
     <audio id="movie-audio" src="/castle.mp3" preload="auto"></audio>
   </div>
 
-  <!-- 2D Minimalist Home Landing View (/home) -->
-  <div id="home-view" class="home-view">
-    <!-- Top-Right Sneaking Little Prince Icon Button (Inverted) -->
-    <div id="little-prince-btn" class="little-prince-btn" role="button" tabindex="0" title="Launch 3D World Ring Experience" aria-label="Launch 3D World Ring Experience">
-      <img src="/little-prince.png" alt="Little Prince" class="little-prince-img inverted" />
+  <!-- Loading Overlay -->
+  <div id="loading-overlay">
+    <div class="loader-container">
+      <div class="loader-orbit-ring">
+        <img src="/prince-icon.png" alt="Loading 3D Experience" class="loader-icon">
+      </div>
+      <span id="loader-percent">0%</span>
     </div>
+  </div>
 
-    <div class="home-container">
-      <!-- Top Navigation Bar -->
-      <nav class="home-nav" aria-label="Main Navigation">
-        <a href="/home" class="nav-link active" data-route="/home">Home</a>
-        <a href="/advi-aug6.pdf" target="_blank" rel="noopener noreferrer" class="nav-link" data-route="/resume">Resume</a>
-        <a href="https://github.com/ocowala" target="_blank" rel="noopener noreferrer" class="nav-link" aria-label="Advitiya Jadhav's GitHub Profile">GitHub</a>
-        <a href="https://linkedin.com/in/advitiyajadhav" target="_blank" rel="noopener noreferrer" class="nav-link" aria-label="Advitiya Jadhav's LinkedIn Profile">LinkedIn</a>
-        <a href="mailto:jadhav31@purdue.edu" class="nav-link" aria-label="Email Advitiya Jadhav">Email</a>
-      </nav>
+  <!-- Unified 1-Page Layout View (/home /ring 2d-port-1-page) -->
+  <div id="single-page-app" class="single-page-app">
+    <!-- Top Navigation Bar -->
+    <nav class="home-nav" aria-label="Main Navigation">
+      <a href="/home" class="nav-link active" data-route="/home">Home</a>
+      <a href="/advi-aug6.pdf" target="_blank" rel="noopener noreferrer" class="nav-link" data-route="/resume">Resume</a>
+      <a href="https://github.com/ocowala" target="_blank" rel="noopener noreferrer" class="nav-link" aria-label="Advitiya Jadhav's GitHub Profile">GitHub</a>
+      <a href="https://linkedin.com/in/advitiyajadhav" target="_blank" rel="noopener noreferrer" class="nav-link" aria-label="Advitiya Jadhav's LinkedIn Profile">LinkedIn</a>
+      <a href="mailto:jadhav31@purdue.edu" class="nav-link" aria-label="Email Advitiya Jadhav">Email</a>
+    </nav>
 
-      <!-- Heading -->
-      <h1 class="home-heading">Advitiya Jadhav</h1>
+    <!-- Main Side-by-Side Content Grid -->
+    <div class="single-page-grid">
+      <!-- Left Column Card: Embedded 3D World Ring Canvas -->
+      <div id="ring-hero-card" class="ring-hero-card">
+        <div id="canvas-container" class="canvas-container"></div>
+        
+        <!-- Controls Bar inside bottom-left of left card -->
+        <div id="controls-bar" class="controls-bar">
+          <!-- Backdrop Mode Selector Button -->
+          <button id="theme-toggle" class="theme-toggle" title="Backdrop: Day-Night Cycle" aria-label="Toggle Backdrop Mode">
+            <img id="theme-icon" src="/day-night.png" alt="Day-Night Cycle" class="theme-icon">
+          </button>
 
-      <!-- Bio Body -->
-      <div class="home-bio-content">
+          <!-- Music Toggle Button -->
+          <button id="audio-toggle" class="audio-toggle-btn" title="Toggle Audio" aria-label="Toggle Audio Playback">
+            <span class="music-emoji">🎶</span>
+            <span id="audio-visualizer" class="audio-visualizer">
+              <span class="bar"></span>
+              <span class="bar"></span>
+              <span class="bar"></span>
+              <span class="bar"></span>
+            </span>
+            <span id="song-name"></span>
+          </button>
+
+          <!-- Expand World Ring Button -->
+          <button id="expand-ring-btn" class="expand-ring-btn" title="Expand 3D World Ring to Full Screen" aria-label="Expand 3D World Ring">
+            <span class="expand-icon">⤢</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Right Column Card: Biography & Coursework Details -->
+      <div class="bio-card">
         <p>
           I am a Computer Engineering student @ <span class="highlight-purdue">Purdue University</span> building user-driven software products and intelligent systems.
         </p>
@@ -94,43 +127,7 @@
     </div>
   </div>
 
-  <!-- Loading Overlay -->
-  <div id="loading-overlay">
-    <div class="loader-container">
-      <div class="loader-orbit-ring">
-        <img src="/prince-icon.png" alt="Loading 3D Experience" class="loader-icon">
-      </div>
-      <span id="loader-percent">0%</span>
-    </div>
-  </div>
-
-  <div class="social-links">
-    <a href="https://github.com/ocowala" target="_blank" rel="noopener noreferrer" title="GitHub" aria-label="GitHub Profile">
-      <img src="/github.png" alt="GitHub" class="social-icon">
-    </a>
-    <a href="https://linkedin.com/in/advitiyajadhav" target="_blank" rel="noopener noreferrer" title="LinkedIn" aria-label="LinkedIn Profile">
-      <img src="/linkedin.png" alt="LinkedIn" class="social-icon">
-    </a>
-
-    <!-- Backdrop Mode Selector Button -->
-    <button id="theme-toggle" class="theme-toggle" title="Backdrop: Day-Night Cycle" aria-label="Toggle Backdrop Mode">
-      <img id="theme-icon" src="/day-night.png" alt="Day-Night Cycle" class="theme-icon">
-    </button>
-
-    <!-- Music Toggle Button -->
-    <button id="audio-toggle" class="audio-toggle-btn" title="Toggle Audio" aria-label="Toggle Audio Playback">
-      <span class="music-emoji">🎶</span>
-      <span id="audio-visualizer" class="audio-visualizer">
-        <span class="bar"></span>
-        <span class="bar"></span>
-        <span class="bar"></span>
-        <span class="bar"></span>
-      </span>
-      <span id="song-name"></span>
-    </button>
-  </div>
-
-  <!-- Dedicated Orbit View Exit Button (Top-Right, Pastel Red) -->
+  <!-- Dedicated Orbit View Exit Button (Top-Right, Pastel Red when expanded/orbiting) -->
   <button id="exit-orbit-btn" class="exit-orbit-btn" title="Exit to Overview" aria-label="Exit to Overview">
     <span class="exit-icon">✕</span>
     <span class="exit-text">exit</span>
@@ -149,8 +146,7 @@
     <div>tap exit or esc to return</div>
   </div>
 
-  <div id="app">
-    <div id="canvas-container"></div>
+  <div id="app" class="app-root">
     <audio id="bg-audio" crossorigin="anonymous" preload="auto" loop></audio>
 
     <!-- Radial Navigation Wheel (primarily for iPhone/iPad & desktop) -->
