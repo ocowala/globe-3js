@@ -69,31 +69,41 @@
     </div>
   </div>
 
-  <!-- Unified 1-Page Layout View (/home /ring 2d-port-1-page) -->
-  <div id="single-page-app" class="single-page-app">
-    <!-- Top Navigation Bar -->
-    <nav class="home-nav" aria-label="Main Navigation">
-      <a href="/home" class="nav-link active" data-route="/home">Home</a>
-      <a href="/advi-aug6.pdf" target="_blank" rel="noopener noreferrer" class="nav-link" data-route="/resume">Resume</a>
-      <a href="https://github.com/ocowala" target="_blank" rel="noopener noreferrer" class="nav-link" aria-label="Advitiya Jadhav's GitHub Profile">GitHub</a>
-      <a href="https://linkedin.com/in/advitiyajadhav" target="_blank" rel="noopener noreferrer" class="nav-link" aria-label="Advitiya Jadhav's LinkedIn Profile">LinkedIn</a>
-      <a href="mailto:jadhav31@purdue.edu" class="nav-link" aria-label="Email Advitiya Jadhav">Email</a>
-    </nav>
+  <!-- Main Single-Page Portfolio Container (alicias.page Inspired Layout) -->
+  <main class="portfolio-container">
+    <!-- Top Header Navigation -->
+    <header class="portfolio-header">
+      <nav class="portfolio-nav" aria-label="Main Navigation">
+        <a href="#home" class="nav-item active">Home</a>
+        <a href="/advi-aug6.pdf" target="_blank" rel="noopener noreferrer" class="nav-item">Resume</a>
+        <a href="https://github.com/ocowala" target="_blank" rel="noopener noreferrer" class="nav-item">GitHub</a>
+        <a href="https://linkedin.com/in/advitiyajadhav" target="_blank" rel="noopener noreferrer" class="nav-item">LinkedIn</a>
+        <a href="mailto:jadhav31@purdue.edu" class="nav-item">Email</a>
+      </nav>
+    </header>
 
-    <!-- Main Side-by-Side Content Grid -->
-    <div class="single-page-grid">
-      <!-- Left Column Card: Embedded 3D World Ring Canvas -->
+    <!-- Hero Introduction Section -->
+    <section class="hero-section">
+      <h1 class="hero-name">advitiya jadhav</h1>
+      <p class="hero-bio">
+        Hi! I'm Advitiya, a Computer Engineering student @ <a href="https://www.purdue.edu" target="_blank" rel="noopener noreferrer" class="inline-link highlight-purdue">Purdue University</a> interested in building user-driven software products and intelligent systems.
+        Currently, I'm an AI Product Engineer intern at <a href="https://www.milliman.com" target="_blank" rel="noopener noreferrer" class="inline-link">Milliman</a>, where I built an LLM drug lookup in LangChain saving 25% cost. I previously developed responsive React tools for <a href="https://extension.purdue.edu" target="_blank" rel="noopener noreferrer" class="inline-link">Purdue Extension</a>.
+      </p>
+      <p class="hero-contact-links">
+        Find me on <a href="https://github.com/ocowala" target="_blank" rel="noopener noreferrer" class="inline-link">GitHub</a>, <a href="https://linkedin.com/in/advitiyajadhav" target="_blank" rel="noopener noreferrer" class="inline-link">LinkedIn</a>, or email me at <a href="mailto:jadhav31@purdue.edu" class="inline-link">jadhav31@purdue.edu</a>.
+      </p>
+    </section>
+
+    <!-- Embedded 3D World Ring Hero Component -->
+    <section class="world-ring-hero-wrapper">
       <div id="ring-hero-card" class="ring-hero-card">
         <div id="canvas-container" class="canvas-container"></div>
         
-        <!-- Controls Bar inside bottom-left of left card -->
+        <!-- Embedded Control Bar inside 3D canvas -->
         <div id="controls-bar" class="controls-bar">
-          <!-- Backdrop Mode Selector Button -->
           <button id="theme-toggle" class="theme-toggle" title="Backdrop: Day-Night Cycle" aria-label="Toggle Backdrop Mode">
             <img id="theme-icon" src="/day-night.png" alt="Day-Night Cycle" class="theme-icon">
           </button>
-
-          <!-- Music Toggle Button -->
           <button id="audio-toggle" class="audio-toggle-btn" title="Toggle Audio" aria-label="Toggle Audio Playback">
             <span class="music-emoji">🎶</span>
             <span id="audio-visualizer" class="audio-visualizer">
@@ -104,30 +114,111 @@
             </span>
             <span id="song-name"></span>
           </button>
-
-          <!-- Expand World Ring Button -->
           <button id="expand-ring-btn" class="expand-ring-btn" title="Expand 3D World Ring to Full Screen" aria-label="Expand 3D World Ring">
             <span class="expand-icon">⤢</span>
           </button>
         </div>
       </div>
+    </section>
 
-      <!-- Right Column Card: Biography & Coursework Details -->
-      <div class="bio-card">
-        <p>
-          I am a Computer Engineering student @ <span class="highlight-purdue">Purdue University</span> building user-driven software products and intelligent systems.
-        </p>
-        <p>
-          Currently, I am an AI Product Engineer intern at <strong>Milliman</strong> where I built an LLM drug lookup in LangChain saving 25% cost, and I previously developed responsive React tools for <strong>Purdue Extension</strong>.
-        </p>
-        <p>
-          My engineering coursework spans Data Structures, Advanced C Programming, Python for Data Science, Digital System Design, Discrete Math, Linear Algebra, and Multivariable Calculus.
-        </p>
+    <!-- Recent Experience & Projects Showcase Section -->
+    <section class="section-container">
+      <div class="section-header">
+        <h2 class="section-title">recent experience &amp; projects</h2>
       </div>
-    </div>
-  </div>
+      <div class="projects-list">
+        <article class="project-card">
+          <div class="project-info">
+            <h3 class="project-name">Milliman</h3>
+            <p class="project-desc">AI Product Engineer Intern | Built LLM drug lookup in LangChain saving 25% query cost and developed Excel report UI tools.</p>
+          </div>
+          <div class="project-tags">
+            <span class="tag">AI</span>
+            <span class="tag">LangChain</span>
+            <span class="tag">Python</span>
+            <span class="tag">API</span>
+          </div>
+        </article>
 
-  <!-- Dedicated Orbit View Exit Button (Top-Right, Pastel Red when expanded/orbiting) -->
+        <article class="project-card">
+          <div class="project-info">
+            <h3 class="project-name">Purdue Extension</h3>
+            <p class="project-desc">Assistant Web Developer | Developed accessible React components &amp; WordPress tools for university expertise database.</p>
+          </div>
+          <div class="project-tags">
+            <span class="tag">React</span>
+            <span class="tag">WordPress</span>
+            <span class="tag">Accessibility</span>
+          </div>
+        </article>
+
+        <article class="project-card">
+          <div class="project-info">
+            <h3 class="project-name">Car Auction Market</h3>
+            <p class="project-desc">Live Market Aggregation &amp; Price Prediction platform for enthusiast automotive sales.</p>
+          </div>
+          <div class="project-tags">
+            <span class="tag">Python</span>
+            <span class="tag">Express</span>
+            <span class="tag">React</span>
+            <span class="tag">PostgreSQL</span>
+          </div>
+        </article>
+
+        <article class="project-card">
+          <div class="project-info">
+            <h3 class="project-name">ExtensionLLM</h3>
+            <p class="project-desc">LLM-Powered Search &amp; RAG Pipeline for domain document retrieval.</p>
+          </div>
+          <div class="project-tags">
+            <span class="tag">LangChain</span>
+            <span class="tag">Vector DB</span>
+            <span class="tag">RAG</span>
+          </div>
+        </article>
+
+        <article class="project-card">
+          <div class="project-info">
+            <h3 class="project-name">Spellkasten</h3>
+            <p class="project-desc">Interactive word-graph semantic visualization using force-directed layout graph &amp; shortest path algorithms.</p>
+          </div>
+          <div class="project-tags">
+            <span class="tag">D3.js</span>
+            <span class="tag">Express</span>
+            <span class="tag">Graph</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Relevant Coursework & Skills Section -->
+    <section class="section-container">
+      <div class="section-header">
+        <h2 class="section-title">relevant coursework &amp; fundamentals</h2>
+      </div>
+      <div class="coursework-grid">
+        <span class="course-pill">Data Structures</span>
+        <span class="course-pill">Digital System Design</span>
+        <span class="course-pill">Advanced C Programming</span>
+        <span class="course-pill">Python for Data Science</span>
+        <span class="course-pill">Discrete Mathematics</span>
+        <span class="course-pill">Linear Algebra</span>
+        <span class="course-pill">Multivariable Calculus</span>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="portfolio-footer">
+      <p class="footer-meta">Typed with Instrument Serif &amp; Inter • Advitiya Jadhav</p>
+      <div class="footer-links">
+        <a href="https://github.com/ocowala" target="_blank" rel="noopener noreferrer" class="footer-link">GitHub</a>
+        <a href="https://linkedin.com/in/advitiyajadhav" target="_blank" rel="noopener noreferrer" class="footer-link">LinkedIn</a>
+        <a href="mailto:jadhav31@purdue.edu" class="footer-link">jadhav31@purdue.edu</a>
+      </div>
+    </footer>
+  </main>
+
+  <!-- Dedicated Orbit View Exit Button (Top-Right, Pastel Red when expanded) -->
   <button id="exit-orbit-btn" class="exit-orbit-btn" title="Exit to Overview" aria-label="Exit to Overview">
     <span class="exit-icon">✕</span>
     <span class="exit-text">exit</span>
