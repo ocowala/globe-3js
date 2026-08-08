@@ -314,141 +314,96 @@ body.theme-dark .home-return-btn:hover {
   pointer-events: auto;
 }
 
-/* ── alicias.page Inspired Single-Page Portfolio Layout (2d-port-1-page) ── */
-.portfolio-container {
+/* ── Ultra-Minimalist Single-Page Layout (2d-port-1-page) ── */
+.single-page-app {
   position: relative;
   z-index: 10;
   width: 100%;
-  max-width: 880px;
+  max-width: 1140px;
   min-height: 100dvh;
   margin: 0 auto;
-  padding: 48px 24px 80px 24px;
+  padding: 48px 32px;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-.portfolio-header {
-  margin-bottom: 36px;
-}
-
-.portfolio-nav {
+.home-nav {
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 28px;
+  margin-bottom: 28px;
 }
 
-.nav-item {
-  font-size: 15px;
+.nav-link {
+  font-size: 16px;
   font-weight: 500;
   color: #6b7280;
   text-decoration: none;
   transition: color 0.2s ease, font-weight 0.2s ease;
 }
 
-.nav-item:hover,
-.nav-item.active {
+.nav-link:hover,
+.nav-link.active {
   color: #111827;
   font-weight: 600;
 }
 
-body.dark .nav-item {
+body.theme-dark .nav-link {
   color: #9ca3af;
 }
 
-body.dark .nav-item:hover,
-body.dark .nav-item.active {
+body.theme-dark .nav-link:hover,
+body.theme-dark .nav-link.active {
   color: #ffffff;
 }
 
-/* Hero Introduction */
-.hero-section {
-  margin-bottom: 32px;
-}
-
-.hero-name {
-  font-size: 40px;
-  font-weight: 700;
-  letter-spacing: -0.035em;
-  color: #111827;
-  margin: 0 0 20px 0;
-  line-height: 1.15;
-}
-
-body.dark .hero-name {
-  color: #ffffff;
-}
-
-.hero-bio {
-  font-size: 16px;
-  line-height: 1.75;
-  color: #374151;
-  margin-bottom: 16px;
-}
-
-body.dark .hero-bio {
-  color: #d1d5db;
-}
-
-.hero-contact-links {
-  font-size: 15px;
-  line-height: 1.6;
-  color: #4b5563;
-}
-
-body.dark .hero-contact-links {
-  color: #9ca3af;
-}
-
-.inline-link {
-  color: #2563eb;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  font-weight: 500;
-  transition: color 0.2s ease;
-}
-
-.inline-link:hover {
-  color: #1d4ed8;
-}
-
-body.dark .inline-link {
-  color: #60a5fa;
-}
-
-body.dark .inline-link:hover {
-  color: #93c5fd;
-}
-
-.highlight-purdue {
-  color: #b19451;
-  font-weight: 600;
-}
-
-/* 3D World Ring Hero Wrapper */
-.world-ring-hero-wrapper {
-  margin: 28px 0 48px 0;
+.single-page-grid {
+  display: grid;
+  grid-template-columns: 440px 1fr;
+  gap: 36px;
+  align-items: center;
   width: 100%;
 }
 
+@media (max-width: 960px) {
+  .single-page-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Left Column Card: Square Embedded 3D Ring Viewer (440px x 440px) */
 .ring-hero-card {
   position: relative;
-  background: rgba(255, 255, 255, 0.7);
+  width: 440px;
+  height: 440px;
+  aspect-ratio: 1 / 1;
+  background: rgba(255, 255, 255, 0.65);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 24px;
   overflow: hidden;
-  height: 500px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.04);
   transition: all 0.4s ease;
+  flex-shrink: 0;
 }
 
-body.dark .ring-hero-card {
-  background: rgba(24, 28, 36, 0.75);
+@media (max-width: 960px) {
+  .ring-hero-card {
+    width: 100%;
+    max-width: 440px;
+    height: auto;
+    margin: 0 auto;
+  }
+}
+
+body.dark .ring-hero-card,
+body.theme-dark .ring-hero-card {
+  background: rgba(24, 28, 36, 0.7);
   border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.3);
 }
 
 .canvas-container {
@@ -508,196 +463,57 @@ body.dark .expand-ring-btn {
   color: #f1f5f9;
 }
 
-/* Section Styling */
-.section-container {
-  margin-bottom: 48px;
-}
-
-.section-header {
-  margin-bottom: 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  padding-bottom: 10px;
-}
-
-body.dark .section-header {
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
-.section-title {
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: #111827;
-  margin: 0;
-  text-transform: lowercase;
-}
-
-body.dark .section-title {
-  color: #f3f4f6;
-}
-
-/* Projects List */
-.projects-list {
+/* Right Column Card: Bio Text */
+.bio-card {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 24px;
+  padding: 40px 48px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  justify-content: center;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.04);
 }
 
-.project-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 14px;
-  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+body.dark .bio-card,
+body.theme-dark .bio-card {
+  background: rgba(24, 28, 36, 0.7);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.3);
 }
 
-.project-card:hover {
-  transform: translateY(-2px);
-  background: #ffffff;
-  border-color: rgba(37, 99, 235, 0.3);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
-}
-
-body.dark .project-card {
-  background: rgba(24, 28, 36, 0.6);
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
-body.dark .project-card:hover {
-  background: rgba(30, 36, 46, 0.9);
-  border-color: rgba(96, 165, 250, 0.3);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-}
-
-.project-info {
-  flex: 1;
-  padding-right: 20px;
-}
-
-.project-name {
+.bio-card p {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 15.5px;
-  font-weight: 600;
-  color: #111827;
-  margin: 0 0 4px 0;
+  line-height: 1.75;
+  color: #374151;
+  margin-bottom: 22px;
 }
 
-body.dark .project-name {
-  color: #f9fafb;
+.bio-card p:last-child {
+  margin-bottom: 0;
 }
 
-.project-desc {
-  font-size: 14px;
-  line-height: 1.5;
-  color: #4b5563;
-  margin: 0;
-}
-
-body.dark .project-desc {
-  color: #9ca3af;
-}
-
-.project-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-  justify-content: flex-end;
-  flex-shrink: 0;
-}
-
-.tag {
-  font-size: 11.5px;
-  font-weight: 500;
-  padding: 3px 9px;
-  background: rgba(0, 0, 0, 0.05);
-  color: #4b5563;
-  border-radius: 6px;
-}
-
-body.dark .tag {
-  background: rgba(255, 255, 255, 0.1);
+body.dark .bio-card p,
+body.theme-dark .bio-card p {
   color: #d1d5db;
 }
 
-/* Coursework Grid */
-.coursework-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.course-pill {
-  font-size: 13.5px;
-  font-weight: 500;
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 20px;
-  color: #1f2937;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
-  transition: all 0.2s ease;
-}
-
-.course-pill:hover {
-  background: #ffffff;
-  border-color: rgba(37, 99, 235, 0.3);
-  transform: translateY(-1px);
-}
-
-body.dark .course-pill {
-  background: rgba(24, 28, 36, 0.7);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: #e5e7eb;
-}
-
-body.dark .course-pill:hover {
-  background: rgba(30, 36, 46, 0.9);
-  border-color: rgba(96, 165, 250, 0.3);
-}
-
-/* Footer */
-.portfolio-footer {
-  margin-top: 48px;
-  padding-top: 24px;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 13.5px;
-  color: #6b7280;
-}
-
-body.dark .portfolio-footer {
-  border-color: rgba(255, 255, 255, 0.1);
-  color: #9ca3af;
-}
-
-.footer-meta {
-  margin: 0;
-}
-
-.footer-links {
-  display: flex;
-  gap: 16px;
-}
-
-.footer-link {
-  color: inherit;
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-.footer-link:hover {
+.bio-card strong {
   color: #111827;
+  font-weight: 600;
 }
 
-body.dark .footer-link:hover {
+body.dark .bio-card strong,
+body.theme-dark .bio-card strong {
   color: #ffffff;
+}
+
+.highlight-purdue {
+  color: #b19451;
+  font-weight: 600;
 }
 
 /* Fullscreen Expanded Mode */
@@ -709,6 +525,7 @@ body.canvas-fullscreen .ring-hero-card {
   height: 100vh !important;
   border-radius: 0 !important;
   border: none !important;
+  aspect-ratio: auto !important;
 }
 
 body.canvas-fullscreen .controls-bar {

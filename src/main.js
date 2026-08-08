@@ -3878,6 +3878,8 @@ function animate() {
             launchWorldRingFromHome();
           }
           pendingRoute = null;
+        } else {
+          resetToFinaleOverviewPerspective();
         }
       }
     } catch (err) {
