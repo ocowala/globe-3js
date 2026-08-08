@@ -895,25 +895,30 @@ body.theme-dark .home-bio-content strong {
   text-decoration: underline;
 }
 
-/* ── Loading Overlay ── */
+/* ── Loading Overlay (Scoped to Ring Viewer) ── */
 #loading-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
-  z-index: 100;
+  z-index: 50;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #F2F0EF;
+  background: rgba(242, 240, 239, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 24px;
   transition: opacity 0.6s ease, visibility 0.6s ease;
+  pointer-events: auto;
 }
 
 body.theme-dark #loading-overlay {
-  background: #0f1217;
+  background: rgba(15, 18, 23, 0.95);
 }
 
 #loading-overlay.fade-out {
   opacity: 0;
   visibility: hidden;
+  pointer-events: none;
 }
 
 .loader-container {

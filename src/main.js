@@ -126,7 +126,7 @@ document.body.style.background = '';
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(7.5, 0.8, 1.2);
+camera.position.set(0, 0, 15);
 camera.lookAt(0, 0, 0);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -137,6 +137,7 @@ controls.maxDistance = 100;
 controls.autoRotate = false;
 controls.enableRotate = true;
 controls.rotateSpeed = 0.4;
+controls.target.set(0, 0, 0);
 
 const ambientLight = new THREE.AmbientLight(0xfff6ea, 0.8);
 scene.add(ambientLight);
@@ -273,17 +274,17 @@ function buildCylinder() {
 }
 
 // --- Intro Cursive Animation State ---
-let introActive = true;
+let introActive = false;
 let introTimer = 0;
 let unwriteTimer = 0;
 let loadedCount = 0;
 let preCacheStartTime = 0;
 let allAssetsLoaded = false;
 let fullyOptimized = false;
-let isPostSequence = false;
+let isPostSequence = true;
 let postSeqTimer = 0;
 let postSeqAngle = 0;
-let sequenceEverCompleted = false;
+let sequenceEverCompleted = true;
 let loaderFinishedTime = 0;
 let loaderOverlayHidden = false;
 
