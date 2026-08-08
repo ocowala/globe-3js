@@ -4,10 +4,17 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
-// import * as dat from 'dat.gui'; 
+// import * as dat from 'dat.gui';
 
 // comment out dat.gui to remove the debug panel
 // uncomment import AND comment DummyGUI class to bring back dat.gui dev
+
+// Scene/state tracing is useful while developing but is just noise in a visitor's
+// console. warn and error are deliberately left intact so real failures surface.
+if (!import.meta.env.DEV) {
+  console.log = () => { };
+  console.debug = () => { };
+}
 
 class DummyGUI {
   constructor() {
@@ -72,8 +79,11 @@ if (!isHandheldDevice && radialNavOnLoad) {
 
 const targetDPR = isHandheldDevice ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2.0);
 renderer.setPixelRatio(targetDPR);
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.outputEncoding = THREE.sRGBEncoding;
+// Size renderer to container (440x440 mini view) not full window
+const initW = container ? container.clientWidth : window.innerWidth;
+const initH = container ? container.clientHeight : window.innerHeight;
+renderer.setSize(initW, initH);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 container.appendChild(renderer.domElement);
 
 let canvasRect = null;
@@ -111,12 +121,24 @@ function updateCanvasRect() {
   }
 }
 updateCanvasRect();
+
+function getNormalizedMouseCoords(clientX, clientY) {
+  const rect = (canvasRect && canvasRect.width > 0)
+    ? canvasRect
+    : (container ? container.getBoundingClientRect() : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight });
+  return {
+    x: ((clientX - rect.left) / rect.width) * 2 - 1,
+    y: -((clientY - rect.top) / rect.height) * 2 + 1
+  };
+}
 document.body.classList.remove('dark');
 document.body.style.background = '';
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(7.5, 0.8, 1.2);
+const camInitW = container ? container.clientWidth : window.innerWidth;
+const camInitH = container ? container.clientHeight : window.innerHeight;
+const camera = new THREE.PerspectiveCamera(56, camInitW / Math.max(camInitH, 1), 0.1, 1000);
+camera.position.set(0, 0, 16.5);
 camera.lookAt(0, 0, 0);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -127,6 +149,7 @@ controls.maxDistance = 100;
 controls.autoRotate = false;
 controls.enableRotate = true;
 controls.rotateSpeed = 0.4;
+controls.target.set(0, 0, 0);
 
 const ambientLight = new THREE.AmbientLight(0xfff6ea, 0.8);
 scene.add(ambientLight);
@@ -146,9 +169,9 @@ let starsMaterial = null;
 let starsPoints = null;
 let activeBackdropMode = 'cycle';
 
-// Interpolated state variables for smooth transitions
-let currentBg = { r1: 253, g1: 248, b1: 231, r2: 244, g2: 233, b2: 208, r3: 225, g3: 211, b3: 179 };
-let currentAmbientColor = new THREE.Color(0xfff6ea);
+// Interpolated state variables for smooth transitions (solid #F2F0EF light mode)
+let currentBg = { r1: 242, g1: 240, b1: 239, r2: 242, g2: 240, b2: 239, r3: 242, g3: 240, b3: 239 };
+let currentAmbientColor = new THREE.Color(0xffffff);
 let currentAmbientIntensity = 0.8;
 let currentDirColor = new THREE.Color(0xffffff);
 let currentDirIntensity = 0.7;
@@ -212,7 +235,7 @@ const createThickCylinderGeometry = (innerRadius, outerRadius, height) => {
 
 // Globe and orbit ring materials
 const globeMaterial = new THREE.MeshStandardMaterial({
-  color: 0xe8d9c4,
+  color: 0xf2f0ef,
   roughness: 0.85,
   metalness: 0.05,
   transparent: true,
@@ -220,7 +243,7 @@ const globeMaterial = new THREE.MeshStandardMaterial({
   emissive: 0x271d1a,
   emissiveIntensity: 0.02
 });
-const orbitMaterial = new THREE.MeshBasicMaterial({ color: 0xf3e3d6, transparent: true, opacity: 0.0, side: THREE.DoubleSide });
+const orbitMaterial = new THREE.MeshBasicMaterial({ color: 0xf2f0ef, transparent: true, opacity: 0.0, side: THREE.DoubleSide });
 
 let globe = null;
 let orbitRing = null;
@@ -263,16 +286,17 @@ function buildCylinder() {
 }
 
 // --- Intro Cursive Animation State ---
-let introActive = true;
+let introActive = false;
 let introTimer = 0;
 let unwriteTimer = 0;
 let loadedCount = 0;
+let preCacheStartTime = 0;
 let allAssetsLoaded = false;
 let fullyOptimized = false;
-let isPostSequence = false;
+let isPostSequence = true;
 let postSeqTimer = 0;
 let postSeqAngle = 0;
-let sequenceEverCompleted = false;
+let sequenceEverCompleted = true;
 let loaderFinishedTime = 0;
 let loaderOverlayHidden = false;
 
@@ -319,9 +343,15 @@ const textboxFocusTargetLookAt = new THREE.Vector3();
 const textboxFocusTargetUp = new THREE.Vector3();
 
 function getResponsiveFOV() {
-  const aspect = window.innerWidth / window.innerHeight;
-  if (aspect < 1.0) {
-    return 38 + (1.0 - aspect) * 45;
+  const isFullscreen = document.body.classList.contains('canvas-fullscreen');
+  const w = isFullscreen ? window.innerWidth : (container ? container.clientWidth : window.innerWidth);
+  const h = isFullscreen ? window.innerHeight : (container ? container.clientHeight : window.innerHeight);
+  const aspect = w / Math.max(h, 1);
+  if (aspect < 1.1) {
+    return 56; // Open FOV for 1:1 square container so the entire 360° ring fits centered
+  }
+  if (aspect < 1.4) {
+    return 46;
   }
   return 38;
 }
@@ -355,6 +385,7 @@ const introParams = {
 
 // Camera intro transition targets
 let isIntroTransitioning = false;
+let isTakeoffTransitioning = false;
 let introTransitionProgress = 0;
 const introTransitionStartPos = new THREE.Vector3();
 const introTransitionStartTarget = new THREE.Vector3();
@@ -1995,6 +2026,8 @@ function loadModelWithGUI(name, url, defaults) {
     console.log(`${name} loaded — use GUI to align.`);
   }, undefined, (error) => {
     console.error(`${name} load failed:`, error);
+    loadedCount++;
+    checkAllAssetsLoaded();
   });
 }
 
@@ -2094,7 +2127,10 @@ loadModelWithGUI('Cafe', new URL('../assets/models/cafe_meshopt.glb', import.met
 window.addEventListener('resize', onWindowResize, false);
 
 function onWindowResize() {
-  const aspect = window.innerWidth / window.innerHeight;
+  const isFullscreen = document.body.classList.contains('canvas-fullscreen');
+  const width = isFullscreen ? window.innerWidth : (container ? container.clientWidth : window.innerWidth);
+  const height = isFullscreen ? window.innerHeight : (container ? container.clientHeight : window.innerHeight);
+  const aspect = width / Math.max(height, 1);
   camera.aspect = aspect;
 
   // Dynamically open camera FOV on narrow/portrait screens to fit the cylinder without clipping
@@ -2103,7 +2139,7 @@ function onWindowResize() {
   camera.updateProjectionMatrix();
   const resDPR = isHandheldDevice ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2.0);
   renderer.setPixelRatio(resDPR);
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(width, height);
   updateCanvasRect();
 }
 
@@ -2220,6 +2256,8 @@ rawLoader.load(new URL('../assets/models/motorcycle.glb', import.meta.url).href,
   checkAllAssetsLoaded();
 }, undefined, (error) => {
   console.error('Motorcycle load failed:', error);
+  loadedCount++;
+  checkAllAssetsLoaded();
 });
 
 // --- Airplane raycasting state ---
@@ -2330,6 +2368,8 @@ rawLoader.load(new URL('../assets/models/airplane.glb', import.meta.url).href, (
   checkAllAssetsLoaded();
 }, undefined, (error) => {
   console.error('Airplane load failed:', error);
+  loadedCount++;
+  checkAllAssetsLoaded();
 });
 
 // --- Bronco raycasting state ---
@@ -2523,6 +2563,8 @@ rawLoader.load(new URL('../assets/models/bronco.glb', import.meta.url).href, (gl
   checkAllAssetsLoaded();
 }, undefined, (error) => {
   console.error('Bronco load failed:', error);
+  loadedCount++;
+  checkAllAssetsLoaded();
 });
 
 // --- Load Standalone Boat ---
@@ -2584,6 +2626,8 @@ rawLoader.load(new URL('../assets/models/boat.glb', import.meta.url).href, (gltf
   boatFolder.open();
 }, undefined, (error) => {
   console.error('Boat load failed:', error);
+  loadedCount++;
+  checkAllAssetsLoaded();
 });
 
 // --- Car V2 raycasting state ---
@@ -2920,6 +2964,8 @@ rawLoader.load(new URL('../assets/models/sls_amg_63_black_series.glb', import.me
   racecarFolder.open();
 }, undefined, (error) => {
   console.error('Racecar load failed:', error);
+  loadedCount++;
+  checkAllAssetsLoaded();
 });
 
 // --- Load Standalone Car V2 ---
@@ -2988,6 +3034,8 @@ rawLoader.load(new URL('../assets/models/car_v2.glb', import.meta.url).href, (gl
   car2Folder.open();
 }, undefined, (error) => {
   console.error('Car V2 load failed:', error);
+  loadedCount++;
+  checkAllAssetsLoaded();
 });
 
 // --- Global Orbit Animation Sequence ---
@@ -3009,7 +3057,7 @@ let isOrbitAnimating = true;
 
 // --- Camera Follow State ---
 let cameraFollowEnabled = true;
-const defaultCamPos = new THREE.Vector3(7.5, 0.8, 1.2);
+const defaultCamPos = new THREE.Vector3(0, 0, 16.5);
 const defaultCamTarget = new THREE.Vector3(0, 0, 0);
 
 // Transition state
@@ -3310,7 +3358,9 @@ function updateBackgroundVisibility() {
       if (textboxes) {
         textboxes.forEach((tb) => {
           const isSelected = (tb === selectedTextbox);
-          tb.mesh.visible = ((model.visible || isClose) && !introActive && (isOrbitAnimating || isSelected));
+          // Never show cards over the finale overview — every scene model is visible
+          // there, so without the isPostSequence guard all of them would pop on at once.
+          tb.mesh.visible = ((model.visible || isClose) && !introActive && !isPostSequence && (isOrbitAnimating || isSelected));
         });
       }
     }
@@ -3320,7 +3370,7 @@ function updateBackgroundVisibility() {
 // --- Theme Gradients Configuration for Day-Night Cycle ---
 const themeGradients = {
   clay: {
-    day: { r1: 253, g1: 248, b1: 231, r2: 244, g2: 233, b2: 208, r3: 225, g3: 211, b3: 179, ambient: 0xfff6ea },
+    day: { r1: 242, g1: 240, b1: 239, r2: 242, g2: 240, b2: 239, r3: 242, g3: 240, b3: 239, ambient: 0xffffff },
     night: { r1: 20, g1: 28, b1: 36, r2: 13, g2: 19, b2: 26, r3: 5, g3: 8, b3: 12, ambient: 0x3a4f66 }
   },
   cobalt: {
@@ -3340,21 +3390,22 @@ const themeGradients = {
 // --- Scene-Tied Times of Day Configuration ---
 const sceneTimeConfigs = {
   // Index 0: City at Night / Resume
-  // Starts night-ish (midnight cobalt) and transitions to Crimson Dusk
+  // Holds Cobalt Midnight for the whole segment — the city reads as a night scene,
+  // so the backdrop stays dark instead of sunrising into an off-white mid-orbit.
   0: {
-    bg: { r1: 253, g1: 242, b1: 238, r2: 245, g2: 223, b2: 213, r3: 229, g3: 196, b3: 182 }, // Crimson Dusk
-    ambient: 0xffefe8,
-    ambientIntensity: 0.65,
-    dir: 0xffaa90,
-    dirIntensity: 0.6,
-    stars: 0.0,
-    dark: false
+    bg: { r1: 20, g1: 28, b1: 36, r2: 13, g2: 19, b2: 26, r3: 5, g3: 8, b3: 12 },
+    ambient: 0x3a4f66,
+    ambientIntensity: 0.45,
+    dir: 0xd4e3ff,
+    dirIntensity: 0.28,
+    stars: 1.0,
+    dark: true
   },
   // Index 1: School / Academic
-  // Day (Clay Beige daylight)
+  // Day (Solid #F2F0EF daylight)
   1: {
-    bg: { r1: 253, g1: 248, b1: 231, r2: 244, g2: 233, b2: 208, r3: 225, g3: 211, b3: 179 },
-    ambient: 0xfff6ea,
+    bg: { r1: 242, g1: 240, b1: 239, r2: 242, g2: 240, b2: 239, r3: 242, g3: 240, b3: 239 },
+    ambient: 0xffffff,
     ambientIntensity: 0.8,
     dir: 0xffffff,
     dirIntensity: 0.7,
@@ -3469,50 +3520,6 @@ function getDayNightTargets(currentTime) {
 
     // Get target config for this scene index
     let config = sceneTimeConfigs[activeIdx] || sceneTimeConfigs[1];
-
-    // Dynamic Dawn transition logic for City (Index 0)
-    if (activeIdx === 0 && isOrbitAnimating) {
-      const seq = orbitSequence[0];
-      if (seq && seq.params) {
-        const startDeg = seq.start; // 20
-        const endDeg = seq.end; // -30
-        const currentDeg = seq.params.orbitDegrees;
-        const totalDist = Math.abs(startDeg - endDeg);
-        const currentDist = Math.abs(startDeg - currentDeg);
-
-        // Progress goes from 0.0 (start) to 1.0 (end)
-        const progress = Math.min(Math.max(currentDist / totalDist, 0.0), 1.0);
-
-        // Transition from Midnight (Cobalt) to Dawn (Crimson Dusk)
-        const midnight = themeGradients.cobalt.night;
-        const dawn = themeGradients.crimson.day;
-
-        const r1 = THREE.MathUtils.lerp(midnight.r1, dawn.r1, progress);
-        const g1 = THREE.MathUtils.lerp(midnight.g1, dawn.g1, progress);
-        const b1 = THREE.MathUtils.lerp(midnight.b1, dawn.b1, progress);
-
-        const r2 = THREE.MathUtils.lerp(midnight.r2, dawn.r2, progress);
-        const g2 = THREE.MathUtils.lerp(midnight.g2, dawn.g2, progress);
-        const b2 = THREE.MathUtils.lerp(midnight.b2, dawn.b2, progress);
-
-        const r3 = THREE.MathUtils.lerp(midnight.r3, dawn.r3, progress);
-        const g3 = THREE.MathUtils.lerp(midnight.g3, dawn.g3, progress);
-        const b3 = THREE.MathUtils.lerp(midnight.b3, dawn.b3, progress);
-
-        const colorAmbient = new THREE.Color(midnight.ambient || 0x223344).lerp(new THREE.Color(dawn.ambient), progress);
-        const colorDir = new THREE.Color(0xd4e3ff).lerp(new THREE.Color(0xffaa90), progress);
-
-        return {
-          bg: { r1, g1, b1, r2, g2, b2, r3, g3, b3 },
-          ambient: colorAmbient.getHex(),
-          ambientIntensity: THREE.MathUtils.lerp(0.45, 0.65, progress),
-          dir: colorDir.getHex(),
-          dirIntensity: THREE.MathUtils.lerp(0.28, 0.6, progress),
-          stars: THREE.MathUtils.lerp(0.8, 0.0, progress),
-          dark: progress < 0.5 // UI items go light mode in the latter half of sunrise
-        };
-      }
-    }
 
     return {
       bg: config.bg,
@@ -3633,7 +3640,7 @@ function animate() {
 
   // 7. Update cylinder material color dynamically based on dark mode
   if (globeMaterial) {
-    const targetCylinderColor = targets.dark ? new THREE.Color(0x141c24) : new THREE.Color(0xe8d9c4);
+    const targetCylinderColor = targets.dark ? new THREE.Color(0x141c24) : new THREE.Color(0xf2f0ef);
     const targetEmissiveColor = targets.dark ? new THREE.Color(0x05080c) : new THREE.Color(0x271d1a);
     globeMaterial.color.lerp(targetCylinderColor, transitionSpeed);
     globeMaterial.emissive.lerp(targetEmissiveColor, transitionSpeed);
@@ -3702,7 +3709,14 @@ function animate() {
 
   // --- Incremental Pre-Caching ---
   if (loadedCount === 12 && !fullyOptimized) {
+    if (preCacheStartTime === 0) preCacheStartTime = performance.now();
     try {
+      // Safety net: vehicle-position pre-caching is a background perf optimization, not a
+      // hard requirement (getSnappedData falls back to raycasting on-demand for any angle
+      // that isn't cached yet). Never let a slow device block the "enter ring" CTA forever.
+      if (performance.now() - preCacheStartTime > 6000) {
+        cacheVehicleIdx = 5;
+      }
       const city = scene.getObjectByName('City');
       const beach = scene.getObjectByName('Beach');
       const desert = scene.getObjectByName('Desert');
@@ -3816,12 +3830,34 @@ function animate() {
         if (cafe) cafe.visible = false;
         if (school) school.visible = false;
 
-        // Caching and shader pre-compilation is finished, we can now hide loading screen
+        // Caching and shader pre-compilation is finished, we can now hide loading screen and reveal Little Prince button
         allAssetsLoaded = true;
         loaderFinishedTime = performance.now();
         const pctEl = document.getElementById('loader-percent');
         if (pctEl) {
           pctEl.innerText = '100%';
+        }
+        const loaderOverlay = document.getElementById('loading-overlay');
+        if (loaderOverlay) {
+          loaderOverlay.classList.add('fade-out');
+        }
+        const princeBtn = document.getElementById('little-prince-btn');
+        if (princeBtn) {
+          princeBtn.classList.add('loaded');
+        }
+
+        // If loading finished while sitting on /ring, resolve the deferred entry now.
+        // '/ring_direct' (typed URL / page refresh) plays the cursive intro; anything else
+        // (little-prince click, i.e. '/ring_finale') always lands straight in the finale sequence.
+        if (window.location.pathname.includes('/ring')) {
+          if (pendingRoute === '/ring_direct') {
+            startCursiveIntroSequence();
+          } else {
+            launchWorldRingFromHome();
+          }
+          pendingRoute = null;
+        } else {
+          resetToFinaleOverviewPerspective();
         }
       }
     } catch (err) {
@@ -4460,12 +4496,15 @@ function animate() {
       cursivePlane.rotation.z = postSeqAngle;
     }
 
-    // Fade out all vehicles
+    // Fade out all vehicles. Driven off postSeqTimer rather than read back off the
+    // mesh: children[0] is a Group with no .material, so the old readback always fell
+    // through to 1.0 and the fade never converged — leaving the vehicle parked on
+    // screen through the whole finale. setOpacity() hides the object once it hits 0.
+    const vehicleFade = Math.max(0, 1.0 - (postSeqTimer / 0.8));
     orbitSequence.forEach(seq => {
       const obj = seq.getObject();
       if (obj && obj.visible) {
-        const currentOpacity = obj.children[0]?.material?.opacity || 1.0;
-        setOpacity(obj, Math.max(0, currentOpacity - 0.02));
+        setOpacity(obj, vehicleFade);
       }
     });
 
@@ -4641,10 +4680,11 @@ function animate() {
     }
   }
 
-  // Toggle Dedicated Exit Button (Top-Right)
+  // Toggle Dedicated Exit Button (Top-Right) — only ever inside the /ring experience
   const exitBtnEl = document.getElementById('exit-orbit-btn');
   if (exitBtnEl) {
-    if (!isPostSequence || selectedTextbox) {
+    const inRingRoute = document.documentElement.classList.contains('route-ring');
+    if (inRingRoute && (!isPostSequence || selectedTextbox)) {
       exitBtnEl.classList.add('show');
     } else {
       exitBtnEl.classList.remove('show');
@@ -4811,8 +4851,13 @@ function animate() {
 
       if (t >= 1.0) {
         textboxFocusState = 'idle';
-        camGuiState.paused = false; // orbit was paused on select; always resume on deselect
-        isOrbitAnimating = true;
+        // Only resume the vehicle orbit if we are still in it. Exiting a card and
+        // leaving for the finale at the same time would otherwise re-arm the orbit
+        // here ~0.6s later, which re-shows every scene's textboxes over the overview.
+        if (!isPostSequence) {
+          camGuiState.paused = false; // orbit was paused on select; always resume on deselect
+          isOrbitAnimating = true;
+        }
         controls.enableDamping = false;
         controls.update(); // instantly update internal angles to pre-focus state
         controls.enableDamping = true;
@@ -5224,6 +5269,9 @@ function deselectTextbox() {
 function returnToFinale() {
   if (isPostSequence) return; // already there
 
+  // Cancel any in-flight card focus lerp so it cannot fight the finale camera sweep.
+  textboxFocusState = 'idle';
+
   introActive = false;
   isIntroTransitioning = false;
   introFinaleActive = false;
@@ -5439,38 +5487,6 @@ let audioCtx = null;
 let analyser = null;
 let dataArray = null;
 
-function updateVisualizer() {
-  if (!analyser || audio.paused) {
-    const bars = document.querySelectorAll('.audio-visualizer .bar');
-    bars.forEach(bar => {
-      bar.style.transform = 'scaleY(0.15)';
-    });
-    return;
-  }
-
-  requestAnimationFrame(updateVisualizer);
-
-  analyser.getByteFrequencyData(dataArray);
-
-  const bars = document.querySelectorAll('.audio-visualizer .bar');
-  if (bars.length === 4) {
-    const b0 = dataArray[4] || 0;
-    const b1 = dataArray[12] || 0;
-    const b2 = dataArray[24] || 0;
-    const b3 = dataArray[40] || 0;
-
-    const scale0 = Math.max(0.15, b0 / 255);
-    const scale1 = Math.max(0.15, b1 / 255);
-    const scale2 = Math.max(0.15, b2 / 255);
-    const scale3 = Math.max(0.15, b3 / 255);
-
-    bars[0].style.transform = `scaleY(${scale0})`;
-    bars[1].style.transform = `scaleY(${scale1})`;
-    bars[2].style.transform = `scaleY(${scale2})`;
-    bars[3].style.transform = `scaleY(${scale3})`;
-  }
-}
-
 if (audio) {
   const songKeys = Object.keys(songMap);
   const randomSong = songKeys[Math.floor(Math.random() * songKeys.length)];
@@ -5487,7 +5503,6 @@ if (audio) {
     if (audioCtx && audioCtx.state === 'suspended') {
       audioCtx.resume();
     }
-    updateVisualizer();
   });
   audio.addEventListener('pause', () => {
     if (songNameEl) songNameEl.classList.remove('playing');
@@ -5682,8 +5697,9 @@ function handleCanvasClick(clientX, clientY, targetEl) {
     return false;
   }
 
-  _mouse.x = (clientX / window.innerWidth) * 2 - 1;
-  _mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+  const norm = getNormalizedMouseCoords(clientX, clientY);
+  _mouse.x = norm.x;
+  _mouse.y = norm.y;
   _globeRaycaster.setFromCamera(_mouse, camera);
 
   // 0. Raycast against visible textboxes (takes priority over globe/nav-label clicks)
@@ -5788,6 +5804,7 @@ window.addEventListener('pointerdown', (event) => {
   pointerDownY = event.clientY;
   // Ignore pointerdown on HTML UI elements (tabs, buttons, text, dat.GUI etc.)
   if (event.target.tagName === 'BUTTON' ||
+    event.target.closest('button') ||
     event.target.closest('.dg') ||
     event.target.id === 'audio-toggle' ||
     event.target.closest('#audio-toggle') ||
@@ -5829,8 +5846,9 @@ window.addEventListener('pointerdown', (event) => {
   }
 
   // Calculate mouse position in normalized device coordinates (-1 to +1)
-  _mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  _mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  const norm = getNormalizedMouseCoords(event.clientX, event.clientY);
+  _mouse.x = norm.x;
+  _mouse.y = norm.y;
 
   _globeRaycaster.setFromCamera(_mouse, camera);
 
@@ -5992,8 +6010,9 @@ window.addEventListener('pointermove', (event) => {
   }
 
   // Calculate mouse position in normalized device coordinates (-1 to +1)
-  _mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  _mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  const norm = getNormalizedMouseCoords(event.clientX, event.clientY);
+  _mouse.x = norm.x;
+  _mouse.y = norm.y;
   _globeRaycaster.setFromCamera(_mouse, camera);
 
   // --- Textbox hover cursor (works during orbit and post-sequence) ---
@@ -6079,30 +6098,65 @@ if (radialNavContainer) {
 
 // --- Customizable Themes Toggle Controller ---
 const themeToggle = document.getElementById('theme-toggle');
-if (themeToggle) {
-  const iconEl = themeToggle.querySelector('.theme-icon') || themeToggle.querySelector('img');
 
+const backdropIconsMap = {
+  cycle: '/day-night.png',
+  cobalt: '/dark-mode.png',
+  clay: '/light-mode.png',
+  easteregg: '/easter-egg.png'
+};
+const backdropAltsMap = {
+  cycle: 'Day-Night Cycle',
+  cobalt: 'Dark Mode',
+  clay: 'Light Mode',
+  easteregg: 'Easter Egg'
+};
+const backdropTitlesMap = {
+  cycle: 'Backdrop: Day-Night Cycle',
+  cobalt: 'Backdrop: Dark Mode (Cobalt)',
+  clay: 'Backdrop: Light Mode (Beige)',
+  easteregg: 'Backdrop: Easter Egg Mode'
+};
+
+const prefersDarkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+function getSystemBackdropMode() {
+  return (prefersDarkQuery && prefersDarkQuery.matches) ? 'cobalt' : 'clay';
+}
+
+// The embedded homepage follows the OS light/dark setting; full-screen always runs
+// the day-night cycle. This remembers what the homepage should return to, so an
+// expand/collapse round trip doesn't strand the page in cycle mode.
+let homepageBackdropMode = getSystemBackdropMode();
+let userPickedBackdrop = false;
+
+function applyBackdropMode(mode) {
+  activeBackdropMode = mode;
+  if (themeToggle) {
+    const iconEl = themeToggle.querySelector('.theme-icon') || themeToggle.querySelector('img');
+    if (iconEl) {
+      iconEl.src = backdropIconsMap[mode];
+      iconEl.alt = backdropAltsMap[mode];
+    }
+    themeToggle.title = backdropTitlesMap[mode];
+  }
+}
+
+applyBackdropMode(homepageBackdropMode);
+
+// Track OS changes until the visitor expresses their own preference.
+if (prefersDarkQuery && prefersDarkQuery.addEventListener) {
+  prefersDarkQuery.addEventListener('change', () => {
+    if (userPickedBackdrop) return;
+    homepageBackdropMode = getSystemBackdropMode();
+    if (!document.body.classList.contains('canvas-fullscreen')) {
+      applyBackdropMode(homepageBackdropMode);
+    }
+  });
+}
+
+if (themeToggle) {
   const isEasterEggEnabled = Math.random() < 0.1;
   const modesList = isEasterEggEnabled ? ['cycle', 'cobalt', 'clay', 'easteregg'] : ['cycle', 'cobalt', 'clay'];
-
-  const iconsMap = {
-    cycle: '/day-night.png',
-    cobalt: '/dark-mode.png',
-    clay: '/light-mode.png',
-    easteregg: '/easter-egg.png'
-  };
-  const altsMap = {
-    cycle: 'Day-Night Cycle',
-    cobalt: 'Dark Mode',
-    clay: 'Light Mode',
-    easteregg: 'Easter Egg'
-  };
-  const titlesMap = {
-    cycle: 'Backdrop: Day-Night Cycle',
-    cobalt: 'Backdrop: Dark Mode (Cobalt)',
-    clay: 'Backdrop: Light Mode (Beige)',
-    easteregg: 'Backdrop: Easter Egg Mode'
-  };
 
   themeToggle.addEventListener('click', (event) => {
     event.preventDefault();
@@ -6113,20 +6167,71 @@ if (themeToggle) {
     const nextIdx = (currentIdx + 1) % modesList.length;
     const nextMode = modesList[nextIdx];
 
-    activeBackdropMode = nextMode;
-
-    // Update button display icon image
-    if (iconEl) {
-      iconEl.src = iconsMap[nextMode];
-      iconEl.alt = altsMap[nextMode];
+    userPickedBackdrop = true;
+    applyBackdropMode(nextMode);
+    if (!document.body.classList.contains('canvas-fullscreen')) {
+      homepageBackdropMode = nextMode;
     }
-    themeToggle.title = titlesMap[nextMode];
 
     console.log(`Backdrop mode cycled to: ${nextMode}`);
 
     if (nextMode === 'easteregg') {
       triggerMovieTransition();
     }
+  });
+}
+
+// --- Expand 3D World Ring Controller ---
+const expandRingBtn = document.getElementById('expand-ring-btn');
+let isRingExpanded = false;
+
+function toggleRingExpand(expandState) {
+  isRingExpanded = typeof expandState === 'boolean' ? expandState : !isRingExpanded;
+
+  if (isRingExpanded) {
+    document.body.classList.add('canvas-fullscreen');
+    if (expandRingBtn) {
+      expandRingBtn.title = "Collapse to 1-Page Layout";
+      expandRingBtn.setAttribute('aria-label', "Collapse to 1-Page Layout");
+      const icon = expandRingBtn.querySelector('.expand-icon');
+      if (icon) icon.textContent = '⤓';
+    }
+    // The world ring is the whole point of full-screen — run the day-night cycle
+    // so each sector lands in its own time of day.
+    applyBackdropMode('cycle');
+  } else {
+    document.body.classList.remove('canvas-fullscreen');
+    if (expandRingBtn) {
+      expandRingBtn.title = "Expand 3D World Ring to Full Screen";
+      expandRingBtn.setAttribute('aria-label', "Expand 3D World Ring");
+      const icon = expandRingBtn.querySelector('.expand-icon');
+      if (icon) icon.textContent = '⤢';
+    }
+    // Back to the embedded mini viewer — always land on the finale overview, and
+    // hand the backdrop back to the OS setting (or whatever the visitor picked).
+    applyBackdropMode(homepageBackdropMode);
+    resetToFinaleOverviewPerspective();
+  }
+
+  // The viewer card animates between 440px and fullscreen over 0.4s, so measuring
+  // once here would capture a mid-transition size. onWindowResize is already
+  // fullscreen-aware, and the ResizeObserver below re-runs it until the box settles.
+  onWindowResize();
+}
+
+// Keep the renderer locked to the canvas box across the expand/collapse transition.
+// Collapsing does not change the window size, so the window 'resize' event never
+// fires — leaving a stale renderer size and a stale canvasRect (which also offsets
+// raycast/click targeting) if we relied on it alone.
+if (typeof ResizeObserver !== 'undefined' && container) {
+  new ResizeObserver(() => onWindowResize()).observe(container);
+}
+
+if (expandRingBtn) {
+  expandRingBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleRingExpand();
   });
 }
 
@@ -6137,35 +6242,258 @@ if (exitOrbitBtn) {
     event.preventDefault();
     event.stopPropagation();
 
+    // Already sitting at the finale overview (not mid vehicle-orbit) — exit means
+    // leave the full-screen ring entirely and go back to the homepage layout.
+    const alreadyAtFinale = isPostSequence && !isOrbitAnimating;
+
     if (selectedTextbox) {
       deselectTextbox();
     }
 
-    if (!isPostSequence) {
-      introActive = false;
-      isIntroTransitioning = false;
-      introFinaleActive = false;
-      isPostSequence = true;
-      isOrbitAnimating = false;
-      isTransitioning = false;
-      sequenceEverCompleted = true;
-      postSeqTimer = 0;
-
-      if (globe) globe.visible = true;
-      if (orbitRing) orbitRing.visible = true;
-
-      transitionStartPos.copy(camera.position);
-      transitionStartTarget.copy(currentCamTarget);
-      transitionStartUp.copy(camera.up);
-
-      if (cursivePlane) {
-        cursivePlane.visible = true;
-        cursivePlane.rotation.set(0, 0, 0);
-        cursivePlane.position.set(0, 0, getCylinderMiddleZ());
-        cursivePlane.material.opacity = 0.0;
-        drawCursiveName(1.0, 0.0);
-      }
-      console.log("Dedicated Exit Button clicked — returning to overview ring.");
+    if (alreadyAtFinale) {
+      toggleRingExpand(false);
+      console.log("Dedicated Exit Button clicked — already at finale, collapsing back to homepage.");
+    } else {
+      // Exit vehicle orbit animation → smoothly lerp back to the finale camera
+      // perspective (stay fullscreen). returnToFinale seeds postSeqTimer = 0 and
+      // captures the current camera as the lerp start, so the post-sequence branch
+      // sweeps over ~3s instead of hard-cutting the way resetTo... would.
+      returnToFinale();
+      console.log("Dedicated Exit Button clicked — lerping back to finale overview perspective.");
     }
   });
 }
+
+// --- Clean HTML5 History Router (/home, /ring, /resume) & Button Controllers ---
+const homeViewEl = document.getElementById('home-view');
+const littlePrinceBtn = document.getElementById('little-prince-btn');
+const homeReturnBtn = document.getElementById('home-return-btn');
+let pendingRoute = null;
+
+function resetToFinaleOverviewPerspective() {
+  if (selectedTextbox) {
+    deselectTextbox();
+  }
+  // Kill any in-flight card focus lerp — it would otherwise keep pulling the camera
+  // back toward the pre-focus vehicle pose after we have settled on the finale.
+  textboxFocusState = 'idle';
+
+  introActive = false;
+  isTakeoffTransitioning = false;
+  isIntroTransitioning = false;
+  isPostSequence = true;
+  introFinaleActive = false;
+  introFinaleTimer = 0.0;
+  postSeqTimer = 3.0;
+  isOrbitAnimating = false;
+  isTransitioning = false;
+
+  if (globe) globe.visible = true;
+  if (orbitRing) orbitRing.visible = true;
+
+  if (typeof globeMaterial !== 'undefined') globeMaterial.opacity = 0.35;
+  if (typeof orbitMaterial !== 'undefined') orbitMaterial.opacity = 0.45;
+
+  if (cursivePlane) {
+    cursivePlane.visible = true;
+    cursivePlane.rotation.set(0, 0, 0);
+    cursivePlane.position.set(0, 0, getCylinderMiddleZ());
+    cursivePlane.material.opacity = 1.0;
+    drawCursiveName(1.0, 0.0);
+  }
+
+  // Restore 3D sector models visibility
+  const bgNames = ['City', 'School', 'Landscape', 'Beach', 'Desert', 'Cafe'];
+  bgNames.forEach(name => {
+    const model = scene.getObjectByName(name);
+    if (model) model.visible = true;
+  });
+
+  // Hide all vehicle meshes when returning to overview mode
+  orbitSequence.forEach(seq => {
+    const obj = seq.getObject();
+    if (obj) {
+      obj.visible = false;
+      setOpacity(obj, 0.0);
+    }
+  });
+
+  // Position camera at finale overview settled position: (0, 0, 16.5) looking at (0, 0, 0)
+  const targetFOV = getResponsiveFOV();
+  camera.position.set(0, 0, 16.5);
+  camera.lookAt(0, 0, 0);
+  camera.up.set(0, 1, 0);
+  camera.fov = targetFOV;
+  camera.updateProjectionMatrix();
+
+  controls.target.set(0, 0, 0);
+  controls.update();
+
+  currentCamPos.set(0, 0, 16.5);
+  currentCamTarget.set(0, 0, 0);
+  transitionStartPos.copy(camera.position);
+  transitionStartTarget.copy(currentCamTarget);
+  transitionStartUp.copy(camera.up);
+  transitionStartFOV = targetFOV;
+
+  console.log("3D World Ring reset to Finale Overview perspective behind homepage.");
+}
+
+function startCursiveIntroSequence() {
+  if (selectedTextbox) {
+    deselectTextbox();
+  }
+
+  introActive = true;
+  isTakeoffTransitioning = false;
+  isPostSequence = false;
+  introFinaleActive = false;
+  introTimer = 0.0;
+  writePauseTimer = 0.0;
+  unwriteTimer = 0.0;
+  unwritePauseTimer = 0.0;
+  introFinaleTimer = 0.0;
+  postSeqTimer = 0.0;
+  isOrbitAnimating = false;
+  isTransitioning = false;
+
+  if (globe) globe.visible = false;
+  if (orbitRing) orbitRing.visible = false;
+  if (cursivePlane) {
+    cursivePlane.visible = true;
+    cursivePlane.rotation.set(0, 0, 0);
+    cursivePlane.position.set(0, 0, getCylinderMiddleZ());
+    cursivePlane.material.opacity = 1.0;
+    drawCursiveName(0.0, 0.0);
+  }
+
+  // Hide 3D sector models during writing
+  const bgNames = ['City', 'School', 'Landscape', 'Beach', 'Desert', 'Cafe'];
+  bgNames.forEach(name => {
+    const model = scene.getObjectByName(name);
+    if (model) model.visible = false;
+  });
+
+  const aspect = window.innerWidth / window.innerHeight;
+  const targetFOV = getResponsiveFOV();
+  const introDist = aspect < 1.0 ? (1.8 / (aspect * Math.tan(THREE.MathUtils.degToRad(targetFOV / 2)))) : 1.8;
+  camera.position.set(0, -introDist, 2.275);
+  camera.lookAt(0, 0, 2.275);
+  camera.up.set(0, 0, 1);
+
+  console.log("Started 3D Cursive Writing & Unwriting sequence on direct /ring access.");
+}
+
+function launchWorldRingFromHome() {
+  resetToFinaleOverviewPerspective();
+  console.log("Launched World Ring from Home into Finale Overview mode (10s hold -> Motorcycle transition).");
+}
+
+function handleRouting() {
+  const path = window.location.pathname;
+  const hash = window.location.hash;
+  const isRingRoute = path.includes('/ring') || hash === '#ring' || hash === '#/ring';
+  const loaderOverlay = document.getElementById('loading-overlay');
+
+  if (isRingRoute) {
+    document.documentElement.classList.add('route-ring');
+    if (homeViewEl) homeViewEl.classList.add('hide');
+    if (homeReturnBtn) homeReturnBtn.classList.add('show');
+
+    if (allAssetsLoaded) {
+      if (loaderOverlay) loaderOverlay.classList.add('fade-out');
+      // '/ring_direct' (typed URL / page refresh) plays the cursive intro; everything else
+      // — including a little-prince click ('/ring_finale') — always lands in the finale sequence.
+      if (pendingRoute === '/ring_direct') {
+        startCursiveIntroSequence();
+      } else {
+        launchWorldRingFromHome();
+      }
+      pendingRoute = null;
+    } else {
+      // Don't clobber an explicit '/ring_finale' request (little-prince clicked before
+      // loading finished) with the direct-access default.
+      if (pendingRoute !== '/ring_finale') {
+        pendingRoute = '/ring_direct';
+      }
+      if (loaderOverlay) loaderOverlay.classList.remove('fade-out');
+    }
+  } else {
+    document.documentElement.classList.remove('route-ring');
+    if (homeViewEl) homeViewEl.classList.remove('hide');
+    if (homeReturnBtn) homeReturnBtn.classList.remove('show');
+    pendingRoute = null;
+    if (allAssetsLoaded) {
+      resetToFinaleOverviewPerspective();
+    }
+  }
+}
+
+function navigateTo(routePath) {
+  if (window.location.pathname !== routePath) {
+    window.history.pushState(null, '', routePath);
+  }
+  handleRouting();
+}
+
+if (littlePrinceBtn) {
+  const enter3DWorldRing = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    // Always land in the finale overview sequence, never the cursive-writing intro —
+    // that intro is reserved for typing/refreshing directly on /ring.
+    pendingRoute = '/ring_finale';
+    navigateTo('/ring');
+    console.log("Little Prince clicked — launched 3D world ring experience (/ring)");
+  };
+
+  littlePrinceBtn.addEventListener('click', enter3DWorldRing);
+  littlePrinceBtn.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      enter3DWorldRing(e);
+    }
+  });
+}
+
+if (homeReturnBtn) {
+  // Bound to both 'pointerdown' (snappier response on touch/mouse) and 'click' (keyboard
+  // activation via Enter/Space fires 'click' only, never 'pointerdown'). A single physical
+  // tap/click fires both events in sequence, so we debounce to avoid double-triggering
+  // the route change and the finale-overview reset on every interaction.
+  let lastHomeReturnTrigger = 0;
+  const triggerHomeReturn = (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const now = performance.now();
+    if (now - lastHomeReturnTrigger < 500) return;
+    lastHomeReturnTrigger = now;
+    console.log("Home Return Button triggered — returning to homepage (/home)...");
+    resetToFinaleOverviewPerspective();
+    navigateTo('/home');
+  };
+
+  homeReturnBtn.addEventListener('click', triggerHomeReturn);
+  homeReturnBtn.addEventListener('pointerdown', triggerHomeReturn);
+}
+
+// Intercept top navigation links for clean routing
+document.querySelectorAll('.home-nav .nav-link').forEach(link => {
+  link.addEventListener('click', (e) => {
+    const route = link.getAttribute('data-route') || link.getAttribute('href');
+    if (route === '/home') {
+      e.preventDefault();
+      navigateTo('/home');
+    } else if (route === '/ring') {
+      e.preventDefault();
+      navigateTo('/ring');
+    }
+  });
+});
+
+window.addEventListener('popstate', handleRouting);
+window.addEventListener('hashchange', handleRouting);
+handleRouting();

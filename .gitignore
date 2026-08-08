@@ -5,3 +5,4 @@ dist/
 *.blend1
 public/capcut_video_v1.mp4
 
+.claude/

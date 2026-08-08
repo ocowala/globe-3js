@@ -5,6 +5,13 @@
   font-style: normal;
 }
 
+@font-face {
+  font-family: 'Signifier';
+  src: url('/signifier.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -12,7 +19,7 @@
 body {
   margin: 0;
   min-height: 100dvh;
-  font-family: "Instrument Serif", Georgia, serif;
+  font-family: 'Signifier', Georgia, serif;
   background: radial-gradient(circle at top, #fdeecf 0%, #f1e3d8 45%, #c9d7e2 100%);
   color: #24333f;
 }
@@ -43,7 +50,8 @@ canvas {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 18px; /* circular when collapsed */
+  border-radius: 18px;
+  /* circular when collapsed */
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -57,7 +65,8 @@ canvas {
   user-select: none;
   transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
   padding: 0;
-  padding-left: 10px; /* centers the 16px emoji exactly */
+  padding-left: 10px;
+  /* centers the 16px emoji exactly */
   width: 36px;
   height: 36px;
   box-shadow: 0 4px 12px rgba(32, 48, 63, 0.08);
@@ -68,7 +77,8 @@ canvas {
 
 #audio-toggle:hover {
   background: rgba(255, 255, 255, 0.85);
-  width: 260px; /* comfortable width for song titles expanding rightwards */
+  width: 260px;
+  /* comfortable width for song titles expanding rightwards */
   padding-left: 14px;
   padding-right: 14px;
   gap: 10px;
@@ -111,7 +121,7 @@ body.dark .orbit-instruction {
   position: fixed;
   top: 18px;
   right: 28px;
-  z-index: 35;
+  z-index: 2000;
   background: rgba(255, 179, 186, 0.88);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -153,18 +163,57 @@ body.dark .orbit-instruction {
 .exit-icon {
   font-size: 13px;
   font-weight: bold;
-  line-height: 1;
+}
+
+/* ── Bottom-Right Home Return Button (HIDDEN on 1-page layout) ── */
+.home-return-btn {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body.theme-dark .home-return-btn {
+  background: rgba(28, 32, 38, 0.88);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #f1f5f9;
+}
+
+body.theme-dark .home-return-btn:hover {
+  background: #1e242c;
+  color: #a78bfa;
 }
 
 .exit-text {
   text-transform: lowercase;
 }
 
-#audio-toggle .music-emoji {
-  font-size: 16px;
-  line-height: 1;
+/* ── Vinyl Record Music Icon ── */
+@keyframes vinyl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+#audio-toggle .music-vinyl {
+  width: 17px;
+  height: 17px;
+  display: block;
   pointer-events: none;
   flex-shrink: 0;
+  /* The record is always on the platter; it only turns while audio is playing. */
+  animation: vinyl-spin 3s linear infinite;
+  animation-play-state: paused;
+}
+
+#audio-toggle.playing .music-vinyl {
+  animation-play-state: running;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #audio-toggle .music-vinyl {
+    animation: none;
+  }
 }
 
 #song-name {
@@ -173,13 +222,15 @@ body.dark .orbit-instruction {
   white-space: nowrap;
   opacity: 0;
   overflow: hidden;
-  text-overflow: ellipsis; /* handles extra long song names cleanly */
+  text-overflow: ellipsis;
+  /* handles extra long song names cleanly */
   transition: opacity 0.2s ease;
 }
 
 #audio-toggle:hover #song-name {
   opacity: 1;
-  transition-delay: 0.1s; /* fade in text once pill has started expanding */
+  transition-delay: 0.1s;
+  /* fade in text once pill has started expanding */
 }
 
 #song-name.playing {
@@ -190,31 +241,44 @@ body.dark .orbit-instruction {
 /* ── Pastel Rainbow Glow Animation ── */
 @keyframes pastel-rainbow-glow {
   0% {
-    border-color: rgba(255, 179, 186, 0.85); /* pastel pink/red */
+    border-color: rgba(255, 179, 186, 0.85);
+    /* pastel pink/red */
     box-shadow: 0 0 14px rgba(255, 179, 186, 0.65), 0 4px 12px rgba(32, 48, 63, 0.08);
   }
+
   20% {
-    border-color: rgba(255, 223, 186, 0.85); /* pastel orange */
+    border-color: rgba(255, 223, 186, 0.85);
+    /* pastel orange */
     box-shadow: 0 0 14px rgba(255, 223, 186, 0.65), 0 4px 12px rgba(32, 48, 63, 0.08);
   }
+
   40% {
-    border-color: rgba(255, 255, 186, 0.85); /* pastel yellow */
+    border-color: rgba(255, 255, 186, 0.85);
+    /* pastel yellow */
     box-shadow: 0 0 14px rgba(255, 255, 186, 0.65), 0 4px 12px rgba(32, 48, 63, 0.08);
   }
+
   60% {
-    border-color: rgba(186, 255, 201, 0.85); /* pastel mint green */
+    border-color: rgba(186, 255, 201, 0.85);
+    /* pastel mint green */
     box-shadow: 0 0 14px rgba(186, 255, 201, 0.65), 0 4px 12px rgba(32, 48, 63, 0.08);
   }
+
   80% {
-    border-color: rgba(186, 223, 255, 0.85); /* pastel soft blue */
+    border-color: rgba(186, 223, 255, 0.85);
+    /* pastel soft blue */
     box-shadow: 0 0 14px rgba(186, 223, 255, 0.65), 0 4px 12px rgba(32, 48, 63, 0.08);
   }
+
   90% {
-    border-color: rgba(223, 186, 255, 0.85); /* pastel lavender */
+    border-color: rgba(223, 186, 255, 0.85);
+    /* pastel lavender */
     box-shadow: 0 0 14px rgba(223, 186, 255, 0.65), 0 4px 12px rgba(32, 48, 63, 0.08);
   }
+
   100% {
-    border-color: rgba(255, 179, 186, 0.85); /* cycle back */
+    border-color: rgba(255, 179, 186, 0.85);
+    /* cycle back */
     box-shadow: 0 0 14px rgba(255, 179, 186, 0.65), 0 4px 12px rgba(32, 48, 63, 0.08);
   }
 }
@@ -224,39 +288,487 @@ body.dark .orbit-instruction {
   border-width: 1.5px;
 }
 
-#audio-toggle .audio-visualizer {
-  display: none;
-}
-
-#audio-toggle.playing .music-emoji {
-  display: none !important;
-}
-
-#audio-toggle.playing .audio-visualizer {
-  display: flex !important;
-  opacity: 1 !important;
-  max-width: 20px !important;
-}
-
 #bg-audio {
   display: none;
 }
 
-/* ── Loading Overlay ── */
-#loading-overlay {
+/* ── 2D Minimalist Home View (/home - Noah Trupin Ultra-Minimalist Style) ── */
+.home-view {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 64px 24px;
+  background: #F2F0EF;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow-y: auto;
+  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.6s ease;
+  pointer-events: auto;
+}
+
+/* ── Integrated Single-Page Layout (2d-port-1-page) ── */
+.single-page-app {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 1140px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: 48px 32px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  font-family: 'Signifier', Georgia, serif;
+}
+
+.single-page-grid {
+  display: grid;
+  grid-template-columns: 440px 1fr;
+  gap: 40px;
+  align-items: center;
+  width: 100%;
+}
+
+@media (max-width: 960px) {
+  .single-page-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Left Column: Square Integrated 3D Ring Viewer (440px x 440px) */
+.ring-hero-card {
+  position: relative;
+  width: 440px;
+  height: 440px;
+  aspect-ratio: 1 / 1;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  overflow: hidden;
+  box-shadow: none;
+  transition: all 0.4s ease;
+  flex-shrink: 0;
+}
+
+@media (max-width: 960px) {
+  .ring-hero-card {
+    width: 100%;
+    max-width: 440px;
+    height: auto;
+    margin: 0 auto;
+  }
+}
+
+.canvas-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+/* Controls Bar inside top-left of 3D canvas */
+.controls-bar {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Music button belongs to the full-screen ring, not the minimal homepage — except
+   while a track is playing, when it has to stay reachable so the user can turn the
+   music off from the homepage. Pausing drops .playing and it disappears again. */
+.controls-bar #audio-toggle {
+  display: none;
+}
+
+body.canvas-fullscreen .controls-bar #audio-toggle,
+.controls-bar #audio-toggle.playing {
+  display: flex;
+}
+
+.expand-ring-btn {
+  position: relative;
+  z-index: 30;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 18px;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 36px;
+  height: 36px;
+  font-size: 15px;
+  font-weight: bold;
+  color: #24333f;
+  box-shadow: 0 4px 12px rgba(32, 48, 63, 0.08);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  outline: none;
+  flex-shrink: 0;
+}
+
+.expand-ring-btn:hover {
+  background: #ffffff;
+  color: #8b5cf6;
+  transform: scale(1.08);
+  box-shadow: 0 6px 16px rgba(139, 92, 246, 0.25);
+}
+
+.expand-ring-btn:active {
+  transform: scale(0.95);
+}
+
+body.dark .expand-ring-btn {
+  background: rgba(28, 32, 38, 0.85);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #f1f5f9;
+}
+
+/* Right Column: Integrated Bio Text & Signifier Typography */
+.bio-card {
   background: transparent;
-  transition: opacity 0.6s ease;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  font-family: 'Signifier', Georgia, serif;
+}
+
+.bio-card p {
+  font-family: 'Signifier', Georgia, serif;
+  font-size: 17px;
+  line-height: 1.7;
+  color: #2d3748;
+  margin-bottom: 20px;
+}
+
+.bio-card p:last-child {
+  margin-bottom: 0;
+}
+
+body.dark .bio-card p,
+body.theme-dark .bio-card p {
+  color: #e2e8f0;
+}
+
+.bio-card strong {
+  color: #1a202c;
+  font-weight: 600;
+}
+
+body.dark .bio-card strong,
+body.theme-dark .bio-card strong {
+  color: #ffffff;
+}
+
+.highlight-purdue {
+  color: #b19451;
+  font-weight: 600;
+}
+
+.socials-sentence {
+  font-size: 16.5px;
+  font-weight: 500;
+}
+
+/* Inline links. :visited is pinned to the same colour on purpose — without it the
+   UA default repaints visited links purple, which is what made them unreadable
+   against the dark backdrop. */
+.inline-link,
+.inline-link:visited {
+  color: #2f5d8a;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+  transition: color 0.25s ease;
+}
+
+.inline-link:hover {
+  color: #1d425f;
+}
+
+body.dark .inline-link,
+body.dark .inline-link:visited,
+body.theme-dark .inline-link,
+body.theme-dark .inline-link:visited {
+  color: #7cc4ff;
+}
+
+body.dark .inline-link:hover,
+body.theme-dark .inline-link:hover {
+  color: #a9d8ff;
+}
+
+/* Fullscreen Expanded Mode */
+body.canvas-fullscreen .ring-hero-card {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 1400 !important;
+  width: 100vw !important;
+  /* The <=960px media query caps the card at 440px; max-width outranks width no
+     matter how important, so it has to be lifted explicitly or full-screen stays
+     clamped to the mini-viewer size on narrow windows. */
+  max-width: none !important;
+  height: 100vh !important;
+  border-radius: 0 !important;
+  border: none !important;
+  aspect-ratio: auto !important;
+}
+
+body.canvas-fullscreen .controls-bar {
+  position: fixed;
+  top: 24px;
+  left: 28px;
+  bottom: auto;
+  z-index: 1450;
+}
+
+/* The exit button (top-right) now handles leaving full-screen, so the resizer
+   button is redundant there — keep it only in the embedded homepage view. */
+body.canvas-fullscreen .controls-bar .expand-ring-btn {
+  display: none;
+}
+
+/* Hide Overlay UI Buttons on Embedded Homepage (Only show when Expanded) */
+.exit-orbit-btn,
+.orbit-instruction {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body.canvas-fullscreen .bio-card {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body.canvas-fullscreen .exit-orbit-btn {
+  display: flex !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+body.canvas-fullscreen .orbit-instruction {
+  display: block !important;
+  opacity: 0.85 !important;
+}
+
+@media (max-width: 640px) {
+  .project-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .project-tags {
+    justify-content: flex-start;
+  }
+
+  .portfolio-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+}
+
+.home-view.hide,
+html.route-ring .home-view {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+body.theme-dark .home-view {
+  background: #0f1217;
+  color: #f1f5f9;
+}
+
+/* Home Container (Noah Trupin Layout) */
+.home-container {
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+/* Top Navigation Bar - No Border Line */
+.home-nav {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-bottom: 32px;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.nav-link {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  color: #6b7280;
+  text-decoration: none;
+  transition: color 0.2s ease, font-weight 0.2s ease;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  color: #111827;
+  font-weight: 600;
+}
+
+body.theme-dark .nav-link {
+  color: #9ca3af;
+}
+
+body.theme-dark .nav-link:hover,
+body.theme-dark .nav-link.active {
+  color: #ffffff;
+}
+
+/* Heading */
+.home-heading {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #111827;
+  margin: 0 0 24px 0;
+}
+
+body.theme-dark .home-heading {
+  color: #ffffff;
+}
+
+/* Bio Content Paragraphs */
+.home-bio-content p {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.75;
+  color: #374151;
+  margin-bottom: 22px;
+}
+
+body.theme-dark .home-bio-content p {
+  color: #d1d5db;
+}
+
+.home-bio-content strong {
+  color: #111827;
+  font-weight: 600;
+}
+
+body.theme-dark .home-bio-content strong {
+  color: #ffffff;
+}
+
+/* Top-Right Sneaking Little Prince Button (Inverted & Loaded Entrance) */
+.little-prince-btn {
+  position: fixed;
+  top: -120px;
+  right: 28px;
+  width: 72px;
+  height: 72px;
+  z-index: 1001;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+  transition: top 1.2s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.8s ease, transform 0.3s ease;
+}
+
+.little-prince-btn.loaded {
+  top: -10px;
+  opacity: 1;
+  pointer-events: auto;
+  animation: prince-creep-down 3.5s ease-in-out infinite alternate 1.2s;
+}
+
+.little-prince-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.18));
+  transition: filter 0.3s ease;
+}
+
+.little-prince-img.inverted {
+  transform: scaleX(-1);
+}
+
+.little-prince-btn:hover {
+  transform: translateY(18px) scale(1.12) rotate(-4deg);
+  animation-play-state: paused;
+}
+
+.little-prince-btn:hover .little-prince-img {
+  filter: drop-shadow(0 10px 20px rgba(163, 230, 53, 0.5));
+}
+
+.little-prince-btn:active {
+  transform: translateY(16px) scale(0.96);
+}
+
+@keyframes prince-creep-down {
+  0% {
+    transform: translateY(0px) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(14px) rotate(2deg);
+  }
+
+  100% {
+    transform: translateY(22px) rotate(-2deg);
+  }
+}
+
+.home-links a {
+  color: #a3e635;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s ease, text-decoration 0.2s ease;
+}
+
+.home-links a:hover {
+  color: #bef264;
+  text-decoration: underline;
+}
+
+/* ── Loading Overlay (Scoped to Ring Viewer) ── */
+#loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(242, 240, 239, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 24px;
+  transition: opacity 0.6s ease, visibility 0.6s ease;
+  pointer-events: auto;
+}
+
+body.theme-dark #loading-overlay {
+  background: rgba(15, 18, 23, 0.95);
 }
 
 #loading-overlay.fade-out {
   opacity: 0;
   visibility: hidden;
+  pointer-events: none;
 }
 
 .loader-container {
@@ -286,8 +798,13 @@ body.dark .orbit-instruction {
 }
 
 @keyframes orbit-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(-360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(-360deg);
+  }
 }
 
 #loader-percent {
@@ -300,15 +817,24 @@ body.dark .orbit-instruction {
   text-shadow: 0 2px 8px rgba(255, 251, 244, 0.6);
 }
 
-/* ── Social Links (Top Left) ── */
+/* ── Social Links (Top Left) ──
+   3D-ring-only controls (backdrop theme + music). Hidden on the ultra-minimal
+   homepage, where GitHub/LinkedIn are already covered by the top nav. */
 .social-links {
   position: fixed;
   top: 18px;
   left: 28px;
-  z-index: 30;
+  z-index: 2000;
   display: flex;
   gap: 12px;
   align-items: center;
+  transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+
+html:not(.route-ring) .social-links {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .social-icon {
@@ -361,7 +887,8 @@ body.dark .orbit-instruction {
   top: calc(100% + 10px);
   left: 0;
   width: 140px;
-  background: rgba(253, 238, 207, 0.85); /* matching body radial-gradient base */
+  background: rgba(253, 238, 207, 0.85);
+  /* matching body radial-gradient base */
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 0.5px solid rgba(36, 51, 63, 0.15);
@@ -387,8 +914,9 @@ body.dark .orbit-instruction {
 
 /* Show on container hover or button focus */
 @media (hover: hover) {
+
   .info-container:hover .info-tooltip,
-  .info-btn:focus + .info-tooltip {
+  .info-btn:focus+.info-tooltip {
     opacity: 1.0;
     transform: translateY(0);
     pointer-events: auto;
@@ -546,8 +1074,10 @@ body.dark #song-name.playing {
 
 /* ── Responsive Mobile & Tablet Scaling Overrides ── */
 @media (max-width: 768px) {
+
   /* Hide dat.GUI controls on mobile for a clean portfolio look */
-  .dg.ac, .dg {
+  .dg.ac,
+  .dg {
     display: none !important;
   }
 
@@ -560,18 +1090,18 @@ body.dark #song-name.playing {
     align-items: center;
     gap: 8px;
   }
-  
+
   .social-icon {
     width: 20px;
     height: 20px;
   }
-  
+
   .orbit-instruction {
     bottom: calc(20px + env(safe-area-inset-bottom));
     left: calc(16px + env(safe-area-inset-left));
     font-size: 13px;
   }
-  
+
   .exit-orbit-btn {
     top: 12px;
     right: 16px;
@@ -580,7 +1110,7 @@ body.dark #song-name.playing {
     font-size: 13px;
     border-radius: 16px;
   }
-  
+
   #audio-toggle {
     font-size: 12px;
     width: 34px;
@@ -598,8 +1128,9 @@ body.dark #song-name.playing {
     gap: 8px;
   }
 
-  #audio-toggle .music-emoji {
-    font-size: 14px;
+  #audio-toggle .music-vinyl {
+    width: 15px;
+    height: 15px;
   }
 }
 
@@ -664,12 +1195,29 @@ body.dark #song-name.playing {
 }
 
 /* 6 nodes positioned radially at 60deg steps, radius = 45px. Node 0 is at 12 o'clock (-90deg). */
-.radial-node.node-0 { transform: rotate(-90deg) translate(45px) rotate(90deg); }
-.radial-node.node-1 { transform: rotate(-30deg) translate(45px) rotate(30deg); }
-.radial-node.node-2 { transform: rotate(30deg) translate(45px) rotate(-30deg); }
-.radial-node.node-3 { transform: rotate(90deg) translate(45px) rotate(-90deg); }
-.radial-node.node-4 { transform: rotate(150deg) translate(45px) rotate(-150deg); }
-.radial-node.node-5 { transform: rotate(210deg) translate(45px) rotate(-210deg); }
+.radial-node.node-0 {
+  transform: rotate(-90deg) translate(45px) rotate(90deg);
+}
+
+.radial-node.node-1 {
+  transform: rotate(-30deg) translate(45px) rotate(30deg);
+}
+
+.radial-node.node-2 {
+  transform: rotate(30deg) translate(45px) rotate(-30deg);
+}
+
+.radial-node.node-3 {
+  transform: rotate(90deg) translate(45px) rotate(-90deg);
+}
+
+.radial-node.node-4 {
+  transform: rotate(150deg) translate(45px) rotate(-150deg);
+}
+
+.radial-node.node-5 {
+  transform: rotate(210deg) translate(45px) rotate(-210deg);
+}
 
 .radial-node.active {
   border-color: #24333f;
@@ -679,8 +1227,13 @@ body.dark #song-name.playing {
 }
 
 @keyframes pulse-node {
-  0% { transform: scale(1.2); }
-  100% { transform: scale(1.4); }
+  0% {
+    transform: scale(1.2);
+  }
+
+  100% {
+    transform: scale(1.4);
+  }
 }
 
 .radial-center {
@@ -698,7 +1251,7 @@ body.dark #song-name.playing {
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .radial-arrow {
@@ -732,40 +1285,6 @@ body.dark .radial-node.active {
   border-color: #f1f5f9;
 }
 
-/* ── Audio Visualizer (Music Pill Icon) ── */
-.audio-visualizer {
-  display: flex;
-  align-items: flex-end;
-  gap: 2.5px;
-  width: 16px;
-  height: 14px;
-  flex-shrink: 0;
-  pointer-events: none;
-  opacity: 0;
-  max-width: 0;
-  overflow: hidden;
-  transition: opacity 0.2s ease, max-width 0.3s ease;
-}
-
-#audio-toggle:hover .audio-visualizer {
-  opacity: 1;
-  max-width: 20px;
-}
-
-.audio-visualizer .bar {
-  width: 2px;
-  height: 100%;
-  background: #24333f;
-  transform-origin: bottom;
-  transform: scaleY(0.15); /* flat when idle */
-  transition: transform 0.1s ease;
-  border-radius: 1px;
-}
-
-body.dark .audio-visualizer .bar {
-  background: #f1f5f9;
-}
-
 /* ── Responsive adjustments for Radial Nav on mobile ── */
 @media (max-width: 768px) {
   .radial-nav {
@@ -774,20 +1293,37 @@ body.dark .audio-visualizer .bar {
     width: 110px;
     height: 110px;
   }
-  
+
   .radial-node {
     width: 26px;
     height: 26px;
     margin-top: -13px;
     margin-left: -13px;
   }
-  
-  .radial-node.node-0 { transform: rotate(-90deg) translate(40px) rotate(90deg); }
-  .radial-node.node-1 { transform: rotate(-30deg) translate(40px) rotate(30deg); }
-  .radial-node.node-2 { transform: rotate(30deg) translate(40px) rotate(-30deg); }
-  .radial-node.node-3 { transform: rotate(90deg) translate(40px) rotate(-90deg); }
-  .radial-node.node-4 { transform: rotate(150deg) translate(40px) rotate(-150deg); }
-  .radial-node.node-5 { transform: rotate(210deg) translate(40px) rotate(-210deg); }
+
+  .radial-node.node-0 {
+    transform: rotate(-90deg) translate(40px) rotate(90deg);
+  }
+
+  .radial-node.node-1 {
+    transform: rotate(-30deg) translate(40px) rotate(30deg);
+  }
+
+  .radial-node.node-2 {
+    transform: rotate(30deg) translate(40px) rotate(-30deg);
+  }
+
+  .radial-node.node-3 {
+    transform: rotate(90deg) translate(40px) rotate(-90deg);
+  }
+
+  .radial-node.node-4 {
+    transform: rotate(150deg) translate(40px) rotate(-150deg);
+  }
+
+  .radial-node.node-5 {
+    transform: rotate(210deg) translate(40px) rotate(-210deg);
+  }
 
   .radial-center {
     width: 32px;
@@ -872,14 +1408,3 @@ body.theme-crimson {
   background: radial-gradient(circle at top, #fdf2ee 0%, #f5dfd5 45%, #e5c4b6 100%) !important;
   color: #4a2c20;
 }
-
-
-
-
-
-
-
-
-
-
-
