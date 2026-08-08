@@ -1997,6 +1997,8 @@ function loadModelWithGUI(name, url, defaults) {
     console.log(`${name} loaded — use GUI to align.`);
   }, undefined, (error) => {
     console.error(`${name} load failed:`, error);
+    loadedCount++;
+    checkAllAssetsLoaded();
   });
 }
 
@@ -2222,6 +2224,8 @@ rawLoader.load(new URL('../assets/models/motorcycle.glb', import.meta.url).href,
   checkAllAssetsLoaded();
 }, undefined, (error) => {
   console.error('Motorcycle load failed:', error);
+  loadedCount++;
+  checkAllAssetsLoaded();
 });
 
 // --- Airplane raycasting state ---
@@ -2332,6 +2336,8 @@ rawLoader.load(new URL('../assets/models/airplane.glb', import.meta.url).href, (
   checkAllAssetsLoaded();
 }, undefined, (error) => {
   console.error('Airplane load failed:', error);
+  loadedCount++;
+  checkAllAssetsLoaded();
 });
 
 // --- Bronco raycasting state ---
@@ -2525,6 +2531,8 @@ rawLoader.load(new URL('../assets/models/bronco.glb', import.meta.url).href, (gl
   checkAllAssetsLoaded();
 }, undefined, (error) => {
   console.error('Bronco load failed:', error);
+  loadedCount++;
+  checkAllAssetsLoaded();
 });
 
 // --- Load Standalone Boat ---
@@ -2586,6 +2594,8 @@ rawLoader.load(new URL('../assets/models/boat.glb', import.meta.url).href, (gltf
   boatFolder.open();
 }, undefined, (error) => {
   console.error('Boat load failed:', error);
+  loadedCount++;
+  checkAllAssetsLoaded();
 });
 
 // --- Car V2 raycasting state ---
@@ -2922,6 +2932,8 @@ rawLoader.load(new URL('../assets/models/sls_amg_63_black_series.glb', import.me
   racecarFolder.open();
 }, undefined, (error) => {
   console.error('Racecar load failed:', error);
+  loadedCount++;
+  checkAllAssetsLoaded();
 });
 
 // --- Load Standalone Car V2 ---
@@ -2990,6 +3002,8 @@ rawLoader.load(new URL('../assets/models/car_v2.glb', import.meta.url).href, (gl
   car2Folder.open();
 }, undefined, (error) => {
   console.error('Car V2 load failed:', error);
+  loadedCount++;
+  checkAllAssetsLoaded();
 });
 
 // --- Global Orbit Animation Sequence ---
@@ -6214,9 +6228,9 @@ function resetToFinaleOverviewPerspective() {
   introActive = false;
   isTakeoffTransitioning = false;
   isPostSequence = true;
-  introFinaleActive = true;
+  introFinaleActive = false;
   introFinaleTimer = 0.0;
-  postSeqTimer = 0.0;
+  postSeqTimer = 3.0;
   isOrbitAnimating = false;
   isTransitioning = false;
 
@@ -6240,26 +6254,23 @@ function resetToFinaleOverviewPerspective() {
   // Hide all vehicle meshes when returning to overview mode
   orbitSequence.forEach(seq => {
     const obj = seq.getObject();
-    if (obj) setOpacity(obj, 0.0);
+    if (obj) {
+      obj.visible = false;
+      setOpacity(obj, 0.0);
+    }
   });
 
-  // Position camera at finale overview position
-  const aspect = window.innerWidth / window.innerHeight;
+  // Position camera at finale overview settled position: (0, 0, 15) looking at (0, 0, 0)
   const targetFOV = getResponsiveFOV();
-  const finaleDist = aspect < 1.0 ? (1.8 / (aspect * Math.tan(THREE.MathUtils.degToRad(targetFOV / 2)))) : 1.8;
-  camera.position.set(0, -finaleDist, getCylinderMiddleZ() + 2.275);
-  camera.lookAt(0, 0, getCylinderMiddleZ() + 2.275);
-  camera.up.set(0, 0, 1);
+  const finaleUp = new THREE.Vector3(-Math.sin(postSeqAngle), Math.cos(postSeqAngle), 0).normalize();
+  camera.position.set(0, 0, 15);
+  camera.lookAt(0, 0, 0);
+  camera.up.copy(finaleUp);
   camera.fov = targetFOV;
   camera.updateProjectionMatrix();
 
-  // The isPostSequence branch in animate() lerps the camera every frame from
-  // transitionStart*/currentCamPos/currentCamTarget toward the settled overview pose,
-  // starting at t=0 (postSeqTimer was just reset above). Without syncing those here, the
-  // very next frame overwrites this clean snap with whatever stale pose was left over from
-  // an interrupted vehicle-orbit exit — visible as a flash back into the vehicle/world view.
   currentCamPos.copy(camera.position);
-  currentCamTarget.set(0, 0, getCylinderMiddleZ() + 2.275);
+  currentCamTarget.set(0, 0, 0);
   transitionStartPos.copy(camera.position);
   transitionStartTarget.copy(currentCamTarget);
   transitionStartUp.copy(camera.up);

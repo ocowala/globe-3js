@@ -3,10 +3,25 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Globe Portfolio</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <title>Advitiya Jadhav — Portfolio &amp; Interactive 3D World Experience</title>
+  <meta name="description" content="Personal portfolio of Advitiya Jadhav, Computer Engineering student at Purdue University. Explore interactive 3D world experiences, AI engineering projects, full-stack tools, and technical resume.">
+  <meta name="keywords" content="Advitiya Jadhav, Purdue University, Computer Engineering, Software Engineer, AI Product Engineer, Three.js, React, 3D Web Portfolio">
+  <meta name="author" content="Advitiya Jadhav">
+  <link rel="icon" type="image/png" href="/prince-icon.png">
 
+  <!-- OpenGraph Social Metadata -->
+  <meta property="og:title" content="Advitiya Jadhav — Portfolio &amp; Interactive 3D World">
+  <meta property="og:description" content="Explore an interactive 3D cylinder world experience featuring Advitiya Jadhav's engineering projects, Purdue coursework, and software experience.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://advitiyajadhav.com">
+  <meta property="og:image" content="/prince-icon.png">
 
+  <!-- Twitter Card Metadata -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Advitiya Jadhav — Interactive 3D World Portfolio">
+  <meta name="twitter:description" content="Explore an interactive 3D cylinder world experience featuring Advitiya Jadhav's engineering projects, Purdue coursework, and software experience.">
+  <meta name="twitter:image" content="/prince-icon.png">
 
   <script>
     if (window.location.pathname.includes('/ring') || window.location.hash.includes('ring')) {
@@ -18,17 +33,16 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
 
-
   <!-- Preload font and JS module tree before anything else -->
   <link rel="preload" as="font" href="/InstrumentSerif-Regular.ttf" crossorigin>
   <link rel="modulepreload" href="/src/main.js">
 
-  <!-- Preload all GLB assets so the browser downloads them in parallel before JS executes -->
+  <!-- Preload all active GLB assets so the browser downloads them in parallel before JS executes -->
   <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/city_at_night_v4_meshopt.glb">
   <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/motorcycle.glb">
   <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/school_v2_meshopt.glb">
   <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/airplane.glb">
-  <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/desert_meshopt.glb">
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/desert_v3_meshopt.glb">
   <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/bronco.glb">
   <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/beach_v2_meshopt.glb">
   <link rel="preload" as="fetch" crossorigin="anonymous" href="/assets/models/boat.glb">
@@ -48,18 +62,18 @@
   <!-- 2D Minimalist Home Landing View (/home) -->
   <div id="home-view" class="home-view">
     <!-- Top-Right Sneaking Little Prince Icon Button (Inverted) -->
-    <div id="little-prince-btn" class="little-prince-btn" role="button" tabindex="0" title="Launch 3D World Ring Experience">
+    <div id="little-prince-btn" class="little-prince-btn" role="button" tabindex="0" title="Launch 3D World Ring Experience" aria-label="Launch 3D World Ring Experience">
       <img src="/little-prince.png" alt="Little Prince" class="little-prince-img inverted" />
     </div>
 
     <div class="home-container">
-      <!-- Top Navigation Bar (Noah Trupin Style) -->
-      <nav class="home-nav">
+      <!-- Top Navigation Bar -->
+      <nav class="home-nav" aria-label="Main Navigation">
         <a href="/home" class="nav-link active" data-route="/home">Home</a>
         <a href="/advi-aug6.pdf" target="_blank" rel="noopener noreferrer" class="nav-link" data-route="/resume">Resume</a>
-        <a href="https://github.com/ocowala" target="_blank" rel="noopener noreferrer" class="nav-link">GitHub</a>
-        <a href="https://linkedin.com/in/advitiyajadhav" target="_blank" rel="noopener noreferrer" class="nav-link">LinkedIn</a>
-        <a href="mailto:jadhav31@purdue.edu" class="nav-link">Email</a>
+        <a href="https://github.com/ocowala" target="_blank" rel="noopener noreferrer" class="nav-link" aria-label="Advitiya Jadhav's GitHub Profile">GitHub</a>
+        <a href="https://linkedin.com/in/advitiyajadhav" target="_blank" rel="noopener noreferrer" class="nav-link" aria-label="Advitiya Jadhav's LinkedIn Profile">LinkedIn</a>
+        <a href="mailto:jadhav31@purdue.edu" class="nav-link" aria-label="Email Advitiya Jadhav">Email</a>
       </nav>
 
       <!-- Heading -->
@@ -84,17 +98,17 @@
   <div id="loading-overlay">
     <div class="loader-container">
       <div class="loader-orbit-ring">
-        <img src="/prince-icon.png" alt="Loading" class="loader-icon">
+        <img src="/prince-icon.png" alt="Loading 3D Experience" class="loader-icon">
       </div>
       <span id="loader-percent">0%</span>
     </div>
   </div>
 
   <div class="social-links">
-    <a href="https://github.com/ocowala" target="_blank" rel="noopener noreferrer" title="GitHub">
+    <a href="https://github.com/ocowala" target="_blank" rel="noopener noreferrer" title="GitHub" aria-label="GitHub Profile">
       <img src="/github.png" alt="GitHub" class="social-icon">
     </a>
-    <a href="https://linkedin.com/in/advitiyajadhav" target="_blank" rel="noopener noreferrer" title="LinkedIn">
+    <a href="https://linkedin.com/in/advitiyajadhav" target="_blank" rel="noopener noreferrer" title="LinkedIn" aria-label="LinkedIn Profile">
       <img src="/linkedin.png" alt="LinkedIn" class="social-icon">
     </a>
 
@@ -104,16 +118,16 @@
     </button>
 
     <!-- Music Toggle Button -->
-    <span id="audio-toggle" title="Toggle Audio" aria-label="Toggle Audio">
+    <button id="audio-toggle" class="audio-toggle-btn" title="Toggle Audio" aria-label="Toggle Audio Playback">
       <span class="music-emoji">🎶</span>
-      <div id="audio-visualizer" class="audio-visualizer">
+      <span id="audio-visualizer" class="audio-visualizer">
         <span class="bar"></span>
         <span class="bar"></span>
         <span class="bar"></span>
         <span class="bar"></span>
-      </div>
+      </span>
       <span id="song-name"></span>
-    </span>
+    </button>
   </div>
 
   <!-- Dedicated Orbit View Exit Button (Top-Right, Pastel Red) -->
@@ -122,7 +136,7 @@
     <span class="exit-text">exit</span>
   </button>
 
-  <!-- Top-Right Home Return Button -->
+  <!-- Bottom-Right Home Return Button -->
   <button id="home-return-btn" class="home-return-btn" title="Return to Home" aria-label="Return to Home">
     <span class="home-icon">🏠</span>
     <span class="home-text">Home</span>
@@ -136,28 +150,23 @@
   </div>
 
   <div id="app">
-
-
     <div id="canvas-container"></div>
-
     <audio id="bg-audio" crossorigin="anonymous" preload="auto" loop></audio>
-
-    <!-- Radial Navigation Wheel (primarily for iPhone/iPad & desktop) -->
 
     <!-- Radial Navigation Wheel (primarily for iPhone/iPad & desktop) -->
     <div id="radial-nav" class="radial-nav">
       <div class="radial-wheel">
-        <button class="radial-node node-0" data-idx="0" title="Resume" style="background:#f7c5c0"></button>
-        <button class="radial-node node-1" data-idx="1" title="School" style="background:#c7b8ea"></button>
-        <button class="radial-node node-2" data-idx="2" title="Skills" style="background:#fce8a3"></button>
-        <button class="radial-node node-3" data-idx="3" title="Experience" style="background:#b8e6c8"></button>
-        <button class="radial-node node-4" data-idx="4" title="Projects" style="background:#ffd8b1"></button>
-        <button class="radial-node node-5" data-idx="5" title="Hobbies" style="background:#a8d8ea"></button>
+        <button class="radial-node node-0" data-idx="0" title="Resume" aria-label="Navigate to Resume Scene" style="background:#f7c5c0"></button>
+        <button class="radial-node node-1" data-idx="1" title="School" aria-label="Navigate to School Scene" style="background:#c7b8ea"></button>
+        <button class="radial-node node-2" data-idx="2" title="Skills" aria-label="Navigate to Skills Scene" style="background:#fce8a3"></button>
+        <button class="radial-node node-3" data-idx="3" title="Experience" aria-label="Navigate to Experience Scene" style="background:#b8e6c8"></button>
+        <button class="radial-node node-4" data-idx="4" title="Projects" aria-label="Navigate to Projects Scene" style="background:#ffd8b1"></button>
+        <button class="radial-node node-5" data-idx="5" title="Hobbies" aria-label="Navigate to Hobbies Scene" style="background:#a8d8ea"></button>
         <div class="radial-center">
           <span class="radial-arrow">↑</span>
         </div>
       </div>
-
+    </div>
   </div>
 
   <script type="module" src="./src/main.js"></script>
