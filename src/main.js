@@ -331,9 +331,14 @@ const textboxFocusTargetLookAt = new THREE.Vector3();
 const textboxFocusTargetUp = new THREE.Vector3();
 
 function getResponsiveFOV() {
-  const aspect = window.innerWidth / window.innerHeight;
-  if (aspect < 1.0) {
-    return 38 + (1.0 - aspect) * 45;
+  const w = container ? container.clientWidth : window.innerWidth;
+  const h = container ? container.clientHeight : window.innerHeight;
+  const aspect = w / Math.max(h, 1);
+  if (aspect < 1.1) {
+    return 56; // Open FOV for 1:1 square container so the entire 360° ring fits centered
+  }
+  if (aspect < 1.4) {
+    return 46;
   }
   return 38;
 }
@@ -6320,14 +6325,16 @@ function resetToFinaleOverviewPerspective() {
     }
   });
 
-  // Position camera at finale overview settled position: (0, 0, 15) looking at (0, 0, 0)
+  // Position camera at finale overview settled position: (0, 0, 18) looking at (0, 0, 0)
   const targetFOV = getResponsiveFOV();
-  const finaleUp = new THREE.Vector3(-Math.sin(postSeqAngle), Math.cos(postSeqAngle), 0).normalize();
-  camera.position.set(0, 0, 15);
+  camera.position.set(0, 0, 18);
   camera.lookAt(0, 0, 0);
-  camera.up.copy(finaleUp);
+  camera.up.set(0, 1, 0);
   camera.fov = targetFOV;
   camera.updateProjectionMatrix();
+
+  controls.target.set(0, 0, 0);
+  controls.update();
 
   currentCamPos.copy(camera.position);
   currentCamTarget.set(0, 0, 0);

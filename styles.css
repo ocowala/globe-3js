@@ -314,7 +314,7 @@ body.theme-dark .home-return-btn:hover {
   pointer-events: auto;
 }
 
-/* ── Ultra-Minimalist Single-Page Layout (2d-port-1-page) ── */
+/* ── Integrated Single-Page Layout (2d-port-1-page) ── */
 .single-page-app {
   position: relative;
   z-index: 10;
@@ -326,43 +326,13 @@ body.theme-dark .home-return-btn:hover {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
-
-.home-nav {
-  display: flex;
-  align-items: center;
-  gap: 28px;
-  margin-bottom: 28px;
-}
-
-.nav-link {
-  font-size: 16px;
-  font-weight: 500;
-  color: #6b7280;
-  text-decoration: none;
-  transition: color 0.2s ease, font-weight 0.2s ease;
-}
-
-.nav-link:hover,
-.nav-link.active {
-  color: #111827;
-  font-weight: 600;
-}
-
-body.theme-dark .nav-link {
-  color: #9ca3af;
-}
-
-body.theme-dark .nav-link:hover,
-body.theme-dark .nav-link.active {
-  color: #ffffff;
+  font-family: 'Inconsolata', monospace, sans-serif;
 }
 
 .single-page-grid {
   display: grid;
   grid-template-columns: 440px 1fr;
-  gap: 36px;
+  gap: 40px;
   align-items: center;
   width: 100%;
 }
@@ -373,19 +343,17 @@ body.theme-dark .nav-link.active {
   }
 }
 
-/* Left Column Card: Square Embedded 3D Ring Viewer (440px x 440px) */
+/* Left Column: Square Integrated 3D Ring Viewer (440px x 440px) */
 .ring-hero-card {
   position: relative;
   width: 440px;
   height: 440px;
   aspect-ratio: 1 / 1;
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   overflow: hidden;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.04);
+  box-shadow: none;
   transition: all 0.4s ease;
   flex-shrink: 0;
 }
@@ -397,13 +365,6 @@ body.theme-dark .nav-link.active {
     height: auto;
     margin: 0 auto;
   }
-}
-
-body.dark .ring-hero-card,
-body.theme-dark .ring-hero-card {
-  background: rgba(24, 28, 36, 0.7);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.3);
 }
 
 .canvas-container {
@@ -463,33 +424,24 @@ body.dark .expand-ring-btn {
   color: #f1f5f9;
 }
 
-/* Right Column Card: Bio Text */
+/* Right Column: Integrated Bio Text & Inconsolata Typography */
 .bio-card {
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 24px;
-  padding: 40px 48px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.04);
-}
-
-body.dark .bio-card,
-body.theme-dark .bio-card {
-  background: rgba(24, 28, 36, 0.7);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.3);
+  font-family: 'Inconsolata', monospace, sans-serif;
 }
 
 .bio-card p {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-size: 15.5px;
-  line-height: 1.75;
-  color: #374151;
-  margin-bottom: 22px;
+  font-family: 'Inconsolata', monospace, sans-serif;
+  font-size: 17px;
+  line-height: 1.7;
+  color: #2d3748;
+  margin-bottom: 20px;
 }
 
 .bio-card p:last-child {
@@ -498,11 +450,11 @@ body.theme-dark .bio-card {
 
 body.dark .bio-card p,
 body.theme-dark .bio-card p {
-  color: #d1d5db;
+  color: #e2e8f0;
 }
 
 .bio-card strong {
-  color: #111827;
+  color: #1a202c;
   font-weight: 600;
 }
 
@@ -514,6 +466,11 @@ body.theme-dark .bio-card strong {
 .highlight-purdue {
   color: #b19451;
   font-weight: 600;
+}
+
+.socials-sentence {
+  font-size: 16.5px;
+  font-weight: 500;
 }
 
 /* Fullscreen Expanded Mode */
@@ -533,6 +490,32 @@ body.canvas-fullscreen .controls-bar {
   bottom: 24px;
   left: 28px;
   z-index: 1450;
+}
+
+/* Hide Overlay UI Buttons on Embedded Homepage (Only show when Expanded) */
+.exit-orbit-btn,
+.home-return-btn,
+.orbit-instruction {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body.canvas-fullscreen .exit-orbit-btn {
+  display: flex !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+body.canvas-fullscreen .home-return-btn {
+  display: flex !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+body.canvas-fullscreen .orbit-instruction {
+  display: block !important;
+  opacity: 0.85 !important;
 }
 
 @media (max-width: 640px) {

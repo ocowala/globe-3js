@@ -30,7 +30,7 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
 
   <!-- Preload font and JS module tree before anything else -->
@@ -59,20 +59,11 @@
     <audio id="movie-audio" src="/castle.mp3" preload="auto"></audio>
   </div>
 
-  <!-- Ultra-Minimalist 1-Page Layout Container -->
+  <!-- Integrated 1-Page Layout Container -->
   <main id="single-page-app" class="single-page-app">
-    <!-- Top Navigation Bar -->
-    <nav class="home-nav" aria-label="Main Navigation">
-      <a href="/home" class="nav-link active" data-route="/home">Home</a>
-      <a href="/advi-aug6.pdf" target="_blank" rel="noopener noreferrer" class="nav-link" data-route="/resume">Resume</a>
-      <a href="https://github.com/ocowala" target="_blank" rel="noopener noreferrer" class="nav-link" aria-label="Advitiya Jadhav's GitHub Profile">GitHub</a>
-      <a href="https://linkedin.com/in/advitiyajadhav" target="_blank" rel="noopener noreferrer" class="nav-link" aria-label="Advitiya Jadhav's LinkedIn Profile">LinkedIn</a>
-      <a href="mailto:jadhav31@purdue.edu" class="nav-link" aria-label="Email Advitiya Jadhav">Email</a>
-    </nav>
-
-    <!-- Side-by-Side Card Layout -->
+    <!-- Side-by-Side Integrated Layout -->
     <div class="single-page-grid">
-      <!-- Left Column Card: 3D Ring Viewer Canvas -->
+      <!-- Left Column: 3D Ring Viewer Canvas (Integrated Viewport) -->
       <div id="ring-hero-card" class="ring-hero-card">
         <!-- Asset Preloader Overlay localized exclusively inside the Ring Viewer -->
         <div id="loading-overlay" class="loading-overlay-scoped">
@@ -86,7 +77,7 @@
 
         <div id="canvas-container" class="canvas-container"></div>
         
-        <!-- Controls Bar inside bottom-left of left card -->
+        <!-- Controls Bar inside bottom-left of left viewer -->
         <div id="controls-bar" class="controls-bar">
           <button id="theme-toggle" class="theme-toggle" title="Backdrop: Day-Night Cycle" aria-label="Toggle Backdrop Mode">
             <img id="theme-icon" src="/day-night.png" alt="Day-Night Cycle" class="theme-icon">
@@ -107,7 +98,7 @@
         </div>
       </div>
 
-      <!-- Right Column Card: Summary Text -->
+      <!-- Right Column: Integrated Bio Text & Social Links Sentence -->
       <div class="bio-card">
         <p>
           I am a Computer Engineering student @ <span class="highlight-purdue">Purdue University</span> building user-driven software products and intelligent systems.
@@ -117,6 +108,9 @@
         </p>
         <p>
           My engineering coursework spans Data Structures, Advanced C Programming, Python for Data Science, Digital System Design, Discrete Math, Linear Algebra, and Multivariable Calculus.
+        </p>
+        <p class="socials-sentence">
+          Find my <a href="/advi-aug6.pdf" target="_blank" rel="noopener noreferrer" class="inline-link">Resume</a>, <a href="https://github.com/ocowala" target="_blank" rel="noopener noreferrer" class="inline-link" aria-label="Advitiya's GitHub">GitHub</a>, <a href="https://linkedin.com/in/advitiyajadhav" target="_blank" rel="noopener noreferrer" class="inline-link" aria-label="Advitiya's LinkedIn">LinkedIn</a>, or email me at <a href="mailto:jadhav31@purdue.edu" class="inline-link">jadhav31@purdue.edu</a>.
         </p>
       </div>
     </div>
