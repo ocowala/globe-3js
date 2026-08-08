@@ -5660,8 +5660,15 @@ const _hoverMouse = new THREE.Vector2();
 let pointerDownTime = 0;
 let pointerDownX = 0;
 let pointerDownY = 0;
+let lastCanvasClickTimestamp = 0;
 
 function handleCanvasClick(clientX, clientY, targetEl) {
+  // Deduplicate rapid successive clicks/taps (e.g. pointerup + native click event)
+  const now = Date.now();
+  if (now - lastCanvasClickTimestamp < 300) {
+    return false;
+  }
+
   // Ignore clicks/taps on HTML UI elements
   if (targetEl && (
     targetEl.tagName === 'BUTTON' ||
@@ -5692,6 +5699,7 @@ function handleCanvasClick(clientX, clientY, targetEl) {
         const clickedMesh = tbIntersects[0].object;
         const clickedTb = Object.values(sceneTextboxes).flat().find(tb => tb.mesh === clickedMesh);
         if (clickedTb) {
+          lastCanvasClickTimestamp = now;
           if (selectedTextbox === clickedTb) {
             deselectTextbox(); // second tap/click = dismiss
           } else {
@@ -5704,6 +5712,7 @@ function handleCanvasClick(clientX, clientY, targetEl) {
 
     // Clicking/tapping anywhere else while a textbox is focused deselects it
     if (selectedTextbox && textboxFocusState === 'focused') {
+      lastCanvasClickTimestamp = now;
       deselectTextbox();
       return true;
     }
@@ -5718,6 +5727,7 @@ function handleCanvasClick(clientX, clientY, targetEl) {
       const clickedEntryIdx = navLabels.findIndex(entry => entry.mesh === clickedMesh);
       if (clickedEntryIdx !== -1) {
         console.log(`3D Nav Label ${navLabels[clickedEntryIdx].config.label} clicked. Navigating to index ${clickedEntryIdx}.`);
+        lastCanvasClickTimestamp = now;
         triggerNavigation(clickedEntryIdx);
         return true;
       }
@@ -5729,6 +5739,7 @@ function handleCanvasClick(clientX, clientY, targetEl) {
     const intersects = _globeRaycaster.intersectObject(globe);
     if (intersects.length > 0) {
       if (!isPostSequence) {
+        lastCanvasClickTimestamp = now;
         introActive = false;
         isIntroTransitioning = false;
         introFinaleActive = false;
@@ -5763,7 +5774,12 @@ function handleCanvasClick(clientX, clientY, targetEl) {
 }
 
 window.addEventListener('click', (event) => {
-  handleCanvasClick(event.clientX, event.clientY, event.target);
+  const dt = Date.now() - pointerDownTime;
+  const dx = Math.abs(event.clientX - pointerDownX);
+  const dy = Math.abs(event.clientY - pointerDownY);
+  if (dt < 400 && dx < 12 && dy < 12) {
+    handleCanvasClick(event.clientX, event.clientY, event.target);
+  }
 });
 
 window.addEventListener('pointerdown', (event) => {
