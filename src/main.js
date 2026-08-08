@@ -6292,6 +6292,36 @@ if (themeToggle) {
   });
 }
 
+// --- Season Toggle Controller (Spring Flowers / Fall Leaves) ---
+const seasonToggle = document.getElementById('season-toggle');
+const seasonalDecorations = document.getElementById('seasonal-decorations');
+let currentSeason = 'spring';
+
+if (seasonToggle) {
+  seasonToggle.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    currentSeason = currentSeason === 'spring' ? 'fall' : 'spring';
+    const seasonIcon = document.getElementById('season-icon');
+
+    if (seasonalDecorations) {
+      seasonalDecorations.classList.remove('season-spring', 'season-fall');
+      seasonalDecorations.classList.add(`season-${currentSeason}`);
+    }
+
+    if (seasonIcon) {
+      seasonIcon.textContent = currentSeason === 'spring' ? '🌸' : '🍂';
+    }
+
+    seasonToggle.title = currentSeason === 'spring' 
+      ? 'Season: Spring Flowers (Click for Fall Leaves)' 
+      : 'Season: Fall Leaves (Click for Spring Flowers)';
+
+    console.log(`Seasonal decoration set to: ${currentSeason}`);
+  });
+}
+
 // --- Expand 3D World Ring Controller ---
 const expandRingBtn = document.getElementById('expand-ring-btn');
 let isRingExpanded = false;

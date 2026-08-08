@@ -83,6 +83,9 @@
             <img class="music-vinyl" src="/vinyl.png" alt="" aria-hidden="true">
             <span id="song-name"></span>
           </button>
+          <button id="season-toggle" class="season-toggle-btn" title="Season: Spring Flowers (Click for Fall Leaves)" aria-label="Toggle Season Mode">
+            <span id="season-icon" class="season-icon">🌸</span>
+          </button>
           <button id="expand-ring-btn" class="expand-ring-btn" title="Expand 3D World Ring to Full Screen" aria-label="Expand 3D World Ring">
             <span class="expand-icon">⤢</span>
           </button>
@@ -103,6 +106,48 @@
       </div>
     </div>
   </main>
+
+  <!-- Seasonal Full-Screen Corner Decorations (Spring Flowers & Fall Leaves) -->
+  <div id="seasonal-decorations" class="seasonal-decorations season-spring" aria-hidden="true">
+    <!-- Top-Left Corner -->
+    <div class="corner-decor top-left">
+      <!-- Spring Flowers Group -->
+      <div class="decor-group spring-group">
+        <img src="/flowers/spring-leaf.png" alt="" class="decor-img spring-leaf-tl">
+        <img src="/flowers/pink-flower.png" alt="" class="decor-img pink-flower-tl">
+        <img src="/flowers/blue-flower.png" alt="" class="decor-img blue-flower-tl">
+        <img src="/flowers/orange-flower.png" alt="" class="decor-img orange-flower-tl">
+      </div>
+      <!-- Fall Leaves Group -->
+      <div class="decor-group fall-group">
+        <img src="/leaves/deep-red-leaf.png" alt="" class="decor-img red-leaf-tl">
+        <img src="/leaves/gold-leaf.png" alt="" class="decor-img gold-leaf-tl">
+        <img src="/leaves/orange-leaf.png" alt="" class="decor-img orange-leaf-tl">
+        <img src="/leaves/yellow-leaf.png" alt="" class="decor-img yellow-leaf-tl">
+        <img src="/leaves/dark-green-leaf.png" alt="" class="decor-img dark-green-leaf-tl">
+      </div>
+    </div>
+
+    <!-- Bottom-Right Corner -->
+    <div class="corner-decor bottom-right">
+      <!-- Spring Flowers Group -->
+      <div class="decor-group spring-group">
+        <img src="/flowers/spring-leaf.png" alt="" class="decor-img spring-leaf-br">
+        <img src="/flowers/pink-flower.png" alt="" class="decor-img pink-flower-br">
+        <img src="/flowers/blue-flower.png" alt="" class="decor-img blue-flower-br">
+        <img src="/flowers/orange-flower.png" alt="" class="decor-img orange-flower-br">
+      </div>
+      <!-- Fall Leaves Group -->
+      <div class="decor-group fall-group">
+        <img src="/leaves/deep-red-leaf.png" alt="" class="decor-img red-leaf-br">
+        <img src="/leaves/gold-leaf.png" alt="" class="decor-img gold-leaf-br">
+        <img src="/leaves/orange-leaf.png" alt="" class="decor-img orange-leaf-br">
+        <img src="/leaves/yellow-leaf.png" alt="" class="decor-img yellow-leaf-br">
+        <img src="/leaves/dark-green-leaf.png" alt="" class="decor-img dark-green-leaf-br">
+        <img src="/leaves/light-green-leaf.png" alt="" class="decor-img light-green-leaf-br">
+      </div>
+    </div>
+  </div>
 
   <!-- Dedicated Orbit View Exit Button (Top-Right, Pastel Red when expanded/orbiting) -->
   <button id="exit-orbit-btn" class="exit-orbit-btn" title="Exit to Overview" aria-label="Exit to Overview">
