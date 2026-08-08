@@ -72,7 +72,10 @@ if (!isHandheldDevice && radialNavOnLoad) {
 
 const targetDPR = isHandheldDevice ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2.0);
 renderer.setPixelRatio(targetDPR);
-renderer.setSize(window.innerWidth, window.innerHeight);
+// Size renderer to container (440x440 mini view) not full window
+const initW = container ? container.clientWidth : window.innerWidth;
+const initH = container ? container.clientHeight : window.innerHeight;
+renderer.setSize(initW, initH);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 container.appendChild(renderer.domElement);
 
@@ -125,8 +128,10 @@ document.body.classList.remove('dark');
 document.body.style.background = '';
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 0, 15);
+const camInitW = container ? container.clientWidth : window.innerWidth;
+const camInitH = container ? container.clientHeight : window.innerHeight;
+const camera = new THREE.PerspectiveCamera(56, camInitW / Math.max(camInitH, 1), 0.1, 1000);
+camera.position.set(0, 0, 16.5);
 camera.lookAt(0, 0, 0);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -331,8 +336,9 @@ const textboxFocusTargetLookAt = new THREE.Vector3();
 const textboxFocusTargetUp = new THREE.Vector3();
 
 function getResponsiveFOV() {
-  const w = container ? container.clientWidth : window.innerWidth;
-  const h = container ? container.clientHeight : window.innerHeight;
+  const isFullscreen = document.body.classList.contains('canvas-fullscreen');
+  const w = isFullscreen ? window.innerWidth : (container ? container.clientWidth : window.innerWidth);
+  const h = isFullscreen ? window.innerHeight : (container ? container.clientHeight : window.innerHeight);
   const aspect = w / Math.max(h, 1);
   if (aspect < 1.1) {
     return 56; // Open FOV for 1:1 square container so the entire 360° ring fits centered
@@ -2114,8 +2120,9 @@ loadModelWithGUI('Cafe', new URL('../assets/models/cafe_meshopt.glb', import.met
 window.addEventListener('resize', onWindowResize, false);
 
 function onWindowResize() {
-  const width = container ? container.clientWidth : window.innerWidth;
-  const height = container ? container.clientHeight : window.innerHeight;
+  const isFullscreen = document.body.classList.contains('canvas-fullscreen');
+  const width = isFullscreen ? window.innerWidth : (container ? container.clientWidth : window.innerWidth);
+  const height = isFullscreen ? window.innerHeight : (container ? container.clientHeight : window.innerHeight);
   const aspect = width / Math.max(height, 1);
   camera.aspect = aspect;
 
@@ -4513,9 +4520,9 @@ function animate() {
       controls.autoRotate = false;
     }
 
-    // Fade in cursive text and cylinder
-    globeMaterial.opacity = THREE.MathUtils.lerp(globeMaterial.opacity, 0.35, 0.02);
-    orbitMaterial.opacity = THREE.MathUtils.lerp(orbitMaterial.opacity, 0.45, 0.02);
+    // Fade in cursive text and cylinder (full opacity for embedded mini view visibility)
+    globeMaterial.opacity = THREE.MathUtils.lerp(globeMaterial.opacity, 1.0, 0.02);
+    orbitMaterial.opacity = THREE.MathUtils.lerp(orbitMaterial.opacity, 1.0, 0.02);
 
     // Fade in the cursive name and apply counter-rotation to keep it static/horizontal
     if (cursivePlane) {
@@ -6212,6 +6219,16 @@ function toggleRingExpand(expandState) {
       const icon = expandRingBtn.querySelector('.expand-icon');
       if (icon) icon.textContent = '⤓';
     }
+    // In fullscreen: size renderer to full window
+    setTimeout(() => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      camera.aspect = w / Math.max(h, 1);
+      camera.fov = getResponsiveFOV();
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+      updateCanvasRect();
+    }, 50);
   } else {
     document.body.classList.remove('canvas-fullscreen');
     if (expandRingBtn) {
@@ -6220,11 +6237,17 @@ function toggleRingExpand(expandState) {
       const icon = expandRingBtn.querySelector('.expand-icon');
       if (icon) icon.textContent = '⤢';
     }
+    // In embedded: size renderer to container (440x440)
+    setTimeout(() => {
+      const w = container ? container.clientWidth : window.innerWidth;
+      const h = container ? container.clientHeight : window.innerHeight;
+      camera.aspect = w / Math.max(h, 1);
+      camera.fov = getResponsiveFOV();
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+      updateCanvasRect();
+    }, 50);
   }
-
-  setTimeout(() => {
-    onWindowResize();
-  }, 40);
 }
 
 if (expandRingBtn) {
@@ -6301,6 +6324,11 @@ function resetToFinaleOverviewPerspective() {
 
   if (globe) globe.visible = true;
   if (orbitRing) orbitRing.visible = true;
+
+  // Full opacity so the ring is visible in the embedded mini viewer
+  if (typeof globeMaterial !== 'undefined') globeMaterial.opacity = 1.0;
+  if (typeof orbitMaterial !== 'undefined') orbitMaterial.opacity = 1.0;
+
   if (cursivePlane) {
     cursivePlane.visible = true;
     cursivePlane.rotation.set(0, 0, 0);
