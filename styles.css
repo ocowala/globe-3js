@@ -1429,44 +1429,6 @@ body.theme-crimson {
   color: #4a2c20;
 }
 
-/* Season Toggle Button Styling */
-.season-toggle-btn {
-  position: relative;
-  z-index: 30;
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 18px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  width: 36px;
-  height: 36px;
-  box-shadow: 0 4px 12px rgba(32, 48, 63, 0.08);
-  transition: all 0.3s ease;
-  user-select: none;
-  padding: 0;
-  flex-shrink: 0;
-}
-
-.season-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.9);
-  transform: scale(1.06);
-}
-
-body.dark .season-toggle-btn {
-  background: rgba(20, 28, 36, 0.75);
-  border-color: rgba(255, 255, 255, 0.15);
-  color: #f1f5f9;
-}
-
-body.dark .season-toggle-btn:hover {
-  background: rgba(20, 28, 36, 0.9);
-}
-
 /* ── Full-Screen Seasonal Corner Decorations (Spring & Fall) ── */
 .seasonal-decorations {
   position: fixed;
