@@ -796,38 +796,9 @@ body.theme-dark #loading-overlay {
 
 .loader-container {
   position: relative;
-  width: 180px;
-  height: 180px;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.loader-icon {
-  position: absolute;
-  top: -22px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 44px;
-  height: 44px;
-  object-fit: contain;
-  background: transparent;
-}
-
-.loader-orbit-ring {
-  position: absolute;
-  inset: 0;
-  animation: orbit-spin 3s linear infinite;
-}
-
-@keyframes orbit-spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(-360deg);
-  }
 }
 
 #loader-percent {
