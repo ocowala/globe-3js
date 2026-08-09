@@ -4691,6 +4691,19 @@ function animate() {
     }
   }
 
+  // Toggle Seasonal Decorations (corner leaves/flowers) — only ever shown at the
+  // settled finale overview, not mid vehicle-orbit or while a textbox is focused.
+  // CSS gates their existing slide-in transition on this class (see .camera-finale
+  // in styles.css), so they reuse the same slide/fade instead of a new animation.
+  // Fetched locally (like orbitInstEl/exitBtnEl above) rather than via the
+  // outer-scope `seasonalDecorations` const declared further down the file —
+  // animate() is first invoked before that declaration runs.
+  const seasonalDecorEl = document.getElementById('seasonal-decorations');
+  if (seasonalDecorEl) {
+    const atFinaleView = isPostSequence && !isOrbitAnimating && !introActive && !isIntroTransitioning && !selectedTextbox;
+    seasonalDecorEl.classList.toggle('camera-finale', atFinaleView);
+  }
+
   // --- Update 3D Nav Labels (runs in both post-sequence and orbit) ---
   // Nav label animation runs outside the camera if/else chain so it persists during orbit animation
   if (isPostSequence || navLabelsVisible) {

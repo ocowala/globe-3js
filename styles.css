@@ -1447,13 +1447,17 @@ body.theme-crimson {
   opacity: 0;
 }
 
-/* Fullscreen state: Slide smoothly into view */
-body.canvas-fullscreen .corner-decor.top-left {
+/* Fullscreen + finale state: Slide smoothly into view. Gated on .camera-finale
+   (toggled every frame in main.js's animate() loop) in addition to fullscreen so
+   the exact same slide/fade also handles hiding these during vehicle-orbit or
+   textbox focus — whenever the camera leaves the settled finale overview, they
+   slide back out using this same transition, no separate animation needed. */
+body.canvas-fullscreen #seasonal-decorations.camera-finale .corner-decor.top-left {
   transform: translate(0, 0) rotate(0deg);
   opacity: 1;
 }
 
-body.canvas-fullscreen .corner-decor.bottom-right {
+body.canvas-fullscreen #seasonal-decorations.camera-finale .corner-decor.bottom-right {
   transform: translate(0, 0) rotate(0deg);
   opacity: 1;
 }
