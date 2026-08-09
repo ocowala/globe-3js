@@ -5469,18 +5469,62 @@ const audio = document.getElementById('bg-audio');
 const audioToggle = document.getElementById('audio-toggle');
 const songNameEl = document.getElementById('song-name');
 
-const songMap = {
-  '/suis_mois.mp3': 'suis moi - camille, zimmer',
-  '/windmills.mp3': 'windmills of your mind - sting',
-  '/ciao.mp3': "l'amore dice ciao - trovajoli",
-  '/bean-sabine.mp3': 'bean sabine ost - howard goodall',
-  '/bygone-days.mp3': 'bygone days - hisaishi',
-  '/dreamers.mp3': 'sea dreamers - shankar, sting',
-  '/fly.mp3': 'fly by day - anri',
-  '/fillmore.mp3': 'fillmore county - vansire, floor cry',
-  '/come-with-me.mp3': 'come with me - surfaces, salem ilese',
-  '/crystal-settings.mp3': 'crystal settings - alyzea'
+// Shared calendar-season lookup — used here to pick the background music
+// folder, and again below by the corner-decoration season toggle. Boundaries
+// are the 1st of the month per spec: Mar1-May1 spring, May1-Aug1 summer,
+// Aug1-Nov1 fall, Nov1-Mar1 winter (wraps the year, so it's the fallback).
+function getCalendarSeason(date = new Date()) {
+  const year = date.getFullYear();
+  const springStart = new Date(year, 2, 1);  // Mar 1
+  const summerStart = new Date(year, 4, 1);  // May 1
+  const fallStart = new Date(year, 7, 1);    // Aug 1
+  const winterStart = new Date(year, 10, 1); // Nov 1
+  if (date >= springStart && date < summerStart) return 'spring';
+  if (date >= summerStart && date < fallStart) return 'summer';
+  if (date >= fallStart && date < winterStart) return 'fall';
+  return 'winter'; // Nov 1 - Mar 1, wraps the year boundary
+}
+
+const songsBySeason = {
+  spring: {
+    '/music/spring/afterthought.mp3': 'afterthought - disclosure',
+    '/music/spring/jordyn.mp3': 'jordyn - valmont',
+    '/music/spring/mafia.mp3': "don't you worry child - swedish house mafia",
+    '/music/spring/missing.mp3': 'missing - everything but the girl, todd terry',
+    '/music/spring/wave.mp3': 'waves - mr. probz, robin schulz',
+  },
+  summer: {
+    '/music/summer/suis_mois.mp3': 'suis moi - camille, zimmer',
+    '/music/summer/ciao.mp3': "l'amore dice ciao - trovajoli",
+    '/music/summer/bean-sabine.mp3': 'bean sabine ost - howard goodall',
+    '/music/summer/dreamers.mp3': 'sea dreamers - shankar, sting',
+    '/music/summer/fly.mp3': 'fly by day - anri',
+    '/music/summer/fillmore.mp3': 'fillmore county - vansire, floor cry',
+    '/music/summer/come-with-me.mp3': 'come with me - surfaces, salem ilese',
+    '/music/summer/crystal-settings.mp3': 'crystal settings - alyzea',
+  },
+  fall: {
+    '/music/fall/fragile.mp3': 'fragile - sting',
+    '/music/fall/joke.mp3': 'mayonakano joke - mamiya',
+    '/music/fall/life.mp3': 'kiss of life - sade',
+    '/music/fall/sept.mp3': 'september - earth, wind & fire',
+    '/music/fall/showhow.mp3': 'show me how - men i trust',
+    '/music/fall/tattoo.mp3': 'like a tattoo - sade',
+    '/music/fall/windmills.mp3': 'windmills of your mind - sting',
+  },
+  winter: {
+    '/music/winter/garden.mp3': 'flower garden - hisaishi',
+    '/music/winter/gramofon.mp3': 'gramofon - doga',
+    '/music/winter/haze.mp3': 'winter haze - byerik',
+    '/music/winter/name.mp3': 'name of life - hisaishi',
+    '/music/winter/sunburst.mp3': 'sunburst - webinar',
+    '/music/winter/wonderland.mp3': 'winter wonderland - buble',
+  },
 };
+
+// The active season's playlist — cycleToNextSong and the initial random pick
+// both read from this so a visitor only ever hears the current season's set.
+const songMap = songsBySeason[getCalendarSeason()] || songsBySeason.spring;
 
 // --- Web Audio API state for visualizer ---
 let audioCtx = null;
@@ -6290,6 +6334,21 @@ if (themeToggle) {
       triggerMovieTransition();
     }
   });
+}
+
+// --- Seasonal Decorations (Spring Flowers / Fall Leaves) ---
+// There's no separate summer/winter decoration art, so this derives from the
+// same getCalendarSeason() the music picker uses (defined above): spring+summer
+// read as the "flowers" half of the year, fall+winter as the "leaves" half.
+// index.html hardcodes the spring class as a sane pre-JS default; this syncs
+// it to today's real date on load.
+const seasonalDecorations = document.getElementById('seasonal-decorations');
+
+if (seasonalDecorations) {
+  const calendarSeason = getCalendarSeason();
+  const decorationSeason = (calendarSeason === 'spring' || calendarSeason === 'summer') ? 'spring' : 'fall';
+  seasonalDecorations.classList.remove('season-spring', 'season-fall');
+  seasonalDecorations.classList.add(`season-${decorationSeason}`);
 }
 
 // --- Expand 3D World Ring Controller ---
