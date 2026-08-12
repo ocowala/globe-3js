@@ -5986,6 +5986,13 @@ window.addEventListener('pointerdown', (event) => {
     return;
   }
 
+  // Ring rotation / orbit-swipe should only start when the drag begins on the ring
+  // viewer itself (mini or fullscreen — `container` always matches its bounds), not
+  // when dragging elsewhere on the page (e.g. selecting the bio text).
+  if (!container.contains(event.target)) {
+    return;
+  }
+
   // Drag-to-select logic: overview mode (isPostSequence)
   if (isPostSequence) {
     isDraggingMobileNav = true;
