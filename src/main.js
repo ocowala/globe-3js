@@ -1518,6 +1518,7 @@ let navLabels = [];        // Array of { mesh, config, baseAngle, targetOpacity,
 let activeNavIndex = 0;    // Currently highlighted label index
 let navLabelsVisible = false;
 let hoverTimeoutTimer = 0; // Timer to automatically reset 3D sector highlighting and scene protrusion
+let washedOutSectionIdx = -1; // Index into navLabels currently grayscale-washed by mouse hover, or -1
 
 // Pre-allocated vectors for nav label orientation math
 const _navUp = new THREE.Vector3(0, 0, 1);
@@ -1632,19 +1633,18 @@ function updateNavLabelCanvas(entry, isHovered) {
   const b = parseInt(pastelHex.slice(5, 7), 16);
 
   if (isHovered) {
-    // Blend with white to make it lighter/brighter, and increase opacity to 0.95
-    const rLight = Math.round(r + (255 - r) * 0.5);
-    const gLight = Math.round(g + (255 - g) * 0.5);
-    const bLight = Math.round(b + (255 - b) * 0.5);
-    ctx.fillStyle = `rgba(${rLight}, ${gLight}, ${bLight}, 0.95)`;
+    // Desaturate to grayscale (luminance) to signal the section is selectable
+    const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+    ctx.fillStyle = `rgba(${gray}, ${gray}, ${gray}, 0.85)`;
+    ctx.strokeStyle = `rgba(${Math.round(gray * 0.75)}, ${Math.round(gray * 0.75)}, ${Math.round(gray * 0.75)}, 0.9)`;
   } else {
     // Original background
     ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.75)`;
+    ctx.strokeStyle = `rgba(${Math.round(r * 0.75)}, ${Math.round(g * 0.75)}, ${Math.round(b * 0.75)}, 0.9)`;
   }
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // Thin border using darker, more opaque version
-  ctx.strokeStyle = `rgba(${Math.round(r * 0.75)}, ${Math.round(g * 0.75)}, ${Math.round(b * 0.75)}, 0.9)`;
   ctx.lineWidth = 16;
   ctx.strokeRect(0, 0, canvas.width, canvas.height);
 
@@ -1657,6 +1657,14 @@ function updateNavLabelCanvas(entry, isHovered) {
 
   // Mark texture for GPU upload update
   mesh.material.map.needsUpdate = true;
+}
+
+// Grayscale-washes (or restores) a single section by index — bounds-checked
+// wrapper around updateNavLabelCanvas so callers don't need to re-derive the
+// navLabels[idx] lookup or guard against an out-of-range/-1 "no section" index.
+function setSectionWashedOut(idx, washedOut) {
+  if (idx < 0 || idx >= navLabels.length) return;
+  updateNavLabelCanvas(navLabels[idx], washedOut);
 }
 
 function updateNavLabelPositions() {
@@ -5361,13 +5369,10 @@ function triggerNavigation(navIdx) {
     if (cursivePlane) {
       cursivePlane.visible = false;
     }
-    if (isResumeHovered) {
+    if (washedOutSectionIdx !== -1) {
       document.body.style.cursor = 'default';
-      const resumeEntry = navLabels.find(entry => entry.config.label === 'Resume');
-      if (resumeEntry) {
-        updateNavLabelCanvas(resumeEntry, false);
-      }
-      isResumeHovered = false;
+      setSectionWashedOut(washedOutSectionIdx, false);
+      washedOutSectionIdx = -1;
     }
   }
 
@@ -5520,6 +5525,7 @@ const songsBySeason = {
     '/music/fall/fragile.mp3': 'fragile - sting',
     '/music/fall/joke.mp3': 'mayonakano joke - mamiya',
     '/music/fall/life.mp3': 'kiss of life - sade',
+    '/music/fall/me.mp3': "it's probably me - sting",
     '/music/fall/sept.mp3': 'september - earth, wind & fire',
     '/music/fall/showhow.mp3': 'show me how - men i trust',
     '/music/fall/tattoo.mp3': 'like a tattoo - sade',
@@ -5529,6 +5535,7 @@ const songsBySeason = {
     '/music/winter/garden.mp3': 'flower garden - hisaishi',
     '/music/winter/gramofon.mp3': 'gramofon - doga',
     '/music/winter/haze.mp3': 'winter haze - byerik',
+    '/music/winter/hime.mp3': 'mononoke hime - hisaishi',
     '/music/winter/name.mp3': 'name of life - hisaishi',
     '/music/winter/sunburst.mp3': 'sunburst - webinar',
     '/music/winter/wonderland.mp3': 'winter wonderland - buble',
@@ -6131,6 +6138,10 @@ window.addEventListener('mouseleave', (event) => {
   releaseVehicleHold();
   releaseMobileNavDrag();
   releaseOrbitSwipe(event);
+  if (washedOutSectionIdx !== -1) {
+    setSectionWashedOut(washedOutSectionIdx, false);
+    washedOutSectionIdx = -1;
+  }
 });
 
 // --- Mac Touchpad & Mouse Wheel Vertical Swipe Support (Instant Response) ---
@@ -6166,7 +6177,6 @@ window.addEventListener('wheel', (event) => {
   }
 }, { passive: true });
 
-let isResumeHovered = false;
 let isTextboxHovered = false;
 
 window.addEventListener('pointermove', (event) => {
@@ -6205,24 +6215,30 @@ window.addEventListener('pointermove', (event) => {
     if (tbHit) return; // don't also run hover when over a card
   }
 
-  // --- 3D Nav labels hover & pointer cursor (post-sequence overview) ---
-  if (isPostSequence) {
+  // --- 3D Nav labels hover: grayscale wash-out only (no scale/opacity pop) ---
+  // Gated on !selectedTextbox so a focused card can't leave a section stuck
+  // washed-out, and isDraggingMobileNav is excluded below so this stays fully
+  // isolated from the drag-ring-to-browse rotate gesture.
+  if (isPostSequence && !selectedTextbox) {
     const labelMeshes = navLabels.map(entry => entry.mesh);
     const intersects = _globeRaycaster.intersectObjects(labelMeshes);
     if (intersects.length > 0) {
       document.body.style.cursor = 'pointer';
       const hoveredMesh = intersects[0].object;
       const hoveredIdx = navLabels.findIndex(entry => entry.mesh === hoveredMesh);
-      if (!isDraggingMobileNav) {
-        navLabels.forEach((entry, idx) => {
-          if (idx === hoveredIdx) {
-            entry.targetScale = 1.3;
-            entry.targetOpacity = 1.0;
-          }
-        });
+      if (!isDraggingMobileNav && hoveredIdx !== washedOutSectionIdx) {
+        setSectionWashedOut(washedOutSectionIdx, false);
+        setSectionWashedOut(hoveredIdx, true);
+        washedOutSectionIdx = hoveredIdx;
       }
-    } else if (!isDraggingMobileNav && !isTextboxHovered) {
-      document.body.style.cursor = 'default';
+    } else {
+      if (!isDraggingMobileNav && washedOutSectionIdx !== -1) {
+        setSectionWashedOut(washedOutSectionIdx, false);
+        washedOutSectionIdx = -1;
+      }
+      if (!isDraggingMobileNav && !isTextboxHovered) {
+        document.body.style.cursor = 'default';
+      }
     }
   }
 });
