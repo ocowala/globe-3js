@@ -5501,6 +5501,7 @@ function getCalendarSeason(date = new Date()) {
 const songsBySeason = {
   spring: {
     '/music/spring/afterthought.mp3': 'afterthought - disclosure',
+    '/music/spring/deixa.mp3': 'deixa eu dizer - claudia',
     '/music/spring/jordyn.mp3': 'jordyn - valmont',
     '/music/spring/mafia.mp3': "don't you worry child - swedish house mafia",
     '/music/spring/missing.mp3': 'missing - everything but the girl, todd terry',
@@ -5521,6 +5522,7 @@ const songsBySeason = {
     '/music/fall/joke.mp3': 'mayonakano joke - mamiya',
     '/music/fall/life.mp3': 'kiss of life - sade',
     '/music/fall/me.mp3': "it's probably me - sting",
+    '/music/fall/pain.mp3': 'feel no pain - sade',
     '/music/fall/sept.mp3': 'september - earth, wind & fire',
     '/music/fall/showhow.mp3': 'show me how - men i trust',
     '/music/fall/tattoo.mp3': 'like a tattoo - sade',
