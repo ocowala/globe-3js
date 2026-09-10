@@ -2768,13 +2768,13 @@ let racecarWheelBL = null;
 let racecarWheelBR = null;
 
 const racecarParams = {
-  distance: 2.51,      // distance offset (aligned near nascar track)
+  distance: 2.600,     // distance offset — lifts the car so its tyres sit on the cafe road
   height: 3.7,      // height offset along Z axis
   angle: -3.05,        // base angle (aligns with nascar_racetrack)
   orbitDegrees: 8,    // orbit rotation
-  scale: 15.0,        // scale
+  scale: 0.1486,      // scale (mclaren is ~100x larger in native units than the sls it replaced)
   rotX: -Math.PI / 2.0,          // rotation X
-  rotY: -0.03,        // rotation Y
+  rotY: -0.092,       // rotation Y — levels the car on the ring (was tuned for the sls)
   rotZ: Math.PI / 2.0,         // rotation Z
   wheelSpeed: 0.1,     // wheel spin speed
   speed: 7,             // orbit speed
@@ -2892,7 +2892,7 @@ function updateRacecar() {
 }
 
 // --- Load Standalone Racecar ---
-rawLoader.load(new URL('../assets/models/sls_amg_63_black_series.glb', import.meta.url).href, (gltf) => {
+rawLoader.load(new URL('../assets/models/mclaren_f1lm.glb', import.meta.url).href, (gltf) => {
   const model = gltf.scene;
 
   // Center model pivot
