@@ -65,11 +65,52 @@ const dat = {
 
 
 const container = document.getElementById('canvas-container');
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
 const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 const isIOSDevice = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isHandheldDevice = isMobile || isIOSDevice;
+
+// --- GPU tiering ---
+// With the environments decimated this scene is fill-rate bound well before it
+// is triangle bound, so the two settings that decide whether it is usable on an
+// old integrated GPU are MSAA and device pixel ratio. Antialiasing can only be
+// chosen when the GL context is created, so both are picked up front from what
+// the driver reports; the pixel ratio is then trimmed further at runtime by
+// updateAdaptiveQuality() if the measured frame rate disagrees with the guess.
+function detectGpuTier() {
+  try {
+    const probe = document.createElement('canvas');
+    const gl = probe.getContext('webgl2') || probe.getContext('webgl');
+    if (!gl) return 'low';
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    const desc = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '') : '';
+    // Software rasterisers — never hand these MSAA or a pixel ratio above 1.
+    if (/swiftshader|llvmpipe|software|basic render/i.test(desc)) return 'low';
+    // Pre-Iris Intel integrated parts, e.g. "Intel(R) HD Graphics 4000",
+    // "Intel(R) UHD Graphics 620" — the typical old-ThinkPad case.
+    if (/Intel/i.test(desc) && /\b(HD|UHD)\s*Graphics\b/i.test(desc) && !/Iris|Arc/i.test(desc)) return 'low';
+    // Older mobile parts, for handhelds that slip past the UA check.
+    if (/Mali-[T4-6]|PowerVR|Adreno \(TM\) [1-5][0-9][0-9]\b/i.test(desc)) return 'low';
+    // Privacy-hardened browsers withhold the renderer string; fall back to
+    // coarse host signals rather than assuming the best case.
+    if (!desc) {
+      const cores = navigator.hardwareConcurrency || 4;
+      const mem = navigator.deviceMemory || 4;
+      if (cores <= 4 || mem <= 4) return 'mid';
+    }
+    return 'high';
+  } catch (err) {
+    return 'mid';
+  }
+}
+
+const gpuTier = detectGpuTier();
+
+const renderer = new THREE.WebGLRenderer({
+  antialias: gpuTier === 'high',
+  alpha: true,
+  powerPreference: "high-performance"
+});
 
 // Disable and hide radial nav entirely on desktop / non-handheld devices
 const radialNavOnLoad = document.getElementById('radial-nav');
@@ -77,14 +118,79 @@ if (!isHandheldDevice && radialNavOnLoad) {
   radialNavOnLoad.style.display = 'none';
 }
 
-const targetDPR = isHandheldDevice ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2.0);
-renderer.setPixelRatio(targetDPR);
+// Ceiling on device pixel ratio before adaptive scaling. A HiDPI panel at 2.0
+// is 4x the fragments of 1.0, which is the difference between usable and not on
+// the 'low' tier.
+const baseDprCap = gpuTier === 'low' ? 1.0 : ((isHandheldDevice || gpuTier === 'mid') ? 1.5 : 2.0);
+
+// Trimmed downward by updateAdaptiveQuality(); 1.0 renders at the full cap.
+let qualityScale = 1.0;
+
+function applyPixelRatio() {
+  // three.js setPixelRatio() re-runs setSize() internally, so this alone is
+  // enough to resize the drawing buffer without touching the CSS size.
+  renderer.setPixelRatio(Math.max(0.6, Math.min(window.devicePixelRatio, baseDprCap) * qualityScale));
+}
+
+applyPixelRatio();
 // Size renderer to container (440x440 mini view) not full window
 const initW = container ? container.clientWidth : window.innerWidth;
 const initH = container ? container.clientHeight : window.innerHeight;
 renderer.setSize(initW, initH);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 container.appendChild(renderer.domElement);
+
+// --- Adaptive quality ---
+// Measures real frame rate once the scene has settled and steps the pixel ratio
+// down when the device cannot hold the target. Downgrades are one-way: stepping
+// back up on a recovering average makes the canvas resolution visibly pulse, and
+// sitting one step lower than strictly necessary is far cheaper than that.
+const QUALITY_STEPS = [1.0, 0.85, 0.72, 0.6];
+let qualityStepIdx = 0;
+let qualityGraceTimer = 0;
+let qualitySampleTime = 0;
+let qualitySampleFrames = 0;
+
+function updateAdaptiveQuality(dt) {
+  if (qualityStepIdx >= QUALITY_STEPS.length - 1) return;
+  // Model decode, shader compilation and the intro all distort early timings.
+  if (!allAssetsLoaded) return;
+
+  // A backgrounded tab throttles requestAnimationFrame to roughly 1Hz, and the
+  // first frame after it comes back carries the whole stalled interval. Either
+  // one reads as "this GPU cannot keep up", which would permanently drop the
+  // resolution on a machine that is actually fine — downgrades here are
+  // one-way. Discard both rather than sampling them.
+  if (document.hidden || dt > 0.25) {
+    qualitySampleTime = 0;
+    qualitySampleFrames = 0;
+    return;
+  }
+
+  if (qualityGraceTimer < 3.0) { qualityGraceTimer += dt; return; }
+
+  qualitySampleTime += dt;
+  qualitySampleFrames++;
+  if (qualitySampleTime < 2.0) return;
+
+  const fps = qualitySampleFrames / qualitySampleTime;
+  qualitySampleTime = 0;
+  qualitySampleFrames = 0;
+
+  if (fps < 45) {
+    qualityStepIdx++;
+    qualityScale = QUALITY_STEPS[qualityStepIdx];
+    applyPixelRatio();
+    console.log(`Adaptive quality: ${fps.toFixed(1)} fps — pixel ratio scale now ${qualityScale}`);
+  }
+}
+
+// Any window in progress when the tab is hidden or restored spans the stall, so
+// it is thrown away rather than averaged.
+document.addEventListener('visibilitychange', () => {
+  qualitySampleTime = 0;
+  qualitySampleFrames = 0;
+});
 
 let canvasRect = null;
 
@@ -2090,19 +2196,19 @@ addTextboxGUI(motoFolder, motorcycleParams, updateMotorcycle, 'City');
 motoFolder.open();
 
 // --- All models with GUI (Static Backgrounds) ---
-loadModelWithGUI('City', new URL('../assets/models/city_at_night_v4_meshopt.glb', import.meta.url).href, {
+loadModelWithGUI('City', new URL('../assets/models/city_at_night_v4_opt.glb', import.meta.url).href, {
   distance: 2.45, angle: 1.73, rotX: Math.PI / 2.0, rotY: 1.73, rotZ: -Math.PI / 2.0, posZ: 2.57, scale: 0.35
 });
 
-loadModelWithGUI('School', new URL('../assets/models/school_v2_meshopt.glb', import.meta.url).href, {
+loadModelWithGUI('School', new URL('../assets/models/school_v2_opt.glb', import.meta.url).href, {
   distance: 2.55, angle: 0.74, rotX: Math.PI / 2.0, rotY: -2.45, rotZ: Math.PI / 2, posZ: 2.83, scale: 0.12
 });
 
-loadModelWithGUI('Landscape', new URL('../assets/models/landscape_v5_meshopt.glb', import.meta.url).href, {
+loadModelWithGUI('Landscape', new URL('../assets/models/landscape_v5_opt.glb', import.meta.url).href, {
   distance: 2.88, angle: -0.06, rotX: Math.PI / 2.0, rotY: Math.PI, rotZ: 0, posZ: 3.21, scale: 0.038, cylinderAlign: true
 });
 
-loadModelWithGUI('Beach', new URL('../assets/models/beach_v2_meshopt.glb', import.meta.url).href, {
+loadModelWithGUI('Beach', new URL('../assets/models/beach_v2_opt.glb', import.meta.url).href, {
   distance: 2.8, angle: -0.95, rotX: Math.PI / 2.0, rotY: 0.62, rotZ: -Math.PI / 2.0, posZ: 2.49, scale: 1.53
 });
 
@@ -2110,7 +2216,7 @@ loadModelWithGUI('Beach', new URL('../assets/models/beach_v2_meshopt.glb', impor
 //   distance: 3.05, angle: -1.86, rotX: 1.58, rotY: -0.48, rotZ: 1.58, posZ: 2.42, scale: 0.15
 // });
 
-loadModelWithGUI('Desert', new URL('../assets/models/desert_v3_meshopt.glb', import.meta.url).href, {
+loadModelWithGUI('Desert', new URL('../assets/models/desert_v3_opt.glb', import.meta.url).href, {
   distance: 2.89, angle: -1.86, rotX: Math.PI / 2.0, rotY: -0.35, rotZ: Math.PI / 2.0, posZ: 2.23, scale: 0.17
 });
 
@@ -2118,7 +2224,7 @@ loadModelWithGUI('Desert', new URL('../assets/models/desert_v3_meshopt.glb', imp
 //   distance: 2.45, angle: -3.1, rotX: 0, rotY: 0, rotZ: -0.11, posZ: 2.2, scale: 0.028
 // });
 
-loadModelWithGUI('Cafe', new URL('../assets/models/cafe_meshopt.glb', import.meta.url).href, {
+loadModelWithGUI('Cafe', new URL('../assets/models/cafe_opt.glb', import.meta.url).href, {
   distance: 2.44, angle: 3.1, rotX: 0, rotY: 0, rotZ: -0.2, posZ: 2.11, scale: 0.0265
 });
 
@@ -2137,8 +2243,7 @@ function onWindowResize() {
   camera.fov = getResponsiveFOV();
 
   camera.updateProjectionMatrix();
-  const resDPR = isHandheldDevice ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2.0);
-  renderer.setPixelRatio(resDPR);
+  applyPixelRatio();
   renderer.setSize(width, height);
   updateCanvasRect();
 }
@@ -3062,14 +3167,6 @@ const defaultCamTarget = new THREE.Vector3(0, 0, 0);
 
 // Transition state
 let isTransitioning = false;
-let isMovieTransitionActive = false;
-let movieTransitionState = 'idle'; // 'idle', 'lerping_camera_to_p1', 'waiting_one_second', 'fading_in_video', 'playing_video_lerping_to_p2', 'waiting_for_video_end', 'fading_out_to_3js', 'holding_before_exit', 'exiting_fade_out'
-let movieTransitionTimer = 0;
-const movieTransitionStartPos = new THREE.Vector3();
-const movieTransitionStartTarget = new THREE.Vector3();
-const movieTransitionStartUp = new THREE.Vector3();
-const movieTransitionStartQuat = new THREE.Quaternion();
-const movieTransitionEndQuat = new THREE.Quaternion();
 
 let transitionProgress = 0;
 const transitionDuration = 1.2; // seconds for the smooth camera transition
@@ -3552,6 +3649,8 @@ function animate() {
   const realDeltaTime = Math.min((currentTime - lastTime) / 1000, 1.0); // cap at 1s to prevent total break
   const deltaTime = Math.min(realDeltaTime, 0.05); // cap for physics/orbit
   lastTime = currentTime;
+
+  updateAdaptiveQuality(realDeltaTime);
 
   // --- Refined Day-Night Cycle & Twinkling Starfield ---
   const targets = getDayNightTargets(currentTime);
@@ -4179,251 +4278,6 @@ function animate() {
       console.log("Intro transition complete. Cursive plane preserved for post-sequence.");
     }
     controls.enabled = false;
-  } else if (isMovieTransitionActive) {
-    movieTransitionTimer += realDeltaTime;
-
-    if (movieTransitionState === 'lerping_camera_to_p1') {
-      const duration = 1.5; // 1.5s camera glide to P1
-      const t = smoothstep(Math.min(movieTransitionTimer / duration, 1.0));
-
-      const targetPos = new THREE.Vector3(0.17, -28.06, 3.36);
-      const targetLookAt = new THREE.Vector3(-0.26, -3.33, 3.2);
-
-      camera.position.lerpVectors(movieTransitionStartPos, targetPos, t);
-      const currentTarget = new THREE.Vector3().lerpVectors(movieTransitionStartTarget, targetLookAt, t);
-      controls.target.copy(currentTarget);
-
-      // Smoothly slerp rotation using quaternions
-      camera.quaternion.slerpQuaternions(movieTransitionStartQuat, movieTransitionEndQuat, t);
-
-      if (movieTransitionTimer >= duration) {
-        camera.position.copy(targetPos);
-        camera.quaternion.copy(movieTransitionEndQuat);
-        controls.target.copy(targetLookAt);
-        controls.update();
-
-        movieTransitionState = 'waiting_one_second';
-        movieTransitionTimer = 0.0;
-        console.log("Camera transition to P1 complete. Holding for 1 second...");
-      }
-    } else if (movieTransitionState === 'waiting_one_second') {
-      // Hold camera static at P1
-      camera.position.set(0.17, -28.06, 3.36);
-      camera.quaternion.copy(movieTransitionEndQuat);
-      controls.target.set(-0.26, -3.33, 3.2);
-
-      if (movieTransitionTimer >= 1.0) {
-        movieTransitionState = 'fading_in_video';
-        movieTransitionTimer = 0.0;
-        console.log("1 second wait complete. Fading in video overlay...");
-      }
-    } else if (movieTransitionState === 'fading_in_video') {
-      // Hold camera static at P1
-      camera.position.set(0.17, -28.06, 3.36);
-      camera.quaternion.copy(movieTransitionEndQuat);
-      controls.target.set(-0.26, -3.33, 3.2);
-
-      const fadeDuration = 2.0; // 2 seconds fade in
-      const progress = Math.min(movieTransitionTimer / fadeDuration, 1.0);
-
-      const overlay = document.getElementById('video-overlay');
-      if (overlay) {
-        overlay.classList.add('active');
-        overlay.style.opacity = progress;
-      }
-
-      if (movieTransitionTimer >= fadeDuration) {
-        movieTransitionState = 'playing_video_lerping_to_p2';
-        movieTransitionTimer = 0.0;
-        console.log("Fade in complete. Playing video and starting parallel lerp to P2...");
-
-        // Start media play
-        const movieVideo = document.getElementById('movie-video');
-
-        if (movieVideo) {
-          movieVideo.currentTime = 0;
-          movieVideo.play()
-            .then(() => console.log("Video playing successfully."))
-            .catch(err => console.error("Movie video play failed:", err));
-        }
-        if (audio) {
-          audio.currentTime = 0;
-          audio.play()
-            .then(() => {
-              if (songNameEl) {
-                songNameEl.textContent = "howl's moving castle - hisaishi";
-                songNameEl.classList.add('playing');
-              }
-              console.log("Castle audio playing successfully on bg-audio.");
-            })
-            .catch(err => console.error("Movie audio play failed:", err));
-        }
-
-        // Cache P1 positions as starting points for parallel lerp
-        movieTransitionStartPos.set(0.17, -28.06, 3.36);
-        movieTransitionStartTarget.set(-0.26, -3.33, 3.2);
-        movieTransitionStartQuat.copy(movieTransitionEndQuat);
-
-        // Target P2 orientation (quaternion) from new screenshot settings
-        const targetEulerP2 = new THREE.Euler(-1.17, 0.14, 0.31, 'XYZ');
-        movieTransitionEndQuat.setFromEuler(targetEulerP2);
-      }
-    } else if (movieTransitionState === 'playing_video_lerping_to_p2') {
-      const duration = 3.5; // 3.5s camera glide to P2 behind opaque video
-      const t = smoothstep(Math.min(movieTransitionTimer / duration, 1.0));
-
-      const targetPos = new THREE.Vector3(6.12, 22.97, 9.17);
-      const targetLookAt = new THREE.Vector3(2.77, 0.45, -0.49);
-
-      camera.position.lerpVectors(movieTransitionStartPos, targetPos, t);
-      const currentTarget = new THREE.Vector3().lerpVectors(movieTransitionStartTarget, targetLookAt, t);
-      controls.target.copy(currentTarget);
-
-      // Slerp rotation
-      camera.quaternion.slerpQuaternions(movieTransitionStartQuat, movieTransitionEndQuat, t);
-
-      // Lerp FOV from 30 to 61
-      camera.fov = THREE.MathUtils.lerp(30, 61, t);
-      camera.updateProjectionMatrix();
-
-      // Ensure overlay stays fully opaque
-      const overlay = document.getElementById('video-overlay');
-      if (overlay) {
-        overlay.classList.add('active');
-        overlay.style.opacity = 1.0;
-      }
-
-      if (movieTransitionTimer >= duration) {
-        camera.position.copy(targetPos);
-        camera.quaternion.copy(movieTransitionEndQuat);
-        controls.target.copy(targetLookAt);
-        camera.fov = 61;
-        camera.updateProjectionMatrix();
-        controls.update();
-
-        // Update dat.gui parameters for P2
-        camGuiState.fov = 61;
-        if (typeof updateGUIDisplays === 'function') {
-          updateGUIDisplays(gui);
-        }
-
-        movieTransitionState = 'waiting_for_video_end';
-        console.log("Parallel glide to P2 complete. Holding at P2 and waiting for video to play completely...");
-      }
-    } else if (movieTransitionState === 'waiting_for_video_end') {
-      // Hold camera static at P2
-      camera.position.set(6.12, 22.97, 9.17);
-      camera.quaternion.copy(movieTransitionEndQuat);
-      controls.target.set(2.77, 0.45, -0.49);
-      camera.fov = 61;
-
-      // Ensure overlay stays fully opaque
-      const overlay = document.getElementById('video-overlay');
-      if (overlay) {
-        overlay.classList.add('active');
-        overlay.style.opacity = 1.0;
-      }
-
-      const movieVideo = document.getElementById('movie-video');
-      if (movieVideo && movieVideo.ended) {
-        movieTransitionState = 'fading_out_to_3js';
-        movieTransitionTimer = 0.0;
-        console.log("Video playback complete. Starting fade-out to 3D scene...");
-      }
-    } else if (movieTransitionState === 'fading_out_to_3js') {
-      // Hold camera static at P2
-      camera.position.set(6.12, 22.97, 9.17);
-      camera.quaternion.copy(movieTransitionEndQuat);
-      controls.target.set(2.77, 0.45, -0.49);
-      camera.fov = 61;
-
-      const fadeDuration = 2.0; // 2 seconds fade out
-      const progress = Math.min(movieTransitionTimer / fadeDuration, 1.0);
-
-      const overlay = document.getElementById('video-overlay');
-      if (overlay) {
-        overlay.style.opacity = 1.0 - progress;
-      }
-
-      if (movieTransitionTimer >= fadeDuration) {
-        if (overlay) {
-          overlay.classList.remove('active');
-          overlay.style.opacity = '';
-        }
-
-        // Stop video playback only (bg-audio keeps playing castle.mp3 continuously)
-        const movieVideo = document.getElementById('movie-video');
-        if (movieVideo) {
-          movieVideo.pause();
-          movieVideo.currentTime = 0;
-        }
-
-        // Move to holding state (0.5 seconds static view before auto-exit)
-        movieTransitionState = 'holding_before_exit';
-        movieTransitionTimer = 0.0;
-        console.log("Video fade-out complete. Holding static view at P2 for 0.5s before exit...");
-      }
-    } else if (movieTransitionState === 'holding_before_exit') {
-      // Hold camera static at P2
-      camera.position.set(6.12, 22.97, 9.17);
-      camera.quaternion.copy(movieTransitionEndQuat);
-      controls.target.set(2.77, 0.45, -0.49);
-      camera.fov = 61;
-
-      if (movieTransitionTimer >= 0.5) {
-        // Complete custom movie transitions
-        isMovieTransitionActive = false;
-        movieTransitionState = 'idle';
-
-        // Unpause the animations & keep them rolling
-        camGuiState.paused = false;
-        if (typeof updateGUIDisplays === 'function') {
-          updateGUIDisplays(gui);
-        }
-
-        // Glide camera back to finale perspective smoothly
-        isPostSequence = false;
-        returnToFinale();
-      }
-    } else if (movieTransitionState === 'exiting_fade_out') {
-      // Hold camera static at cached exit frame position
-      camera.position.copy(movieTransitionStartPos);
-      camera.quaternion.copy(movieTransitionStartQuat);
-      controls.target.copy(movieTransitionStartTarget);
-
-      const fadeDuration = 2.0; // 2 seconds fade out
-      const progress = Math.min(movieTransitionTimer / fadeDuration, 1.0);
-
-      const overlay = document.getElementById('video-overlay');
-      if (overlay) {
-        overlay.style.opacity = 1.0 - progress;
-      }
-
-      if (movieTransitionTimer >= fadeDuration) {
-        if (overlay) {
-          overlay.classList.remove('active');
-          overlay.style.opacity = '';
-        }
-
-        isMovieTransitionActive = false;
-        movieTransitionState = 'idle';
-
-        // Unpause animations & keep them rolling
-        camGuiState.paused = false;
-        if (typeof updateGUIDisplays === 'function') {
-          updateGUIDisplays(gui);
-        }
-
-        isPostSequence = false;
-        returnToFinale();
-
-        if (wasBgAudioPlaying && audio) {
-          audio.play().then(() => {
-            if (songNameEl) songNameEl.classList.add('playing');
-          }).catch(err => console.error("Failed to resume background audio:", err));
-        }
-      }
-    }
   } else if (isPostSequence) {
     if (isDraggingMobileNav && isHandheldDevice) {
       mobileNavDragHoldTimer -= realDeltaTime;
@@ -4689,19 +4543,6 @@ function animate() {
     } else {
       exitBtnEl.classList.remove('show');
     }
-  }
-
-  // Toggle Seasonal Decorations (corner leaves/flowers) — only ever shown at the
-  // settled finale overview, not mid vehicle-orbit or while a textbox is focused.
-  // CSS gates their existing slide-in transition on this class (see .camera-finale
-  // in styles.css), so they reuse the same slide/fade instead of a new animation.
-  // Fetched locally (like orbitInstEl/exitBtnEl above) rather than via the
-  // outer-scope `seasonalDecorations` const declared further down the file —
-  // animate() is first invoked before that declaration runs.
-  const seasonalDecorEl = document.getElementById('seasonal-decorations');
-  if (seasonalDecorEl) {
-    const atFinaleView = isPostSequence && !isOrbitAnimating && !introActive && !isIntroTransitioning && !selectedTextbox;
-    seasonalDecorEl.classList.toggle('camera-finale', atFinaleView);
   }
 
   // --- Update 3D Nav Labels (runs in both post-sequence and orbit) ---
@@ -5418,13 +5259,10 @@ function triggerNavigation(navIdx) {
 // Keyboard event handlers
 window.addEventListener('keydown', (e) => {
 
-  // Escape — dismiss focused textbox first, then movie, then finale
+  // Escape — dismiss focused textbox first, then return to the finale overview
   if (e.key === 'Escape') {
     if (selectedTextbox) {
       deselectTextbox();
-      return;
-    }
-    if (exitMovieView()) {
       return;
     }
     returnToFinale();
@@ -5482,66 +5320,17 @@ const audio = document.getElementById('bg-audio');
 const audioToggle = document.getElementById('audio-toggle');
 const songNameEl = document.getElementById('song-name');
 
-// Shared calendar-season lookup — used here to pick the background music
-// folder, and again below by the corner-decoration season toggle. Boundaries
-// are the 1st of the month per spec: Mar1-May1 spring, May1-Aug1 summer,
-// Aug1-Nov1 fall, Nov1-Mar1 winter (wraps the year, so it's the fallback).
-function getCalendarSeason(date = new Date()) {
-  const year = date.getFullYear();
-  const springStart = new Date(year, 2, 1);  // Mar 1
-  const summerStart = new Date(year, 4, 1);  // May 1
-  const fallStart = new Date(year, 7, 1);    // Aug 1
-  const winterStart = new Date(year, 10, 1); // Nov 1
-  if (date >= springStart && date < summerStart) return 'spring';
-  if (date >= summerStart && date < fallStart) return 'summer';
-  if (date >= fallStart && date < winterStart) return 'fall';
-  return 'winter'; // Nov 1 - Mar 1, wraps the year boundary
-}
-
-const songsBySeason = {
-  spring: {
-    '/music/spring/afterthought.mp3': 'afterthought - disclosure',
-    '/music/spring/deixa.mp3': 'deixa eu dizer - claudia',
-    '/music/spring/jordyn.mp3': 'jordyn - valmont',
-    '/music/spring/mafia.mp3': "don't you worry child - swedish house mafia",
-    '/music/spring/missing.mp3': 'missing - everything but the girl, todd terry',
-    '/music/spring/wave.mp3': 'waves - mr. probz, robin schulz',
-  },
-  summer: {
-    '/music/summer/suis_mois.mp3': 'suis moi - camille, zimmer',
-    '/music/summer/ciao.mp3': "l'amore dice ciao - trovajoli",
-    '/music/summer/bean-sabine.mp3': 'bean sabine ost - howard goodall',
-    '/music/summer/dreamers.mp3': 'sea dreamers - shankar, sting',
-    '/music/summer/fly.mp3': 'fly by day - anri',
-    '/music/summer/fillmore.mp3': 'fillmore county - vansire, floor cry',
-    '/music/summer/come-with-me.mp3': 'come with me - surfaces, salem ilese',
-    '/music/summer/crystal-settings.mp3': 'crystal settings - alyzea',
-  },
-  fall: {
-    '/music/fall/fragile.mp3': 'fragile - sting',
-    '/music/fall/joke.mp3': 'mayonakano joke - mamiya',
-    '/music/fall/life.mp3': 'kiss of life - sade',
-    '/music/fall/me.mp3': "it's probably me - sting",
-    '/music/fall/pain.mp3': 'feel no pain - sade',
-    '/music/fall/sept.mp3': 'september - earth, wind & fire',
-    '/music/fall/showhow.mp3': 'show me how - men i trust',
-    '/music/fall/tattoo.mp3': 'like a tattoo - sade',
-    '/music/fall/windmills.mp3': 'windmills of your mind - sting',
-  },
-  winter: {
-    '/music/winter/garden.mp3': 'flower garden - hisaishi',
-    '/music/winter/gramofon.mp3': 'gramofon - doga',
-    '/music/winter/haze.mp3': 'winter haze - byerik',
-    '/music/winter/hime.mp3': 'mononoke hime - hisaishi',
-    '/music/winter/name.mp3': 'name of life - hisaishi',
-    '/music/winter/sunburst.mp3': 'sunburst - webinar',
-    '/music/winter/wonderland.mp3': 'winter wonderland - buble',
-  },
+// Background music. A single curated playlist — this used to swap sets based on
+// the calendar season, which was removed along with the seasonal decorations.
+const songMap = {
+  '/music/fragile.mp3': 'fragile - sting',
+  '/music/life.mp3': 'kiss of life - sade',
+  '/music/hime.mp3': 'mononoke hime - hisaishi',
+  '/music/deixa.mp3': 'deixa eu dizer - claudia',
+  '/music/showhow.mp3': 'show me how - men i trust',
+  '/music/fillmore.mp3': 'fillmore county - vansire, floor cry',
+  '/music/suis_mois.mp3': 'suis moi - camille, zimmer',
 };
-
-// The active season's playlist — cycleToNextSong and the initial random pick
-// both read from this so a visitor only ever hears the current season's set.
-const songMap = songsBySeason[getCalendarSeason()] || songsBySeason.spring;
 
 // --- Web Audio API state for visualizer ---
 let audioCtx = null;
@@ -5746,98 +5535,6 @@ function attemptGentleAutoStartOnFullscreen() {
   }, 3000);
 }
 
-// --- Movie Player Overlay Handling ---
-let wasBgAudioPlaying = false;
-
-function exitMovieView() {
-  const overlay = document.getElementById('video-overlay');
-  if (isMovieTransitionActive && movieTransitionState !== 'idle' && movieTransitionState !== 'exiting_fade_out') {
-    const movieVideo = document.getElementById('movie-video');
-
-    if (movieVideo) {
-      movieVideo.pause();
-      movieVideo.currentTime = 0;
-    }
-
-    // Cache current camera state to hold it static during the exit fade-out
-    movieTransitionStartPos.copy(camera.position);
-    movieTransitionStartTarget.copy(controls.target);
-    movieTransitionStartQuat.copy(camera.quaternion);
-
-    // Begin fade-out overlay phase
-    movieTransitionState = 'exiting_fade_out';
-    movieTransitionTimer = 0.0;
-    return true; // handled
-  }
-  return false; // not handled
-}
-
-function triggerMovieTransition() {
-  console.log("Movie easter egg triggered! Initiating camera transition...");
-
-  // Save background audio state and pause it
-  if (audio) {
-    wasBgAudioPlaying = !audio.paused;
-    const currentSrc = audio.getAttribute('src') || '';
-    if (!currentSrc.includes('/castle.mp3')) {
-      audio.src = '/castle.mp3';
-    }
-    audio.pause();
-    if (songNameEl) {
-      songNameEl.textContent = "howl's moving castle - hisaishi";
-      songNameEl.classList.remove('playing');
-    }
-  }
-
-  // Capture initial camera state
-  movieTransitionStartPos.copy(camera.position);
-  movieTransitionStartTarget.copy(controls.target);
-  movieTransitionStartUp.copy(camera.up);
-  movieTransitionStartQuat.copy(camera.quaternion);
-
-  // Compute target rotation quaternion
-  const targetEuler = new THREE.Euler(1.56, 0.02, -1.21, 'XYZ');
-  movieTransitionEndQuat.setFromEuler(targetEuler);
-
-  // Apply settings from screenshot
-  camGuiState.paused = true;
-  isOrbitAnimating = false;
-  camGuiState.followCam = true;
-  cameraFollowEnabled = true;
-  camGuiState.fov = 30;
-  camera.fov = 30;
-  camera.updateProjectionMatrix();
-  camGuiState.speed = 5;
-  orbitDegreesPerSecond = 5;
-  camGuiState.velocity = 8;
-  camGuiState.activeVehicle = 'Motorcycle';
-  camGuiState.camOffsetX = 2.5;
-  camGuiState.camOffsetY = 3.1;
-  camGuiState.camOffsetZ = -1.8;
-  camGuiState.lookOffsetX = 0;
-  camGuiState.lookOffsetY = 0;
-  camGuiState.lookOffsetZ = 0;
-
-  // Apply sequence updates for Motorcycle
-  const motorcycleSeq = orbitSequence.find(s => s.name === 'Motorcycle');
-  if (motorcycleSeq) {
-    motorcycleSeq.camOffset.set(2.5, 3.1, -1.8);
-    motorcycleSeq.lookOffset.set(0, 0, 0);
-    motorcycleSeq.params.speed = 8;
-  }
-
-  // Sync all dat.gui component displays
-  if (typeof updateGUIDisplays === 'function') {
-    updateGUIDisplays(gui);
-  }
-
-  // Start movie transition state machine
-  isMovieTransitionActive = true;
-  movieTransitionState = 'lerping_camera_to_p1';
-  movieTransitionTimer = 0.0;
-  controls.enabled = false;
-}
-
 // --- Unified Raycast Click & Touch Tap Handler ---
 const _globeRaycaster = new THREE.Raycaster();
 const _mouse = new THREE.Vector2();
@@ -5875,7 +5572,7 @@ function handleCanvasClick(clientX, clientY, targetEl) {
   _globeRaycaster.setFromCamera(_mouse, camera);
 
   // 0. Raycast against visible textboxes (takes priority over globe/nav-label clicks)
-  if (!isMovieTransitionActive && !introActive && !isIntroTransitioning) {
+  if (!introActive && !isIntroTransitioning) {
     const allTextboxMeshes = Object.values(sceneTextboxes)
       .flat()
       .filter(tb => tb.mesh.visible)
@@ -6195,7 +5892,7 @@ window.addEventListener('pointermove', (event) => {
   _globeRaycaster.setFromCamera(_mouse, camera);
 
   // --- Textbox hover cursor (works during orbit and post-sequence) ---
-  if (!isMovieTransitionActive && !introActive && !isIntroTransitioning) {
+  if (!introActive && !isIntroTransitioning) {
     const allTextboxMeshes = Object.values(sceneTextboxes)
       .flat()
       .filter(tb => tb.mesh.visible)
@@ -6238,18 +5935,6 @@ window.addEventListener('pointermove', (event) => {
   }
 });
 
-// --- Dynamic Environment-Based Video Source ---
-const movieVideo = document.getElementById('movie-video');
-if (movieVideo) {
-  if (import.meta.env.DEV) {
-    movieVideo.src = '/capcut_video_v1.mp4';
-    console.log("Environment: Local Development. Loading local video.");
-  } else {
-    movieVideo.src = 'https://pub-072874b429b14b129985f91cc0b6ecbc.r2.dev/capcut_video_v1.mp4';
-    console.log("Environment: Vercel Cloud (Staging/Production). Loading video from Cloudflare R2.");
-  }
-}
-
 // --- Radial Nav Dial Click Bindings ---
 const radialNavContainer = document.getElementById('radial-nav');
 if (radialNavContainer) {
@@ -6281,20 +5966,17 @@ const themeToggle = document.getElementById('theme-toggle');
 const backdropIconsMap = {
   cycle: '/day-night.png',
   cobalt: '/night-mode.png',
-  clay: '/day-mode.png',
-  easteregg: '/easter-egg.png'
+  clay: '/day-mode.png'
 };
 const backdropAltsMap = {
   cycle: 'Day-Night Cycle',
   cobalt: 'Dark Mode',
-  clay: 'Light Mode',
-  easteregg: 'Easter Egg'
+  clay: 'Light Mode'
 };
 const backdropTitlesMap = {
   cycle: 'Backdrop: Day-Night Cycle',
   cobalt: 'Backdrop: Dark Mode (Cobalt)',
-  clay: 'Backdrop: Light Mode (Beige)',
-  easteregg: 'Backdrop: Easter Egg Mode'
+  clay: 'Backdrop: Light Mode (Beige)'
 };
 
 const prefersDarkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
@@ -6334,8 +6016,7 @@ if (prefersDarkQuery && prefersDarkQuery.addEventListener) {
 }
 
 if (themeToggle) {
-  const isEasterEggEnabled = Math.random() < 0.1;
-  const modesList = isEasterEggEnabled ? ['cycle', 'cobalt', 'clay', 'easteregg'] : ['cycle', 'cobalt', 'clay'];
+  const modesList = ['cycle', 'cobalt', 'clay'];
 
   themeToggle.addEventListener('click', (event) => {
     event.preventDefault();
@@ -6353,26 +6034,7 @@ if (themeToggle) {
     }
 
     console.log(`Backdrop mode cycled to: ${nextMode}`);
-
-    if (nextMode === 'easteregg') {
-      triggerMovieTransition();
-    }
   });
-}
-
-// --- Seasonal Decorations (Spring Flowers / Fall Leaves) ---
-// There's no separate summer/winter decoration art, so this derives from the
-// same getCalendarSeason() the music picker uses (defined above): spring+summer
-// read as the "flowers" half of the year, fall+winter as the "leaves" half.
-// index.html hardcodes the spring class as a sane pre-JS default; this syncs
-// it to today's real date on load.
-const seasonalDecorations = document.getElementById('seasonal-decorations');
-
-if (seasonalDecorations) {
-  const calendarSeason = getCalendarSeason();
-  const decorationSeason = (calendarSeason === 'spring' || calendarSeason === 'summer') ? 'spring' : 'fall';
-  seasonalDecorations.classList.remove('season-spring', 'season-fall');
-  seasonalDecorations.classList.add(`season-${decorationSeason}`);
 }
 
 // --- Expand 3D World Ring Controller ---

@@ -28,7 +28,7 @@ for inspecting a GLB's node names via jsdom (`node src/test_glb.js`), not part o
 
 This single module owns the entire homepage/world-ring experience: Three.js scene setup, all
 six vehicle behaviors, camera state machine, textbox/nav-label UI drawn to canvas textures, day/
-night lighting, audio, and seasonal decorations. It's organized as one long sequence of top-level
+night lighting, and audio. It's organized as one long sequence of top-level
 `function` declarations (no classes, no modules split out) — use `grep -n "^function "` to get
 your bearings before editing. There is no framework; DOM elements are grabbed once via
 `getElementById` near the top and mutated directly throughout.
@@ -46,7 +46,7 @@ Key architectural pieces inside `main.js`:
 - **Camera state machine**, driven by a handful of booleans rather than an explicit FSM:
   `isPostSequence` (true = home/finale overview, false = inside a vehicle-orbit sector),
   `isOrbitAnimating`, `isIntroTransitioning`, `isTakeoffTransitioning`, `isTransitioning`,
-  `selectedTextbox` (a focused detail textbox), `isMovieTransitionActive`. `animate()` (the
+  `selectedTextbox` (a focused detail textbox). `animate()` (the
   render loop, ~line 3548) and most interaction handlers branch on combinations of these — check
   existing guard conditions before adding new state.
 - **Textboxes are hand-drawn to `<canvas>` and used as CanvasTexture-backed sprites**
@@ -55,14 +55,20 @@ Key architectural pieces inside `main.js`:
 - **Routing**: `handleRouting()`/`navigateTo()` implement a tiny manual router (no history
   library) between `/` and `/ring` (`?/ring_direct` replays the cursive-writing intro; any other
   entry to `/ring` jumps straight to the finale overview).
-- **Seasons and music**: `getCalendarSeason()` maps the real calendar date to
-  spring/summer/fall/winter (Mar 1–May 1 / May 1–Aug 1 / Aug 1–Nov 1 / Nov 1–Mar 1), which drives
-  both the background track picked from `songsBySeason` (see `public/music/<season>/`) and the
-  `season-spring`/`season-fall` class on `#seasonal-decorations` (flowers/leaves art in
-  `public/flowers/` and `public/leaves/`, styled in `styles.css`). Seasonal decorations are
-  intentionally restricted to the finale/overview view — see the `isPostSequence` guards around
-  `applyBackdropMode`/`seasonalDecorations` — do not let them show during vehicle-orbit or
-  textbox-focused states.
+- **Music**: a single flat playlist (`songMap`, 7 tracks in `public/music/`), cycled by
+  `cycleToNextSong`. There used to be a calendar-season system that swapped playlists and drove
+  corner flower/leaf decorations, plus a hidden "easter egg" backdrop mode that played a
+  fullscreen video; both were removed along with their assets. If you find a stale reference to
+  `getCalendarSeason`, `songsBySeason`, `#seasonal-decorations`, or `movieTransition`, it is
+  leftover — delete it rather than reviving the feature.
+- **Performance budget**: the six environment GLBs are ~99.7% of the triangles drawn per frame,
+  so they ship decimated to ~25% (`*_opt.glb`, regenerate with `scripts/optimize-models.sh`);
+  the originals are kept in `assets/models/` but are not referenced. The scene is fill-rate bound
+  before it is triangle bound, so `detectGpuTier()` picks MSAA and a device-pixel-ratio cap up
+  front and `updateAdaptiveQuality()` trims the ratio further if measured fps stays under 45.
+  Those downgrades are deliberately one-way, and deliberately skipped while `document.hidden` or
+  on frames longer than 250ms — a backgrounded tab throttles rAF to ~1Hz and would otherwise be
+  misread as a slow GPU.
 - **Drag/pointer handling** for rotating the ring in overview mode is bound globally on
   `window` (`pointerdown`/`pointermove`/`pointerup`, `isDraggingMobileNav` +
   `dragStartPointerX`/`dragStartAngle`), guarded by checks that skip clicks landing on known UI
@@ -90,7 +96,7 @@ Not imported by any HTML entry point. Leave alone unless explicitly asked to rev
 - `assets/models/*.glb` — source vehicle/scene models, referenced by `src/main.js`; also
   `<link rel="preload">`-ed individually in `index.html`'s `<head>` so they download in parallel
   with the JS bundle. New models need both a preload link and a `loadModelWithGUI` call.
-- `public/` — static files served as-is (fonts, images, `music/<season>/`, `flowers/`, `leaves/`)
+- `public/` — static files served as-is (fonts, images, `music/`)
   and duplicated into `dist/` on build.
 - Root-level `.blend`/`.blend1` files are Blender source files for the GLB assets, not part of
   the web app.
