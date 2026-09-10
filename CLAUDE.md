@@ -65,10 +65,15 @@ Key architectural pieces inside `main.js`:
   so they ship decimated to ~25% (`*_opt.glb`, regenerate with `scripts/optimize-models.sh`);
   the originals are kept in `assets/models/` but are not referenced. The scene is fill-rate bound
   before it is triangle bound, so `detectGpuTier()` picks MSAA and a device-pixel-ratio cap up
-  front and `updateAdaptiveQuality()` trims the ratio further if measured fps stays under 45.
-  Those downgrades are deliberately one-way, and deliberately skipped while `document.hidden` or
-  on frames longer than 250ms — a backgrounded tab throttles rAF to ~1Hz and would otherwise be
-  misread as a slow GPU.
+  front and `updateAdaptiveQuality()` trims the ratio further if fps stays low.
+  **`detectGpuTier()` must only ever demote on a positive match against a known-weak renderer
+  string.** An earlier version inferred weakness from `navigator.deviceMemory`, which Safari does
+  not implement — so the `|| 4` fallback demoted every iPhone and iPad and cost them MSAA. Absent
+  capability information means "assume capable"; the runtime sampler is what measures reality.
+  Resolution scaling is the only lever that visibly softens the canvas-drawn text, so it is a last
+  resort: two consecutive bad windows, a floor of 0.75, and skipped while `document.hidden` or on
+  frames over 250ms (a backgrounded tab throttles rAF to ~1Hz and would read as a slow GPU).
+  `node scripts/check-render-quality.mjs` guards all of this — run it after touching any of it.
 - **Drag/pointer handling** for rotating the ring in overview mode is bound globally on
   `window` (`pointerdown`/`pointermove`/`pointerup`, `isDraggingMobileNav` +
   `dragStartPointerX`/`dragStartAngle`), guarded by checks that skip clicks landing on known UI

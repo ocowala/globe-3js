@@ -84,30 +84,29 @@ function detectGpuTier() {
     if (!gl) return 'low';
     const dbg = gl.getExtension('WEBGL_debug_renderer_info');
     const desc = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '') : '';
-    // Software rasterisers — never hand these MSAA or a pixel ratio above 1.
+
+    // Only ever demote on a POSITIVE match against a known-weak part. Safari
+    // withholds navigator.deviceMemory entirely and may withhold the renderer
+    // string too; an earlier version of this read that absence as evidence of a
+    // weak GPU, which silently demoted every iPhone and iPad and cost them MSAA.
+    // Missing information means "assume capable" — the runtime sampler below is
+    // what measures reality, and it cannot be fooled by an unimplemented API.
     if (/swiftshader|llvmpipe|software|basic render/i.test(desc)) return 'low';
     // Pre-Iris Intel integrated parts, e.g. "Intel(R) HD Graphics 4000",
     // "Intel(R) UHD Graphics 620" — the typical old-ThinkPad case.
     if (/Intel/i.test(desc) && /\b(HD|UHD)\s*Graphics\b/i.test(desc) && !/Iris|Arc/i.test(desc)) return 'low';
     // Older mobile parts, for handhelds that slip past the UA check.
     if (/Mali-[T4-6]|PowerVR|Adreno \(TM\) [1-5][0-9][0-9]\b/i.test(desc)) return 'low';
-    // Privacy-hardened browsers withhold the renderer string; fall back to
-    // coarse host signals rather than assuming the best case.
-    if (!desc) {
-      const cores = navigator.hardwareConcurrency || 4;
-      const mem = navigator.deviceMemory || 4;
-      if (cores <= 4 || mem <= 4) return 'mid';
-    }
     return 'high';
   } catch (err) {
-    return 'mid';
+    return 'high';
   }
 }
 
 const gpuTier = detectGpuTier();
 
 const renderer = new THREE.WebGLRenderer({
-  antialias: gpuTier === 'high',
+  antialias: gpuTier !== 'low',
   alpha: true,
   powerPreference: "high-performance"
 });
@@ -118,10 +117,13 @@ if (!isHandheldDevice && radialNavOnLoad) {
   radialNavOnLoad.style.display = 'none';
 }
 
-// Ceiling on device pixel ratio before adaptive scaling. A HiDPI panel at 2.0
-// is 4x the fragments of 1.0, which is the difference between usable and not on
-// the 'low' tier.
-const baseDprCap = gpuTier === 'low' ? 1.0 : ((isHandheldDevice || gpuTier === 'mid') ? 1.5 : 2.0);
+// Ceiling on device pixel ratio before adaptive scaling. Phones have the
+// sharpest displays we serve — recent iPhones report devicePixelRatio 3 — and
+// rendering below that is exactly what makes the canvas-drawn textbox and
+// nav-label text look soft, since those are 2048px source canvases being
+// downsampled into a smaller framebuffer. The decimated environments left the
+// headroom to drive handhelds at native resolution, so we now do.
+const baseDprCap = gpuTier === 'low' ? 1.0 : (isHandheldDevice ? 3.0 : 2.0);
 
 // Trimmed downward by updateAdaptiveQuality(); 1.0 renders at the full cap.
 let qualityScale = 1.0;
@@ -129,10 +131,16 @@ let qualityScale = 1.0;
 function applyPixelRatio() {
   // three.js setPixelRatio() re-runs setSize() internally, so this alone is
   // enough to resize the drawing buffer without touching the CSS size.
-  renderer.setPixelRatio(Math.max(0.6, Math.min(window.devicePixelRatio, baseDprCap) * qualityScale));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, baseDprCap) * qualityScale);
 }
 
 applyPixelRatio();
+
+// Textbox and nav-label art is drawn to 2048px canvases and then viewed at a
+// steep angle on the curved ring — the exact case anisotropic filtering exists
+// for. Left at the default of 1, that text reads soft no matter how high the
+// render resolution is.
+const maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
 // Size renderer to container (440x440 mini view) not full window
 const initW = container ? container.clientWidth : window.innerWidth;
 const initH = container ? container.clientHeight : window.innerHeight;
@@ -145,7 +153,15 @@ container.appendChild(renderer.domElement);
 // down when the device cannot hold the target. Downgrades are one-way: stepping
 // back up on a recovering average makes the canvas resolution visibly pulse, and
 // sitting one step lower than strictly necessary is far cheaper than that.
-const QUALITY_STEPS = [1.0, 0.85, 0.72, 0.6];
+// Resolution scaling is the only lever here that visibly softens text, so it is
+// a last resort, not a first response. It needs two CONSECUTIVE bad windows,
+// triggers well below the refresh target rather than just under it, and floors
+// at 0.75 — on a handheld that is still an effective ratio of 2.25, sharper
+// than the 1.5 this file used to cap at, so a downgrade can never look worse
+// than the pre-optimisation baseline.
+const QUALITY_STEPS = [1.0, 0.9, 0.82, 0.75];
+const QUALITY_TRIGGER_FPS = gpuTier === 'low' ? 40 : 28;
+let qualityBadWindows = 0;
 let qualityStepIdx = 0;
 let qualityGraceTimer = 0;
 let qualitySampleTime = 0;
@@ -177,11 +193,19 @@ function updateAdaptiveQuality(dt) {
   qualitySampleTime = 0;
   qualitySampleFrames = 0;
 
-  if (fps < 45) {
-    qualityStepIdx++;
-    qualityScale = QUALITY_STEPS[qualityStepIdx];
-    applyPixelRatio();
-    console.log(`Adaptive quality: ${fps.toFixed(1)} fps — pixel ratio scale now ${qualityScale}`);
+  if (fps < QUALITY_TRIGGER_FPS) {
+    qualityBadWindows++;
+    // One bad window is a hitch — a GC pause, a texture upload, a tab regaining
+    // focus. Two in a row is the device genuinely not keeping up.
+    if (qualityBadWindows >= 2) {
+      qualityBadWindows = 0;
+      qualityStepIdx++;
+      qualityScale = QUALITY_STEPS[qualityStepIdx];
+      applyPixelRatio();
+      console.log(`Adaptive quality: ${fps.toFixed(1)} fps — pixel ratio scale now ${qualityScale}`);
+    }
+  } else {
+    qualityBadWindows = 0;
   }
 }
 
@@ -504,6 +528,7 @@ function initCursivePlane() {
 
   cursiveTexture = new THREE.CanvasTexture(cursiveCanvas);
   cursiveTexture.minFilter = THREE.LinearFilter;
+  cursiveTexture.anisotropy = maxAnisotropy;
 
   const material = new THREE.MeshBasicMaterial({
     map: cursiveTexture,
@@ -1424,6 +1449,7 @@ function createTextBox(data, pastelColor = '#ffffff') {
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
+  texture.anisotropy = maxAnisotropy;
 
   // Save canvas context reference so we can redraw it dynamically
   canvas.setAttribute('data-color', pastelColor);
@@ -1702,6 +1728,7 @@ function createNavLabel(text, pastelHex) {
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.minFilter = THREE.LinearFilter;
+  texture.anisotropy = maxAnisotropy;
 
   const material = new THREE.MeshBasicMaterial({
     map: texture,
@@ -4990,6 +5017,7 @@ function selectTextbox(tb) {
         canvas.height = 1024;
         const newTexture = new THREE.CanvasTexture(canvas);
         newTexture.minFilter = THREE.LinearFilter;
+        newTexture.anisotropy = maxAnisotropy;
         selectedTextbox.mesh.material.map = newTexture;
       }
 
@@ -5072,6 +5100,7 @@ function selectTextbox(tb) {
       canvas.height = 1536;
       const newTexture = new THREE.CanvasTexture(canvas);
       newTexture.minFilter = THREE.LinearFilter;
+      newTexture.anisotropy = maxAnisotropy;
       tb.mesh.material.map = newTexture;
     }
 
@@ -5099,6 +5128,7 @@ function deselectTextbox() {
       canvas.height = 1024;
       const newTexture = new THREE.CanvasTexture(canvas);
       newTexture.minFilter = THREE.LinearFilter;
+      newTexture.anisotropy = maxAnisotropy;
       selectedTextbox.mesh.material.map = newTexture;
     }
 
